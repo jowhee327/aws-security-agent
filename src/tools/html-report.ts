@@ -1,4 +1,4 @@
-import type { FullScanResult, Finding, Severity } from "../types.js";
+import type { FullScanResult, Finding, Severity, DashboardHistoryEntry } from "../types.js";
 import {
   MLPS_CHECKS,
   CATEGORY_ORDER,
@@ -84,12 +84,11 @@ function sharedCss(): string {
     .charts{display:flex;gap:24px;margin-bottom:32px;flex-wrap:wrap;justify-content:center}
     .chart-box{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:20px;flex:1;min-width:280px}
     .chart-title{font-size:14px;font-weight:600;margin-bottom:12px;text-align:center;color:#cbd5e1}
-    .finding-card{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px 20px;margin-bottom:12px;border-left:4px solid}
     .sev-critical{border-left-color:#ef4444}
     .sev-high{border-left-color:#f97316}
     .sev-medium{border-left-color:#eab308}
     .sev-low{border-left-color:#22c55e}
-    .badge{display:inline-block;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:0.5px;color:#fff;margin-bottom:8px}
+    .badge{display:inline-block;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:0.5px;color:#fff}
     .badge-critical{background:#ef4444}
     .badge-high{background:#f97316}
     .badge-medium{background:#eab308;color:#1e293b}
@@ -120,10 +119,46 @@ function sharedCss(): string {
     .check-findings{margin-left:28px;margin-top:4px}
     .check-findings li{color:#94a3b8;font-size:12px;margin-bottom:2px;list-style:none}
     .no-findings{text-align:center;padding:40px;color:#22c55e;font-size:18px;font-weight:600}
+    .finding-fold{background:#1e293b;border:1px solid #334155;border-radius:8px;margin-bottom:12px;border-left:4px solid;overflow:hidden}
+    .finding-fold>summary{cursor:pointer;padding:12px 20px;display:flex;align-items:center;gap:12px;list-style:none;user-select:none}
+    .finding-fold>summary::-webkit-details-marker{display:none}
+    .finding-fold>summary::marker{content:""}
+    .finding-fold>summary .badge{margin-bottom:0}
+    .finding-fold>summary::after{content:"\\25B6";font-size:10px;color:#64748b;flex-shrink:0;transition:transform 0.2s}
+    .finding-fold[open]>summary::after{transform:rotate(90deg)}
+    .finding-fold[open]>summary{border-bottom:1px solid #334155}
+    .finding-body{padding:12px 20px 16px}
+    .finding-summary-title{font-weight:600;font-size:14px;flex:1}
+    .finding-summary-score{color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap}
+    .top5-card{display:flex;gap:16px;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:24px;margin-bottom:16px;border-left:4px solid}
+    .top5-card .badge{margin-bottom:0}
+    .top5-rank{font-size:28px;font-weight:800;color:#475569;min-width:44px;display:flex;align-items:flex-start;justify-content:center}
+    .top5-content{flex:1}
+    .top5-title{font-size:17px;font-weight:700;margin:8px 0}
+    .top5-detail{color:#cbd5e1;font-size:13px;margin-bottom:4px}
+    .top5-detail strong{color:#f8fafc}
+    .top5-remediation{margin-top:8px;padding-left:20px}
+    .top5-remediation li{color:#cbd5e1;font-size:13px;margin-bottom:4px}
+    .trend-section{margin-bottom:32px}
+    .trend-chart{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:20px;margin-bottom:16px}
+    .trend-title{font-size:14px;font-weight:600;margin-bottom:12px;text-align:center;color:#cbd5e1}
+    .category-fold{background:#1e293b;border:1px solid #334155;border-radius:8px;margin-bottom:16px;overflow:hidden}
+    .category-fold>summary{cursor:pointer;padding:16px 20px;display:flex;align-items:center;gap:12px;list-style:none;font-size:18px;font-weight:600;user-select:none}
+    .category-fold>summary::-webkit-details-marker{display:none}
+    .category-fold>summary::marker{content:""}
+    .category-fold>summary::after{content:"\\25B6";font-size:12px;color:#64748b;flex-shrink:0;transition:transform 0.2s}
+    .category-fold[open]>summary::after{transform:rotate(90deg)}
+    .category-fold[open]>summary{border-bottom:1px solid #334155}
+    .category-body{padding:12px 20px 16px}
+    .category-title{flex:1}
+    .category-stats{display:inline-flex;gap:12px;font-size:13px}
+    .category-stat-pass{color:#22c55e}
+    .category-stat-fail{color:#ef4444}
+    .category-stat-unknown{color:#94a3b8}
     @media print{
       body{background:#fff;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .container{max-width:100%;padding:20px}
-      .card,.score-card,.stat-card,.finding-card,.chart-box{background:#fff;border:1px solid #e2e8f0}
+      .card,.score-card,.stat-card,.chart-box,.finding-fold,.top5-card,.trend-chart,.category-fold{background:#fff;border:1px solid #e2e8f0}
       .badge{border:1px solid}
       header{border-bottom-color:#e2e8f0}
       h2{border-bottom-color:#e2e8f0}
@@ -131,16 +166,17 @@ function sharedCss(): string {
       td{border-bottom-color:#e2e8f0;color:#475569}
       footer{border-top-color:#e2e8f0}
       .meta,.disclaimer{color:#64748b}
-      .finding-detail{color:#475569}
-      .finding-detail strong{color:#1e293b}
+      .finding-detail,.top5-detail{color:#475569}
+      .finding-detail strong,.top5-detail strong{color:#1e293b}
       .stat-label,.score-label{color:#64748b}
-      .chart-title{color:#475569}
-      .remediation-steps li{color:#475569}
+      .chart-title,.trend-title{color:#475569}
+      .remediation-steps li,.top5-remediation li{color:#475569}
       .recommendations li{color:#475569}
       .check-findings li{color:#64748b}
-      .finding-card{break-inside:avoid}
+      .finding-fold,.top5-card,.category-fold{break-inside:avoid}
       .check-item{break-inside:avoid}
       svg text{fill:#1e293b !important}
+      .finding-fold[open]>summary,.category-fold[open]>summary{border-bottom-color:#e2e8f0}
     }
   `;
 }
@@ -229,11 +265,140 @@ function barChart(modules: FullScanResult["modules"]): string {
   ].join("\n");
 }
 
+function findingsTrendChart(history: DashboardHistoryEntry[]): string {
+  const entries = history.slice(-30);
+  if (entries.length < 2) return "";
+
+  const W = 800;
+  const H = 260;
+  const pad = { top: 30, right: 20, bottom: 50, left: 50 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+
+  const maxVal = Math.max(
+    1,
+    ...entries.flatMap((e) => [e.critical, e.high, e.medium, e.low]),
+  );
+
+  const xPos = (i: number) =>
+    pad.left + (i / Math.max(1, entries.length - 1)) * plotW;
+  const yPos = (v: number) => pad.top + plotH - (v / maxVal) * plotH;
+
+  const lines: Array<{
+    key: "critical" | "high" | "medium" | "low";
+    color: string;
+    label: string;
+  }> = [
+    { key: "critical", color: "#ef4444", label: "Critical" },
+    { key: "high", color: "#f97316", label: "High" },
+    { key: "medium", color: "#eab308", label: "Medium" },
+    { key: "low", color: "#22c55e", label: "Low" },
+  ];
+
+  const polylines = lines
+    .map((line) => {
+      const pts = entries
+        .map(
+          (e, i) =>
+            `${xPos(i).toFixed(1)},${yPos(e[line.key]).toFixed(1)}`,
+        )
+        .join(" ");
+      return `<polyline points="${pts}" fill="none" stroke="${line.color}" stroke-width="2" stroke-linejoin="round"/>`;
+    })
+    .join("\n  ");
+
+  const xLabels = entries
+    .map((e, i) => {
+      if (i % 5 !== 0 && i !== entries.length - 1) return "";
+      return `<text x="${xPos(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" fill="#94a3b8" font-size="10">${e.date.slice(5)}</text>`;
+    })
+    .filter(Boolean)
+    .join("\n  ");
+
+  const ySteps = 5;
+  const yLabels = Array.from({ length: ySteps + 1 }, (_, i) => {
+    const val = Math.round((maxVal / ySteps) * i);
+    return [
+      `<text x="${pad.left - 8}" y="${yPos(val).toFixed(1)}" text-anchor="end" fill="#94a3b8" font-size="10" dominant-baseline="middle">${val}</text>`,
+      `<line x1="${pad.left}" y1="${yPos(val).toFixed(1)}" x2="${W - pad.right}" y2="${yPos(val).toFixed(1)}" stroke="#334155" stroke-width="0.5"/>`,
+    ].join("\n  ");
+  }).join("\n  ");
+
+  const legend = lines
+    .map((line, i) => {
+      const lx = pad.left + i * 110;
+      return `<rect x="${lx}" y="8" width="14" height="3" rx="1" fill="${line.color}"/><text x="${lx + 18}" y="12" fill="#94a3b8" font-size="10">${line.label}</text>`;
+    })
+    .join("\n  ");
+
+  return [
+    `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet">`,
+    `  ${legend}`,
+    `  ${yLabels}`,
+    `  ${polylines}`,
+    `  ${xLabels}`,
+    "</svg>",
+  ].join("\n");
+}
+
+function scoreTrendChart(history: DashboardHistoryEntry[]): string {
+  const entries = history.slice(-30);
+  if (entries.length < 2) return "";
+
+  const W = 800;
+  const H = 220;
+  const pad = { top: 20, right: 20, bottom: 50, left: 50 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+
+  const xPos = (i: number) =>
+    pad.left + (i / Math.max(1, entries.length - 1)) * plotW;
+  const yPos = (v: number) => pad.top + plotH - (v / 100) * plotH;
+
+  const pts = entries
+    .map((e, i) => `${xPos(i).toFixed(1)},${yPos(e.score).toFixed(1)}`)
+    .join(" ");
+
+  const zones = [
+    `<rect x="${pad.left}" y="${yPos(100).toFixed(1)}" width="${plotW}" height="${(yPos(80) - yPos(100)).toFixed(1)}" fill="#22c55e" opacity="0.06"/>`,
+    `<rect x="${pad.left}" y="${yPos(80).toFixed(1)}" width="${plotW}" height="${(yPos(50) - yPos(80)).toFixed(1)}" fill="#eab308" opacity="0.06"/>`,
+    `<rect x="${pad.left}" y="${yPos(50).toFixed(1)}" width="${plotW}" height="${(yPos(0) - yPos(50)).toFixed(1)}" fill="#ef4444" opacity="0.06"/>`,
+  ].join("\n  ");
+
+  const xLabels = entries
+    .map((e, i) => {
+      if (i % 5 !== 0 && i !== entries.length - 1) return "";
+      return `<text x="${xPos(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" fill="#94a3b8" font-size="10">${e.date.slice(5)}</text>`;
+    })
+    .filter(Boolean)
+    .join("\n  ");
+
+  const yVals = [0, 25, 50, 75, 100];
+  const yLabels = yVals
+    .map(
+      (val) =>
+        `<text x="${pad.left - 8}" y="${yPos(val).toFixed(1)}" text-anchor="end" fill="#94a3b8" font-size="10" dominant-baseline="middle">${val}</text>\n  <line x1="${pad.left}" y1="${yPos(val).toFixed(1)}" x2="${W - pad.right}" y2="${yPos(val).toFixed(1)}" stroke="#334155" stroke-width="0.5"/>`,
+    )
+    .join("\n  ");
+
+  return [
+    `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet">`,
+    `  ${zones}`,
+    `  ${yLabels}`,
+    `  <polyline points="${pts}" fill="none" stroke="#60a5fa" stroke-width="2.5" stroke-linejoin="round"/>`,
+    `  ${xLabels}`,
+    "</svg>",
+  ].join("\n");
+}
+
 // ---------------------------------------------------------------------------
 // General HTML Report
 // ---------------------------------------------------------------------------
 
-export function generateHtmlReport(scanResults: FullScanResult): string {
+export function generateHtmlReport(
+  scanResults: FullScanResult,
+  history?: DashboardHistoryEntry[],
+): string {
   const { summary, modules, accountId, region, scanStart, scanEnd } =
     scanResults;
   const date = scanStart.split("T")[0];
@@ -244,7 +409,37 @@ export function generateHtmlReport(scanResults: FullScanResult): string {
     m.findings.map((f) => ({ ...f, module: f.module ?? m.module })),
   );
 
-  // --- Findings HTML ---
+  // --- Top 5 Findings ---
+  let top5Html = "";
+  if (allFindings.length > 0) {
+    const top5 = [...allFindings]
+      .sort((a, b) => b.riskScore - a.riskScore)
+      .slice(0, 5);
+    const cards = top5
+      .map(
+        (f, i) => `
+      <div class="top5-card sev-${f.severity.toLowerCase()}">
+        <div class="top5-rank">#${i + 1}</div>
+        <div class="top5-content">
+          <span class="badge badge-${f.severity.toLowerCase()}">${f.severity}</span>
+          <div class="top5-title">${esc(f.title)}</div>
+          <div class="top5-detail"><strong>Resource:</strong> ${esc(f.resourceId)}</div>
+          <div class="top5-detail"><strong>Impact:</strong> ${esc(f.impact)}</div>
+          <div class="top5-detail"><strong>Risk Score:</strong> ${f.riskScore}/10</div>
+          <h4>Remediation</h4>
+          <ol class="top5-remediation">${f.remediationSteps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
+        </div>
+      </div>`,
+      )
+      .join("\n");
+    top5Html = `
+    <section>
+      <h2>Top ${top5.length} Critical Findings</h2>
+      ${cards}
+    </section>`;
+  }
+
+  // --- Findings HTML (folded with <details>) ---
   let findingsHtml: string;
   if (summary.totalFindings === 0) {
     findingsHtml = '<div class="no-findings">No security issues found.</div>';
@@ -257,19 +452,24 @@ export function generateHtmlReport(scanResults: FullScanResult): string {
       const findings = grouped.get(sev)!;
       if (findings.length === 0) return "";
       findings.sort((a, b) => b.riskScore - a.riskScore);
+      const openAttr = sev === "CRITICAL" ? " open" : "";
       const cards = findings
         .map(
           (f) => `
-        <div class="finding-card sev-${sev.toLowerCase()}">
-          <span class="badge badge-${sev.toLowerCase()}">${sev}</span>
-          <div class="finding-title">${esc(f.title)}</div>
-          <div class="finding-detail"><strong>Resource:</strong> ${esc(f.resourceId)}</div>
-          <div class="finding-detail"><strong>Description:</strong> ${esc(f.description)}</div>
-          <div class="finding-detail"><strong>Impact:</strong> ${esc(f.impact)}</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> ${f.riskScore}/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps">${f.remediationSteps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
-        </div>`,
+        <details class="finding-fold sev-${sev.toLowerCase()}"${openAttr}>
+          <summary>
+            <span class="badge badge-${sev.toLowerCase()}">${sev}</span>
+            <span class="finding-summary-title">${esc(f.title)}</span>
+            <span class="finding-summary-score">${f.riskScore}/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> ${esc(f.resourceId)}</div>
+            <div class="finding-detail"><strong>Description:</strong> ${esc(f.description)}</div>
+            <div class="finding-detail"><strong>Impact:</strong> ${esc(f.impact)}</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps">${f.remediationSteps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
+          </div>
+        </details>`,
         )
         .join("\n");
       return `<h3>${sev.charAt(0)}${sev.slice(1).toLowerCase()} (${findings.length})</h3>\n${cards}`;
@@ -277,6 +477,23 @@ export function generateHtmlReport(scanResults: FullScanResult): string {
       .filter(Boolean)
       .join("\n");
     findingsHtml = sections;
+  }
+
+  // --- Trend Charts ---
+  let trendHtml = "";
+  if (history && history.length >= 2) {
+    trendHtml = `
+    <section class="trend-section">
+      <h2>30-Day Trends</h2>
+      <div class="trend-chart">
+        <div class="trend-title">Findings by Severity</div>
+        ${findingsTrendChart(history)}
+      </div>
+      <div class="trend-chart">
+        <div class="trend-title">Security Score</div>
+        ${scoreTrendChart(history)}
+      </div>
+    </section>`;
   }
 
   // --- Statistics table ---
@@ -345,10 +562,9 @@ export function generateHtmlReport(scanResults: FullScanResult): string {
   </div>
 </section>
 
-<section>
-  <h2>Findings by Severity</h2>
-  ${findingsHtml}
-</section>
+${trendHtml}
+
+${top5Html}
 
 <section>
   <h2>Scan Statistics</h2>
@@ -356,6 +572,11 @@ export function generateHtmlReport(scanResults: FullScanResult): string {
     <thead><tr><th>Module</th><th>Resources</th><th>Findings</th><th>Status</th></tr></thead>
     <tbody>${statsRows}</tbody>
   </table>
+</section>
+
+<section>
+  <h2>All Findings by Severity</h2>
+  ${findingsHtml}
 </section>
 
 ${recsHtml}
@@ -374,7 +595,10 @@ ${recsHtml}
 // MLPS Level 3 HTML Report (等保三级)
 // ---------------------------------------------------------------------------
 
-export function generateMlps3HtmlReport(scanResults: FullScanResult): string {
+export function generateMlps3HtmlReport(
+  scanResults: FullScanResult,
+  history?: DashboardHistoryEntry[],
+): string {
   const { accountId, region, scanStart } = scanResults;
   const date = scanStart.split("T")[0];
   const scanTime = scanStart.replace("T", " ").replace(/\.\d+Z$/, " UTC");
@@ -398,13 +622,38 @@ export function generateMlps3HtmlReport(scanResults: FullScanResult): string {
   const percent =
     checkedTotal > 0 ? Math.round((passCount / checkedTotal) * 100) : 0;
 
-  // --- Category sections ---
+  // --- Trend Charts ---
+  let trendHtml = "";
+  if (history && history.length >= 2) {
+    trendHtml = `
+    <section class="trend-section">
+      <h2>30日趋势</h2>
+      <div class="trend-chart">
+        <div class="trend-title">按严重性分类的发现</div>
+        ${findingsTrendChart(history)}
+      </div>
+      <div class="trend-chart">
+        <div class="trend-title">安全评分</div>
+        ${scoreTrendChart(history)}
+      </div>
+    </section>`;
+  }
+
+  // --- Category sections (folded) ---
   const categorySections = CATEGORY_ORDER.map((category) => {
     const sectionTitle = CATEGORY_SECTION[category];
     const categoryResults = results.filter(
       (r) => r.check.category === category,
     );
     if (categoryResults.length === 0) return "";
+
+    const catPass = categoryResults.filter((r) => r.status === "pass").length;
+    const catFail = categoryResults.filter((r) => r.status === "fail").length;
+    const catUnknown = categoryResults.filter(
+      (r) => r.status === "unknown",
+    ).length;
+    const hasFailure = catFail > 0;
+    const openAttr = hasFailure ? " open" : "";
 
     const byId = new Map<string, typeof categoryResults>();
     for (const r of categoryResults) {
@@ -447,7 +696,27 @@ export function generateMlps3HtmlReport(scanResults: FullScanResult): string {
       })
       .join("\n");
 
-    return `<section><h2>${esc(sectionTitle)}</h2>${groups}</section>`;
+    const statsHtml = [
+      catPass > 0
+        ? `<span class="category-stat-pass">&#10003; ${catPass}</span>`
+        : "",
+      catFail > 0
+        ? `<span class="category-stat-fail">&#10007; ${catFail}</span>`
+        : "",
+      catUnknown > 0
+        ? `<span class="category-stat-unknown">? ${catUnknown}</span>`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("");
+
+    return `<details class="category-fold"${openAttr}>
+  <summary>
+    <span class="category-title">${esc(sectionTitle)}</span>
+    <span class="category-stats">${statsHtml}</span>
+  </summary>
+  <div class="category-body">${groups}</div>
+</details>`;
   })
     .filter(Boolean)
     .join("\n");
@@ -469,7 +738,7 @@ export function generateMlps3HtmlReport(scanResults: FullScanResult): string {
       (a, b) => b.riskScore - a.riskScore,
     );
     const items = sorted
-      .map((f, i) => {
+      .map((f) => {
         const p =
           f.riskScore >= 9.0
             ? "P0"
@@ -489,8 +758,12 @@ export function generateMlps3HtmlReport(scanResults: FullScanResult): string {
       </section>`;
   }
 
-  const passRateColor = percent >= 80 ? "#22c55e" : percent >= 50 ? "#eab308" : "#ef4444";
-  const unknownNote = unknownCount > 0 ? `<div style="color:#94a3b8;font-size:12px;margin-top:8px">（未检查项不计入通过率）</div>` : "";
+  const passRateColor =
+    percent >= 80 ? "#22c55e" : percent >= 50 ? "#eab308" : "#ef4444";
+  const unknownNote =
+    unknownCount > 0
+      ? `<div style="color:#94a3b8;font-size:12px;margin-top:8px">（未检查项不计入通过率）</div>`
+      : "";
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -521,6 +794,8 @@ export function generateMlps3HtmlReport(scanResults: FullScanResult): string {
   </div>
 </section>
 ${unknownNote}
+
+${trendHtml}
 
 ${categorySections}
 

@@ -365,11 +365,15 @@ export function createServer(defaultRegion: string): McpServer {
   server.tool(
     "generate_html_report",
     "Generate a professional HTML security report. Save the output as an .html file.",
-    { scan_results: z.string().describe("JSON string of FullScanResult from scan_all") },
-    async ({ scan_results }) => {
+    {
+      scan_results: z.string().describe("JSON string of FullScanResult from scan_all"),
+      history: z.string().optional().describe("JSON string of DashboardHistoryEntry[] from dashboard data.json for 30-day trend charts"),
+    },
+    async ({ scan_results, history }) => {
       try {
         const parsed: FullScanResult = JSON.parse(scan_results);
-        const report = generateHtmlReport(parsed);
+        const historyData = history ? JSON.parse(history) : undefined;
+        const report = generateHtmlReport(parsed, historyData);
         return { content: [{ type: "text", text: report }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
