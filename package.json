@@ -42,5 +42,24 @@
   "engines": {
     "node": ">=18"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jowhee327/aws-security-agent"
+  },
+  "homepage": "https://github.com/jowhee327/aws-security-agent#readme",
+  "bugs": {
+    "url": "https://github.com/jowhee327/aws-security-agent/issues"
+  },
+  "author": "Will",
+  "keywords": [
+    "mcp",
+    "aws",
+    "security",
+    "kiro",
+    "claude-code",
+    "cursor",
+    "china",
+    "scanning"
+  ]
 }
