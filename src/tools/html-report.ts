@@ -177,6 +177,9 @@ function sharedCss(): string {
       .check-item{break-inside:avoid}
       svg text{fill:#1e293b !important}
       .finding-fold[open]>summary,.category-fold[open]>summary{border-bottom-color:#e2e8f0}
+      details{display:block}
+      details>summary{display:block}
+      details>.finding-body,details>.category-body{display:block !important}
     }
   `;
 }
@@ -418,10 +421,10 @@ export function generateHtmlReport(
     const cards = top5
       .map(
         (f, i) => `
-      <div class="top5-card sev-${f.severity.toLowerCase()}">
+      <div class="top5-card sev-${esc(f.severity.toLowerCase())}">
         <div class="top5-rank">#${i + 1}</div>
         <div class="top5-content">
-          <span class="badge badge-${f.severity.toLowerCase()}">${f.severity}</span>
+          <span class="badge badge-${esc(f.severity.toLowerCase())}">${esc(f.severity)}</span>
           <div class="top5-title">${esc(f.title)}</div>
           <div class="top5-detail"><strong>Resource:</strong> ${esc(f.resourceId)}</div>
           <div class="top5-detail"><strong>Impact:</strong> ${esc(f.impact)}</div>
@@ -434,7 +437,7 @@ export function generateHtmlReport(
       .join("\n");
     top5Html = `
     <section>
-      <h2>Top ${top5.length} Critical Findings</h2>
+      <h2>Top ${top5.length} Highest Risk Findings</h2>
       ${cards}
     </section>`;
   }
@@ -512,7 +515,7 @@ export function generateHtmlReport(
       .map((f) => {
         const pc = f.priority.toLowerCase();
         const rem = f.remediationSteps[0] ?? "Review and remediate.";
-        return `<li><span class="priority-${pc}">[${f.priority}]</span> ${esc(f.title)}: ${esc(rem)}</li>`;
+        return `<li><span class="priority-${esc(pc)}">[${esc(f.priority)}]</span> ${esc(f.title)}: ${esc(rem)}</li>`;
       })
       .join("\n");
     recsHtml = `

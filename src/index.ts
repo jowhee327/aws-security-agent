@@ -385,11 +385,15 @@ export function createServer(defaultRegion: string): McpServer {
   server.tool(
     "generate_mlps3_html_report",
     "Generate a professional HTML MLPS Level 3 compliance report (等保三级). Save as .html file.",
-    { scan_results: z.string().describe("JSON string of FullScanResult from scan_group mlps3_precheck or scan_all") },
-    async ({ scan_results }) => {
+    {
+      scan_results: z.string().describe("JSON string of FullScanResult from scan_group mlps3_precheck or scan_all"),
+      history: z.string().optional().describe("JSON string of DashboardHistoryEntry[] from dashboard data.json for 30-day trend charts"),
+    },
+    async ({ scan_results, history }) => {
       try {
         const parsed: FullScanResult = JSON.parse(scan_results);
-        const report = generateMlps3HtmlReport(parsed);
+        const historyData = history ? JSON.parse(history) : undefined;
+        const report = generateMlps3HtmlReport(parsed, historyData);
         return { content: [{ type: "text", text: report }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
