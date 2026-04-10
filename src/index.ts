@@ -17,6 +17,10 @@ import { IamPasswordPolicyScanner } from "./scanners/iam-password-policy.js";
 import { IamMfaAuditScanner } from "./scanners/iam-mfa-audit.js";
 import { CloudTrailProtectionScanner } from "./scanners/cloudtrail-protection.js";
 import { ElbHttpsScanner } from "./scanners/elb-https.js";
+import { SecretExposureScanner } from "./scanners/secret-exposure.js";
+import { SslCertificateScanner } from "./scanners/ssl-certificate.js";
+import { DnsDanglingScanner } from "./scanners/dns-dangling.js";
+import { NetworkReachabilityScanner } from "./scanners/network-reachability.js";
 import { generateMarkdownReport } from "./tools/report-tool.js";
 import { saveResults } from "./tools/save-results.js";
 import { SCAN_GROUPS } from "./tools/scan-groups.js";
@@ -62,6 +66,14 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
     "Checks CloudTrail log S3 bucket protection (encryption, versioning, Block Public Access).",
   elb_https:
     "Checks ELB/ALB/NLB listeners for HTTPS/TLS configuration.",
+  secret_exposure:
+    "Checks Lambda env vars and EC2 userData for exposed secrets (AWS keys, private keys, passwords).",
+  ssl_certificate:
+    "Checks ACM certificates for expiry, failed status, and upcoming renewals.",
+  dns_dangling:
+    "Checks Route53 CNAME records for dangling DNS (subdomain takeover risk).",
+  network_reachability:
+    "Analyzes true network reachability by combining Security Group + NACL rules for public EC2 instances.",
 };
 
 function summarizeResult(result: FullScanResult): string {
@@ -114,6 +126,10 @@ export function createServer(defaultRegion: string): McpServer {
     new IamMfaAuditScanner(),
     new CloudTrailProtectionScanner(),
     new ElbHttpsScanner(),
+    new SecretExposureScanner(),
+    new SslCertificateScanner(),
+    new DnsDanglingScanner(),
+    new NetworkReachabilityScanner(),
   ];
 
   const scannerMap = new Map<string, Scanner>();
@@ -158,6 +174,10 @@ export function createServer(defaultRegion: string): McpServer {
     { toolName: "scan_iam_mfa_audit", moduleName: "iam_mfa_audit", label: "IAM MFA Audit" },
     { toolName: "scan_cloudtrail_protection", moduleName: "cloudtrail_protection", label: "CloudTrail Protection" },
     { toolName: "scan_elb_https", moduleName: "elb_https", label: "ELB HTTPS" },
+    { toolName: "scan_secret_exposure", moduleName: "secret_exposure", label: "Secret Exposure" },
+    { toolName: "scan_ssl_certificate", moduleName: "ssl_certificate", label: "SSL Certificate" },
+    { toolName: "scan_dns_dangling", moduleName: "dns_dangling", label: "Dangling DNS" },
+    { toolName: "scan_network_reachability", moduleName: "network_reachability", label: "Network Reachability" },
   ];
 
   for (const { toolName, moduleName, label } of individualScanners) {

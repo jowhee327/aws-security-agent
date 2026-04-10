@@ -7,18 +7,18 @@ export const SCAN_GROUPS: Record<string, {
   mlps3_precheck: {
     name: "等保三级预检",
     description: "GB/T 22239-2019 等保三级 AWS 云租户层配置检查",
-    modules: ["security_group", "s3", "iam", "cloudtrail", "rds", "ebs", "vpc", "service_detection", "iam_password_policy", "iam_mfa_audit", "cloudtrail_protection", "elb_https"],
+    modules: ["security_group", "s3", "iam", "cloudtrail", "rds", "ebs", "vpc", "service_detection", "iam_password_policy", "iam_mfa_audit", "cloudtrail_protection", "elb_https", "secret_exposure", "ssl_certificate", "dns_dangling", "network_reachability"],
     reportType: "mlps3",
   },
   hw_defense: {
     name: "护网蓝队加固",
     description: "护网前安全自查 — 攻击面+弱点评估",
-    modules: ["security_group", "s3", "iam", "ebs", "vpc", "service_detection"],
+    modules: ["security_group", "s3", "iam", "ebs", "vpc", "service_detection", "secret_exposure", "network_reachability"],
   },
   exposure: {
     name: "公网暴露面评估",
     description: "评估公网可达的资源和端口",
-    modules: ["security_group", "vpc", "s3", "rds", "elb_https"],
+    modules: ["security_group", "vpc", "s3", "rds", "elb_https", "network_reachability", "dns_dangling"],
   },
   pre_launch: {
     name: "生产上线前检查",
@@ -28,7 +28,7 @@ export const SCAN_GROUPS: Record<string, {
   data_encryption: {
     name: "数据加密审计",
     description: "全面检查存储和传输加密状态",
-    modules: ["s3", "ebs", "rds", "elb_https"],
+    modules: ["s3", "ebs", "rds", "elb_https", "ssl_certificate"],
   },
   least_privilege: {
     name: "最小权限审计",
@@ -58,6 +58,6 @@ export const SCAN_GROUPS: Record<string, {
   new_account_baseline: {
     name: "新账户基线检查",
     description: "新 AWS 账户安全基线",
-    modules: ["iam", "iam_password_policy", "iam_mfa_audit", "cloudtrail", "service_detection", "vpc", "security_group"],
+    modules: ["iam", "iam_password_policy", "iam_mfa_audit", "cloudtrail", "service_detection", "vpc", "security_group", "secret_exposure"],
   },
 };
