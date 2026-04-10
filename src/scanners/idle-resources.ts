@@ -137,23 +137,30 @@ export class IdleResourcesScanner implements Scanner {
       for (const inst of instances) {
         if (inst.State?.Name === "stopped") {
           const instId = inst.InstanceId ?? "unknown";
-          const stoppedTime = inst.StateTransitionReason
-            ? parseStopTime(inst.StateTransitionReason)
-            : null;
-          const stoppedDays = stoppedTime
-            ? Math.round((now - stoppedTime) / (24 * 60 * 60 * 1000))
-            : null;
+          const reason = inst.StateTransitionReason ?? "";
+          const stoppedTime = reason ? parseStopTime(reason) : null;
 
-          if (stoppedDays === null || stoppedDays > 30) {
+          if (!stoppedTime) {
+            warnings.push(
+              `Could not determine stop date for instance ${instId}. StateTransitionReason: ${reason}`,
+            );
+            continue;
+          }
+
+          const stoppedDays = Math.round(
+            (now - stoppedTime) / (24 * 60 * 60 * 1000),
+          );
+
+          if (stoppedDays > 30) {
             findings.push(
               makeFinding({
                 riskScore: 3.0,
-                title: `EC2 instance ${instId} has been stopped${stoppedDays !== null ? ` for ${stoppedDays} days` : ""}`,
+                title: `EC2 instance ${instId} has been stopped for ${stoppedDays} days`,
                 resourceType: "AWS::EC2::Instance",
                 resourceId: instId,
                 resourceArn: `arn:${partition}:ec2:${region}:${accountId}:instance/${instId}`,
                 region,
-                description: `EC2 instance "${instId}" (${inst.InstanceType ?? "unknown"}) is in stopped state${stoppedDays !== null ? ` for ${stoppedDays} days` : ""}. Attached EBS volumes continue to incur charges.`,
+                description: `EC2 instance "${instId}" (${inst.InstanceType ?? "unknown"}) is in stopped state for ${stoppedDays} days. Attached EBS volumes continue to incur charges.`,
                 impact:
                   "Stopped instances still incur EBS storage costs and may contain stale configurations or unpatched AMIs.",
                 remediationSteps: [

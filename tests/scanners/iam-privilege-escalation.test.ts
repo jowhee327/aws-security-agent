@@ -62,6 +62,9 @@ describe("IamPrivilegeEscalationScanner", () => {
     expect(result.findings[0].severity).toBe("CRITICAL");
     expect(result.findings[0].riskScore).toBe(9.0);
     expect(result.findings[0].title).toContain("iam:*");
+    // Should always include users-only limitation warning
+    expect(result.warnings).toBeDefined();
+    expect(result.warnings!.some((w) => w.includes("IAM users only"))).toBe(true);
   });
 
   it("detects self-grant escalation via iam:AttachUserPolicy", async () => {

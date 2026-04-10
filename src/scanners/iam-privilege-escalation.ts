@@ -80,6 +80,10 @@ export class IamPrivilegeEscalationScanner implements Scanner {
     const warnings: string[] = [];
     const iamRegion = getIamRegion(region);
 
+    warnings.push(
+      "Note: This scanner currently checks IAM users only. Role and group policy analysis will be added in a future version.",
+    );
+
     try {
       const client = createClient(IAMClient, iamRegion);
 

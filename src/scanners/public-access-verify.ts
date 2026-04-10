@@ -61,7 +61,8 @@ async function getBucketRegion(
 async function isBucketMarkedPublic(
   client: S3Client,
   bucketName: string,
-): Promise<boolean> {
+  warnings: string[],
+): Promise<boolean | "skip"> {
   // Check if Block Public Access is off AND (public ACL or public policy)
   let bpaBlocks = false;
   try {
@@ -82,7 +83,9 @@ async function isBucketMarkedPublic(
     ) {
       bpaBlocks = false;
     } else {
-      return false; // Can't determine, skip
+      const msg = e instanceof Error ? e.message : String(e);
+      warnings.push(`Could not check public access for bucket ${bucketName}: ${msg}`);
+      return "skip";
     }
   }
 
@@ -99,8 +102,9 @@ async function isBucketMarkedPublic(
         return true;
       }
     }
-  } catch {
-    // ignore
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    warnings.push(`Could not check ACL for bucket ${bucketName}: ${msg}`);
   }
 
   // Check bucket policy status
@@ -109,26 +113,26 @@ async function isBucketMarkedPublic(
       new GetBucketPolicyStatusCommand({ Bucket: bucketName }),
     );
     if (policyStatus.PolicyStatus?.IsPublic) return true;
-  } catch {
-    // NoSuchBucketPolicy or access denied — not public via policy
+  } catch (e: unknown) {
+    // NoSuchBucketPolicy is expected for buckets without policies
+    if (e instanceof Error && !e.name.includes("NoSuchBucketPolicy")) {
+      const msg = e instanceof Error ? e.message : String(e);
+      warnings.push(`Could not check policy status for bucket ${bucketName}: ${msg}`);
+    }
   }
 
   return false;
 }
 
 function isPrivateIp(ip: string): boolean {
-  return (
-    ip.startsWith("10.") ||
-    ip.startsWith("172.16.") ||
-    ip.startsWith("172.17.") ||
-    ip.startsWith("172.18.") ||
-    ip.startsWith("172.19.") ||
-    ip.startsWith("172.2") || // 172.20-29
-    ip.startsWith("172.30.") ||
-    ip.startsWith("172.31.") ||
-    ip.startsWith("192.168.") ||
-    ip === "127.0.0.1"
-  );
+  if (ip.startsWith("10.")) return true;
+  if (ip.startsWith("192.168.")) return true;
+  if (ip.startsWith("172.")) {
+    const second = parseInt(ip.split(".")[1], 10);
+    return second >= 16 && second <= 31;
+  }
+  if (ip.startsWith("127.")) return true;
+  return false;
 }
 
 export class PublicAccessVerifyScanner implements Scanner {
@@ -158,8 +162,8 @@ export class PublicAccessVerifyScanner implements Scanner {
               ? s3Client
               : createClient(S3Client, bucketRegion);
 
-          const markedPublic = await isBucketMarkedPublic(bucketClient, name);
-          if (!markedPublic) continue;
+          const markedPublic = await isBucketMarkedPublic(bucketClient, name, warnings);
+          if (markedPublic === "skip" || !markedPublic) continue;
 
           resourcesScanned++;
           const url = s3Endpoint(name, bucketRegion);

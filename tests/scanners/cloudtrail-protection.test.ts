@@ -41,6 +41,8 @@ describe("CloudTrailProtectionScanner", () => {
               },
             ],
           };
+        case "GetBucketLocationCommand":
+          return { LocationConstraint: "us-east-1" };
         case "GetBucketEncryptionCommand":
           throw noEncryptionErr;
         case "GetBucketVersioningCommand":
@@ -87,6 +89,8 @@ describe("CloudTrailProtectionScanner", () => {
               },
             ],
           };
+        case "GetBucketLocationCommand":
+          return { LocationConstraint: "us-east-1" };
         case "GetBucketEncryptionCommand":
           return { ServerSideEncryptionConfiguration: {} };
         case "GetBucketVersioningCommand":
@@ -121,6 +125,8 @@ describe("CloudTrailProtectionScanner", () => {
               },
             ],
           };
+        case "GetBucketLocationCommand":
+          return { LocationConstraint: "us-east-1" };
         case "GetBucketEncryptionCommand":
           return { ServerSideEncryptionConfiguration: { Rules: [] } };
         case "GetBucketVersioningCommand":

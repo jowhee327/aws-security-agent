@@ -104,14 +104,19 @@ describe("generateMlps3Report", () => {
       { module: "iam_password_policy", findings: [] },
       { module: "iam", findings: [] },
       { module: "iam_mfa_audit", findings: [] },
+      { module: "iam_privilege_escalation", findings: [] },
       { module: "cloudtrail", findings: [] },
+      { module: "cloudtrail_protection", findings: [] },
+      { module: "log_integrity_audit", findings: [] },
       { module: "security_group", findings: [] },
+      { module: "network_reachability", findings: [] },
       { module: "s3", findings: [] },
       { module: "ebs", findings: [] },
       { module: "rds", findings: [] },
       { module: "vpc", findings: [] },
       { module: "service_detection", findings: [] },
       { module: "elb_https", findings: [] },
+      { module: "ssl_certificate", findings: [] },
     ]);
 
     const report = generateMlps3Report(result);
@@ -121,5 +126,40 @@ describe("generateMlps3Report", () => {
     expect(report).toContain("通过率: 100%");
     // No remediation section
     expect(report).not.toContain("建议整改项");
+  });
+
+  it("marks checks as unknown when required module is missing or errored", () => {
+    // Only provide iam_password_policy — all other modules are missing
+    const result = makeResult([
+      {
+        module: "iam_password_policy",
+        findings: [
+          {
+            severity: "MEDIUM",
+            title: "IAM password policy minimum length is too short",
+            description: "The IAM password policy requires only 6 characters.",
+            riskScore: 5.0,
+            resourceId: "password-policy",
+            resourceArn: "arn:aws:iam::123456789012:account-password-policy",
+            region: "global",
+            resourceType: "AWS::IAM::AccountPasswordPolicy",
+            impact: "Weak passwords.",
+            remediationSteps: ["Fix it."],
+            priority: "P2",
+            module: "iam_password_policy",
+          },
+        ],
+      },
+    ]);
+
+    const report = generateMlps3Report(result);
+
+    // Password policy check should FAIL (module present, finding matches)
+    expect(report).toContain("\u274c");
+    // Checks with missing modules should show ⚠️ 未检查
+    expect(report).toContain("\u26a0\ufe0f");
+    expect(report).toContain("未检查");
+    // Summary should show 未检查 count and note about pass rate
+    expect(report).toContain("未检查项不计入通过率");
   });
 });

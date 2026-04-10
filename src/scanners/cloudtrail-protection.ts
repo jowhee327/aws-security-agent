@@ -7,6 +7,7 @@ import {
   GetBucketEncryptionCommand,
   GetBucketVersioningCommand,
   GetPublicAccessBlockCommand,
+  GetBucketLocationCommand,
 } from "@aws-sdk/client-s3";
 import { Scanner } from "./base.js";
 import { ScanResult, ScanContext, Finding } from "../types.js";
@@ -26,6 +27,24 @@ function makeFinding(opts: {
 }): Finding {
   const severity = severityFromScore(opts.riskScore);
   return { ...opts, severity, priority: priorityFromSeverity(severity) };
+}
+
+async function getBucketRegion(
+  client: S3Client,
+  bucketName: string,
+  defaultRegion: string,
+  warnings: string[],
+): Promise<string> {
+  try {
+    const resp = await client.send(
+      new GetBucketLocationCommand({ Bucket: bucketName }),
+    );
+    return String(resp.LocationConstraint ?? "") || "us-east-1";
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    warnings.push(`Failed to detect region for bucket ${bucketName}, using ${defaultRegion}: ${msg}`);
+    return defaultRegion;
+  }
 }
 
 export class CloudTrailProtectionScanner implements Scanner {
@@ -69,9 +88,10 @@ export class CloudTrailProtectionScanner implements Scanner {
         const trailName = trail.Name ?? "unknown";
         const bucketArn = `arn:${partition}:s3:::${bucketName}`;
 
-        // Determine bucket region for S3 client
-        // CloudTrail buckets may be in a different region, but we try with the scan region first
-        const s3Client = createClient(S3Client, region);
+        // Determine bucket region — CloudTrail buckets may be in a different region
+        const defaultS3 = createClient(S3Client, region);
+        const bucketRegion = await getBucketRegion(defaultS3, bucketName, region, warnings);
+        const s3Client = bucketRegion === region ? defaultS3 : createClient(S3Client, bucketRegion);
 
         // Check encryption
         try {

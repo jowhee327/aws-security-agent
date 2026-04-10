@@ -121,6 +121,48 @@ describe("IdleResourcesScanner", () => {
     expect(titles.some((t) => t.includes("sg-default"))).toBe(false);
   });
 
+  it("adds warning instead of finding when stop date cannot be parsed", async () => {
+    mockSend.mockImplementation((cmd: { constructor: { name: string } }) => {
+      const name = cmd.constructor.name;
+      switch (name) {
+        case "DescribeVolumesCommand":
+          return { Volumes: [] };
+        case "DescribeAddressesCommand":
+          return { Addresses: [] };
+        case "DescribeInstancesCommand":
+          return {
+            Reservations: [
+              {
+                Instances: [
+                  {
+                    InstanceId: "i-unparseable",
+                    InstanceType: "t3.micro",
+                    State: { Name: "stopped" },
+                    StateTransitionReason: "Server.InternalError",
+                  },
+                ],
+              },
+            ],
+          };
+        case "DescribeSecurityGroupsCommand":
+          return { SecurityGroups: [] };
+        case "DescribeNetworkInterfacesCommand":
+          return { NetworkInterfaces: [] };
+        default:
+          return {};
+      }
+    });
+
+    const result = await scanner.scan(ctx);
+
+    expect(result.status).toBe("success");
+    // Should NOT create a finding for the unparseable instance
+    expect(result.findings.some((f) => f.title.includes("i-unparseable"))).toBe(false);
+    // Should add a warning instead
+    expect(result.warnings).toBeDefined();
+    expect(result.warnings!.some((w) => w.includes("i-unparseable"))).toBe(true);
+  });
+
   it("returns 0 findings when all resources are in use", async () => {
     mockSend.mockImplementation((cmd: { constructor: { name: string } }) => {
       const name = cmd.constructor.name;

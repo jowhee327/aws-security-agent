@@ -37,7 +37,12 @@ const MLPS_CHECKS: MlpsCheck[] = [
     category: "访问控制",
     name: "最小权限",
     modules: ["iam", "iam_privilege_escalation"],
-    findingPatterns: ["AdministratorAccess", "PowerUserAccess", "IAMFullAccess", "privilege escalation", "over-permissive"],
+    findingPatterns: [
+      "AdministratorAccess", "PowerUserAccess", "IAMFullAccess",
+      "over-permissive", "privilege escalation",
+      "self-grant", "iam:*", "create admin", "Lambda role passing",
+      "CreateAccessKey", "AssumeRole",
+    ],
   },
   {
     id: "8.1.4.2",
@@ -149,11 +154,24 @@ const CATEGORY_SECTION: Record<string, string> = {
 
 interface CheckResult {
   check: MlpsCheck;
-  passed: boolean;
+  status: "pass" | "fail" | "unknown";
   relatedFindings: Finding[];
 }
 
-function evaluateCheck(check: MlpsCheck, allFindings: Finding[]): CheckResult {
+function evaluateCheck(
+  check: MlpsCheck,
+  allFindings: Finding[],
+  scanModules: Array<{ module: string; status: string }>,
+): CheckResult {
+  // Verify all required modules ran successfully
+  const allModulesPresent = check.modules.every((mod) =>
+    scanModules.some((m) => m.module === mod && m.status === "success"),
+  );
+
+  if (!allModulesPresent) {
+    return { check, status: "unknown", relatedFindings: [] };
+  }
+
   // Find findings from the relevant modules that match any of the patterns
   const relatedFindings = allFindings.filter((f) => {
     const moduleMatch = check.modules.some((mod) => f.module === mod);
@@ -167,7 +185,7 @@ function evaluateCheck(check: MlpsCheck, allFindings: Finding[]): CheckResult {
 
   return {
     check,
-    passed: relatedFindings.length === 0,
+    status: relatedFindings.length === 0 ? "pass" : "fail",
     relatedFindings,
   };
 }
@@ -181,13 +199,21 @@ export function generateMlps3Report(scanResults: FullScanResult): string {
     m.findings.map((f) => ({ ...f, module: f.module ?? m.module })),
   );
 
-  // Evaluate all checks
-  const results = MLPS_CHECKS.map((check) => evaluateCheck(check, allFindings));
+  // Evaluate all checks (pass scan module info for missing-module detection)
+  const scanModules = scanResults.modules.map((m) => ({
+    module: m.module,
+    status: m.status,
+  }));
+  const results = MLPS_CHECKS.map((check) =>
+    evaluateCheck(check, allFindings, scanModules),
+  );
 
-  const passCount = results.filter((r) => r.passed).length;
-  const failCount = results.filter((r) => !r.passed).length;
+  const passCount = results.filter((r) => r.status === "pass").length;
+  const failCount = results.filter((r) => r.status === "fail").length;
+  const unknownCount = results.filter((r) => r.status === "unknown").length;
+  const checkedTotal = passCount + failCount;
   const total = results.length;
-  const percent = total > 0 ? Math.round((passCount / total) * 100) : 0;
+  const percent = checkedTotal > 0 ? Math.round((passCount / checkedTotal) * 100) : 0;
 
   const lines: string[] = [];
 
@@ -203,8 +229,8 @@ export function generateMlps3Report(scanResults: FullScanResult): string {
 
   // Summary
   lines.push("## 预检总览");
-  lines.push(`- 检查项: ${total} | 通过: ${passCount} | 不通过: ${failCount}`);
-  lines.push(`- 通过率: ${percent}%`);
+  lines.push(`- 检查项: ${total} | 通过: ${passCount} | 不通过: ${failCount}${unknownCount > 0 ? ` | 未检查: ${unknownCount}` : ""}`);
+  lines.push(`- 通过率: ${percent}%${unknownCount > 0 ? "（未检查项不计入通过率）" : ""}`);
   lines.push("");
 
   // Group results by category
@@ -227,9 +253,10 @@ export function generateMlps3Report(scanResults: FullScanResult): string {
     for (const [checkId, checkResults] of byId) {
       lines.push(`### ${checkId} ${checkResults[0].check.name}`);
       for (const r of checkResults) {
-        const icon = r.passed ? "\u2705" : "\u274c";
-        lines.push(`- [${icon}] ${r.check.name}`);
-        if (!r.passed && r.relatedFindings.length > 0) {
+        const icon = r.status === "pass" ? "\u2705" : r.status === "fail" ? "\u274c" : "\u26a0\ufe0f";
+        const label = r.status === "unknown" ? " 未检查" : "";
+        lines.push(`- [${icon}] ${r.check.name}${label}`);
+        if (r.status === "fail" && r.relatedFindings.length > 0) {
           for (const f of r.relatedFindings.slice(0, 3)) {
             lines.push(`  - ${f.severity}: ${f.title}`);
           }
@@ -243,7 +270,7 @@ export function generateMlps3Report(scanResults: FullScanResult): string {
   }
 
   // Remediation recommendations sorted by priority
-  const failedResults = results.filter((r) => !r.passed);
+  const failedResults = results.filter((r) => r.status === "fail");
   if (failedResults.length > 0) {
     lines.push("## 建议整改项（按优先级）");
     lines.push("");

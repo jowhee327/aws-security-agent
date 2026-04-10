@@ -40,7 +40,7 @@ function extractS3BucketName(target: string): string | null {
 
 function classifyTarget(target: string): "s3" | "elb" | "cloudfront" | null {
   if (/\.s3[.-](.*\.)?amazonaws\.com(\.cn)?\.?$/.test(target)) return "s3";
-  if (/\.elb\.amazonaws\.com\.?$/.test(target)) return "elb";
+  if (/\.elb\.amazonaws\.com(\.cn)?\.?$/.test(target)) return "elb";
   if (/\.cloudfront\.net\.?$/.test(target)) return "cloudfront";
   return null;
 }
