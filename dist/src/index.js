@@ -14384,62 +14384,69 @@ var IamScanner = class {
       const summaryMap = summary.SummaryMap ?? {};
       let resourcesScanned = 1;
       const rootArn = `arn:${partition}:iam::${accountId}:root`;
-      if (summaryMap["AccountMFAEnabled"] === 0) {
-        findings.push(
-          makeFinding3({
-            riskScore: 10,
-            title: "Root account does not have MFA enabled",
-            resourceType: "AWS::IAM::Root",
-            resourceId: "root",
-            resourceArn: rootArn,
-            region: "global",
-            description: "The AWS root account does not have multi-factor authentication enabled.",
-            impact: "Compromised root credentials would grant unrestricted access to all AWS resources with no second factor of authentication.",
-            remediationSteps: [
-              "Enable MFA on the root account immediately using a hardware or virtual MFA device.",
-              "Store the MFA device in a secure location.",
-              "Avoid using the root account for daily operations."
-            ]
-          })
-        );
+      const isChinaRegion = region.startsWith("cn-");
+      if (!isChinaRegion) {
+        if (summaryMap["AccountMFAEnabled"] === 0) {
+          findings.push(
+            makeFinding3({
+              riskScore: 10,
+              title: "Root account does not have MFA enabled",
+              resourceType: "AWS::IAM::Root",
+              resourceId: "root",
+              resourceArn: rootArn,
+              region: "global",
+              description: "The AWS root account does not have multi-factor authentication enabled.",
+              impact: "Compromised root credentials would grant unrestricted access to all AWS resources with no second factor of authentication.",
+              remediationSteps: [
+                "Enable MFA on the root account immediately using a hardware or virtual MFA device.",
+                "Store the MFA device in a secure location.",
+                "Avoid using the root account for daily operations."
+              ]
+            })
+          );
+        }
+      } else {
+        warnings.push("Root user checks skipped: AWS China regions use partner-managed accounts without root user.");
       }
-      let rootHasAccessKey = false;
-      try {
-        const content = await waitForCredentialReport(client);
-        if (content) {
-          const csv = Buffer.from(content).toString("utf-8");
-          const lines = csv.split("\n");
-          const headers = lines[0]?.split(",") ?? [];
-          const ak1Idx = headers.indexOf("access_key_1_active");
-          const ak2Idx = headers.indexOf("access_key_2_active");
-          if (lines.length > 1) {
-            const rootRow = lines[1]?.split(",") ?? [];
-            if (ak1Idx >= 0 && rootRow[ak1Idx] === "true" || ak2Idx >= 0 && rootRow[ak2Idx] === "true") {
-              rootHasAccessKey = true;
+      if (!isChinaRegion) {
+        let rootHasAccessKey = false;
+        try {
+          const content = await waitForCredentialReport(client);
+          if (content) {
+            const csv = Buffer.from(content).toString("utf-8");
+            const lines = csv.split("\n");
+            const headers = lines[0]?.split(",") ?? [];
+            const ak1Idx = headers.indexOf("access_key_1_active");
+            const ak2Idx = headers.indexOf("access_key_2_active");
+            if (lines.length > 1) {
+              const rootRow = lines[1]?.split(",") ?? [];
+              if (ak1Idx >= 0 && rootRow[ak1Idx] === "true" || ak2Idx >= 0 && rootRow[ak2Idx] === "true") {
+                rootHasAccessKey = true;
+              }
             }
           }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          warnings.push(`Credential report check failed: ${msg}`);
         }
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        warnings.push(`Credential report check failed: ${msg}`);
-      }
-      if (rootHasAccessKey) {
-        findings.push(
-          makeFinding3({
-            riskScore: 9.5,
-            title: "Root account has active access keys",
-            resourceType: "AWS::IAM::Root",
-            resourceId: "root",
-            resourceArn: rootArn,
-            region: "global",
-            description: "The root account has one or more active access keys.",
-            impact: "Access keys for the root account provide unrestricted API access. If leaked, the entire account is compromised.",
-            remediationSteps: [
-              "Delete all root account access keys.",
-              "Use IAM users or roles with least-privilege policies instead."
-            ]
-          })
-        );
+        if (rootHasAccessKey) {
+          findings.push(
+            makeFinding3({
+              riskScore: 9.5,
+              title: "Root account has active access keys",
+              resourceType: "AWS::IAM::Root",
+              resourceId: "root",
+              resourceArn: rootArn,
+              region: "global",
+              description: "The root account has one or more active access keys.",
+              impact: "Access keys for the root account provide unrestricted API access. If leaked, the entire account is compromised.",
+              remediationSteps: [
+                "Delete all root account access keys.",
+                "Use IAM users or roles with least-privilege policies instead."
+              ]
+            })
+          );
+        }
       }
       const users = [];
       let marker;
@@ -15304,8 +15311,10 @@ function isAccessDenied(err) {
   return name === "AccessDeniedException" || name === "UnauthorizedAccess" || name === "AccessDenied" || code === "AccessDeniedException" || code === "AccessDenied" || name === "ForbiddenException" || // AWS SDK v3 uses __type or $metadata for some errors
   (err.message?.includes("is not authorized to perform") ?? false) || (err.message?.includes("Access Denied") ?? false);
 }
-function isMacieAvailable(region) {
-  return !region.startsWith("cn-");
+function isNotEnabled(err) {
+  if (!(err instanceof Error)) return false;
+  return err.name === "InvalidAccessException" || // Security Hub specific
+  err.name === "DisabledException" || err.message.includes("not enabled") || err.message.includes("not subscribed");
 }
 function computeMaturityLevel(enabledCount) {
   if (enabledCount >= 6) return "comprehensive";
@@ -15341,10 +15350,16 @@ var ServiceDetectionScanner = class {
     } catch (err) {
       if (isAccessDenied(err)) {
         warnings.push("CloudTrail: insufficient permissions to check status");
-        services.push({ name: "CloudTrail", enabled: false, details: "Access denied" });
+        services.push({ name: "CloudTrail", enabled: null, details: "Access denied" });
+      } else if (isNotEnabled(err)) {
+        services.push({
+          name: "CloudTrail",
+          enabled: false,
+          recommendation: "Create a multi-region trail for API logging"
+        });
       } else {
         warnings.push(`CloudTrail detection failed: ${err instanceof Error ? err.message : String(err)}`);
-        services.push({ name: "CloudTrail", enabled: false, details: "Detection error" });
+        services.push({ name: "CloudTrail", enabled: null, details: "Detection error" });
       }
     }
     try {
@@ -15358,8 +15373,8 @@ var ServiceDetectionScanner = class {
     } catch (err) {
       if (isAccessDenied(err)) {
         warnings.push("Security Hub: insufficient permissions to check status");
-        services.push({ name: "Security Hub", enabled: false, details: "Access denied" });
-      } else {
+        services.push({ name: "Security Hub", enabled: null, details: "Access denied" });
+      } else if (isNotEnabled(err)) {
         services.push({
           name: "Security Hub",
           enabled: false,
@@ -15384,6 +15399,9 @@ var ServiceDetectionScanner = class {
             ]
           })
         );
+      } else {
+        warnings.push(`Security Hub detection failed: ${err instanceof Error ? err.message : String(err)}`);
+        services.push({ name: "Security Hub", enabled: null, details: "Detection error" });
       }
     }
     try {
@@ -15425,10 +15443,35 @@ var ServiceDetectionScanner = class {
     } catch (err) {
       if (isAccessDenied(err)) {
         warnings.push("GuardDuty: insufficient permissions to check status");
-        services.push({ name: "GuardDuty", enabled: false, details: "Access denied" });
+        services.push({ name: "GuardDuty", enabled: null, details: "Access denied" });
+      } else if (isNotEnabled(err)) {
+        services.push({
+          name: "GuardDuty",
+          enabled: false,
+          recommendation: "Enable GuardDuty for continuous threat detection",
+          freeTrialAvailable: true
+        });
+        findings.push(
+          makeFinding8({
+            riskScore: 7.5,
+            title: "Amazon GuardDuty is not enabled",
+            resourceType: "AWS::GuardDuty::Detector",
+            resourceId: "guardduty",
+            resourceArn: `arn:${partition}:guardduty:${region}:${accountId}:detector/none`,
+            region,
+            description: "Amazon GuardDuty is not enabled in this region. GuardDuty provides intelligent threat detection by analyzing CloudTrail, VPC Flow Logs, and DNS logs.",
+            impact: "Provides continuous threat detection for account compromise, instance compromise, and malicious reconnaissance. Without it, many attack patterns go undetected.",
+            remediationSteps: [
+              "Open the Amazon GuardDuty console.",
+              "Click 'Get Started' and enable GuardDuty.",
+              "GuardDuty offers a 30-day free trial.",
+              "Consider enabling S3 protection and EKS protection add-ons."
+            ]
+          })
+        );
       } else {
         warnings.push(`GuardDuty detection failed: ${err instanceof Error ? err.message : String(err)}`);
-        services.push({ name: "GuardDuty", enabled: false, details: "Detection error" });
+        services.push({ name: "GuardDuty", enabled: null, details: "Detection error" });
       }
     }
     try {
@@ -15473,10 +15516,35 @@ var ServiceDetectionScanner = class {
     } catch (err) {
       if (isAccessDenied(err)) {
         warnings.push("Inspector: insufficient permissions to check status");
-        services.push({ name: "Inspector", enabled: false, details: "Access denied" });
+        services.push({ name: "Inspector", enabled: null, details: "Access denied" });
+      } else if (isNotEnabled(err)) {
+        services.push({
+          name: "Inspector",
+          enabled: false,
+          recommendation: "Enable Inspector to scan for software vulnerabilities",
+          freeTrialAvailable: true
+        });
+        findings.push(
+          makeFinding8({
+            riskScore: 6,
+            title: "Amazon Inspector is not enabled",
+            resourceType: "AWS::Inspector2::AccountStatus",
+            resourceId: "inspector",
+            resourceArn: `arn:${partition}:inspector2:${region}:${accountId}:account`,
+            region,
+            description: "Amazon Inspector is not enabled in this region. Inspector automatically discovers and scans EC2 instances, containers, and Lambda functions for software vulnerabilities.",
+            impact: "Scans for software vulnerabilities in EC2 instances, container images, and Lambda functions. Without it, known CVEs may go undetected.",
+            remediationSteps: [
+              "Open the Amazon Inspector console.",
+              "Click 'Get Started' and enable Inspector.",
+              "Inspector offers a 15-day free trial.",
+              "Enable scanning for EC2, ECR, and Lambda as appropriate."
+            ]
+          })
+        );
       } else {
         warnings.push(`Inspector detection failed: ${err instanceof Error ? err.message : String(err)}`);
-        services.push({ name: "Inspector", enabled: false, details: "Detection error" });
+        services.push({ name: "Inspector", enabled: null, details: "Detection error" });
       }
     }
     try {
@@ -15517,13 +15585,40 @@ var ServiceDetectionScanner = class {
     } catch (err) {
       if (isAccessDenied(err)) {
         warnings.push("AWS Config: insufficient permissions to check status");
-        services.push({ name: "AWS Config", enabled: false, details: "Access denied" });
+        services.push({ name: "AWS Config", enabled: null, details: "Access denied" });
+      } else if (isNotEnabled(err)) {
+        services.push({
+          name: "AWS Config",
+          enabled: false,
+          recommendation: "Enable AWS Config to track configuration changes"
+        });
+        findings.push(
+          makeFinding8({
+            riskScore: 6,
+            title: "AWS Config is not enabled",
+            resourceType: "AWS::Config::ConfigurationRecorder",
+            resourceId: "config",
+            resourceArn: `arn:${partition}:config:${region}:${accountId}:configuration-recorder/none`,
+            region,
+            description: "AWS Config is not enabled in this region. Config continuously records resource configurations and enables compliance auditing.",
+            impact: "Tracks configuration changes and enables compliance rules. Without it, configuration drift and non-compliant resources go undetected.",
+            remediationSteps: [
+              "Open the AWS Config console.",
+              "Click 'Get Started' and configure a recorder.",
+              "Select the resource types to record.",
+              "Configure an S3 bucket for configuration snapshots."
+            ]
+          })
+        );
       } else {
         warnings.push(`AWS Config detection failed: ${err instanceof Error ? err.message : String(err)}`);
-        services.push({ name: "AWS Config", enabled: false, details: "Detection error" });
+        services.push({ name: "AWS Config", enabled: null, details: "Detection error" });
       }
     }
-    if (isMacieAvailable(region)) {
+    if (region.startsWith("cn-")) {
+      services.push({ name: "Macie", enabled: null, details: "Not available in China regions" });
+      warnings.push("Macie is not available in AWS China regions.");
+    } else {
       try {
         const mc = createClient(Macie2Client, region);
         await mc.send(new GetMacieSessionCommand({}));
@@ -15535,8 +15630,8 @@ var ServiceDetectionScanner = class {
       } catch (err) {
         if (isAccessDenied(err)) {
           warnings.push("Macie: insufficient permissions to check status");
-          services.push({ name: "Macie", enabled: false, details: "Access denied" });
-        } else {
+          services.push({ name: "Macie", enabled: null, details: "Access denied" });
+        } else if (isNotEnabled(err)) {
           services.push({
             name: "Macie",
             enabled: false,
@@ -15561,19 +15656,15 @@ var ServiceDetectionScanner = class {
               ]
             })
           );
+        } else {
+          warnings.push(`Macie detection failed: ${err instanceof Error ? err.message : String(err)}`);
+          services.push({ name: "Macie", enabled: null, details: "Detection error" });
         }
       }
-    } else {
-      warnings.push("Macie: not available in China regions, skipping");
-      services.push({
-        name: "Macie",
-        enabled: false,
-        details: "Not available in this region"
-      });
     }
-    const totalServices = services.length;
-    const enabledCount = services.filter((s) => s.enabled).length;
-    const coveragePercent = totalServices > 0 ? Math.round(enabledCount / totalServices * 100) : 0;
+    const knownServices = services.filter((s) => s.enabled !== null);
+    const enabledCount = services.filter((s) => s.enabled === true).length;
+    const coveragePercent = knownServices.length > 0 ? Math.round(enabledCount / knownServices.length * 100) : 0;
     const maturityLevel = computeMaturityLevel(enabledCount);
     const detectionResult = {
       services,
@@ -15584,7 +15675,7 @@ var ServiceDetectionScanner = class {
       module: this.moduleName,
       status: "success",
       warnings: warnings.length > 0 ? warnings : void 0,
-      resourcesScanned: totalServices,
+      resourcesScanned: services.length,
       findingsCount: findings.length,
       scanTimeMs: Date.now() - startMs,
       findings,
@@ -16019,7 +16110,12 @@ function createServer(defaultRegion) {
           };
         }
         const detection = sdModule.serviceDetection;
-        const serviceNames = ["CloudTrail", "Security Hub", "GuardDuty", "Inspector", "AWS Config", "Macie"];
+        if (!detection) {
+          return {
+            content: [{ type: "text", text: "Error: service detection data is missing (possible JSON round-trip loss). Run scan_all to get fresh results with complete service detection data." }],
+            isError: true
+          };
+        }
         const serviceImpacts = {
           "CloudTrail": "API activity logging",
           "Security Hub": "+300 security checks",
@@ -16034,28 +16130,11 @@ function createServer(defaultRegion) {
           "Inspector": true,
           "Macie": true
         };
-        let services;
-        let coveragePercent;
-        let maturityLevel;
-        if (detection) {
-          services = detection.services;
-          coveragePercent = detection.coveragePercent;
-          maturityLevel = detection.maturityLevel;
-        } else {
-          const disabledTitles = sdModule.findings.map((f) => f.title);
-          services = serviceNames.map((name) => {
-            const isDisabled = disabledTitles.some((t) => t.includes(name) || t.includes(name.replace("AWS ", "")));
-            return { name, enabled: !isDisabled };
-          });
-          const enabledCount2 = services.filter((s) => s.enabled).length;
-          const total = services.length;
-          coveragePercent = total > 0 ? Math.round(enabledCount2 / total * 100) : 0;
-          if (enabledCount2 >= 6) maturityLevel = "comprehensive";
-          else if (enabledCount2 >= 4) maturityLevel = "advanced";
-          else if (enabledCount2 >= 2) maturityLevel = "intermediate";
-          else maturityLevel = "basic";
-        }
-        const enabledCount = services.filter((s) => s.enabled).length;
+        const services = detection.services;
+        const coveragePercent = detection.coveragePercent;
+        const maturityLevel = detection.maturityLevel;
+        const enabledCount = services.filter((s) => s.enabled === true).length;
+        const knownCount = services.filter((s) => s.enabled !== null).length;
         const totalServices = services.length;
         const lines = [];
         lines.push("# AWS Security Maturity Assessment");
@@ -16070,11 +16149,16 @@ function createServer(defaultRegion) {
         lines.push("| Service | Status | Impact |");
         lines.push("|---------|--------|--------|");
         for (const svc of services) {
-          const status = svc.enabled ? "\u2705 Enabled" : "\u274C Not Enabled";
+          const status = svc.enabled === true ? "\u2705 Enabled" : svc.enabled === false ? "\u274C Not Enabled" : "\u26A0\uFE0F Unknown";
           const impact = serviceImpacts[svc.name] ?? "";
           lines.push(`| ${svc.name} | ${status} | ${impact} |`);
         }
-        const disabled = services.filter((s) => !s.enabled);
+        const unknowns = services.filter((s) => s.enabled === null);
+        if (unknowns.length > 0) {
+          lines.push("");
+          lines.push(`> \u26A0\uFE0F ${unknowns.length} service(s) could not be checked (access denied or detection error). Re-run with appropriate permissions for accurate coverage.`);
+        }
+        const disabled = services.filter((s) => s.enabled === false);
         if (disabled.length > 0) {
           lines.push("");
           lines.push("### Recommendations (Priority Order)");
@@ -16093,7 +16177,11 @@ function createServer(defaultRegion) {
         lines.push("");
         lines.push("### Maturity Roadmap");
         lines.push("");
-        lines.push(`- **Current**: ${maturityLevel.charAt(0).toUpperCase() + maturityLevel.slice(1)} (${enabledCount}/${totalServices} services)`);
+        if (unknowns.length > 0) {
+          lines.push(`- **Current**: ${maturityLevel.charAt(0).toUpperCase() + maturityLevel.slice(1)} (${enabledCount}/${knownCount} known services, ${unknowns.length} unknown)`);
+        } else {
+          lines.push(`- **Current**: ${maturityLevel.charAt(0).toUpperCase() + maturityLevel.slice(1)} (${enabledCount}/${totalServices} services)`);
+        }
         if (maturityLevel !== "comprehensive") {
           const nextMilestones = {
             basic: { level: "Intermediate", target: 2, suggestions: ["Security Hub", "GuardDuty"] },
@@ -16106,10 +16194,10 @@ function createServer(defaultRegion) {
               (s) => services.some((svc) => svc.name === s && !svc.enabled)
             );
             if (remaining.length > 0) {
-              lines.push(`- **Next milestone**: ${next.level} (${next.target}/${totalServices}) \u2014 enable ${remaining.join(" + ")}`);
+              lines.push(`- **Next milestone**: ${next.level} (${next.target}/${knownCount}) \u2014 enable ${remaining.join(" + ")}`);
             }
           }
-          lines.push(`- **Target**: Comprehensive (${totalServices}/${totalServices})`);
+          lines.push(`- **Target**: Comprehensive (${knownCount}/${knownCount})`);
         }
         lines.push("");
         const report = lines.join("\n");

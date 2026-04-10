@@ -75,7 +75,9 @@ export class IamScanner implements Scanner {
       const client = createClient(IAMClient, iamRegion);
       const overPermissivePolicies = getOverPermissivePolicies(partition);
 
-      // Account summary for root checks
+      // GetAccountSummary works in all partitions (including China) and is needed
+      // for user counts. Root-specific checks below are skipped in China regions
+      // because China accounts have no root user.
       const summary = await client.send(new GetAccountSummaryCommand({}));
       const summaryMap = summary.SummaryMap ?? {};
       let resourcesScanned = 1; // account itself

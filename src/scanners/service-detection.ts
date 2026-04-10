@@ -126,6 +126,13 @@ export class ServiceDetectionScanner implements Scanner {
       if (isAccessDenied(err)) {
         warnings.push("CloudTrail: insufficient permissions to check status");
         services.push({ name: "CloudTrail", enabled: null, details: "Access denied" });
+      } else if (isNotEnabled(err)) {
+        services.push({
+          name: "CloudTrail",
+          enabled: false,
+          recommendation: "Create a multi-region trail for API logging",
+        });
+        // CloudTrail findings are handled by the dedicated cloudtrail scanner
       } else {
         warnings.push(`CloudTrail detection failed: ${err instanceof Error ? err.message : String(err)}`);
         services.push({ name: "CloudTrail", enabled: null, details: "Detection error" });
@@ -221,6 +228,33 @@ export class ServiceDetectionScanner implements Scanner {
       if (isAccessDenied(err)) {
         warnings.push("GuardDuty: insufficient permissions to check status");
         services.push({ name: "GuardDuty", enabled: null, details: "Access denied" });
+      } else if (isNotEnabled(err)) {
+        services.push({
+          name: "GuardDuty",
+          enabled: false,
+          recommendation: "Enable GuardDuty for continuous threat detection",
+          freeTrialAvailable: true,
+        });
+        findings.push(
+          makeFinding({
+            riskScore: 7.5,
+            title: "Amazon GuardDuty is not enabled",
+            resourceType: "AWS::GuardDuty::Detector",
+            resourceId: "guardduty",
+            resourceArn: `arn:${partition}:guardduty:${region}:${accountId}:detector/none`,
+            region,
+            description:
+              "Amazon GuardDuty is not enabled in this region. GuardDuty provides intelligent threat detection by analyzing CloudTrail, VPC Flow Logs, and DNS logs.",
+            impact:
+              "Provides continuous threat detection for account compromise, instance compromise, and malicious reconnaissance. Without it, many attack patterns go undetected.",
+            remediationSteps: [
+              "Open the Amazon GuardDuty console.",
+              "Click 'Get Started' and enable GuardDuty.",
+              "GuardDuty offers a 30-day free trial.",
+              "Consider enabling S3 protection and EKS protection add-ons.",
+            ],
+          }),
+        );
       } else {
         warnings.push(`GuardDuty detection failed: ${err instanceof Error ? err.message : String(err)}`);
         services.push({ name: "GuardDuty", enabled: null, details: "Detection error" });
@@ -275,6 +309,33 @@ export class ServiceDetectionScanner implements Scanner {
       if (isAccessDenied(err)) {
         warnings.push("Inspector: insufficient permissions to check status");
         services.push({ name: "Inspector", enabled: null, details: "Access denied" });
+      } else if (isNotEnabled(err)) {
+        services.push({
+          name: "Inspector",
+          enabled: false,
+          recommendation: "Enable Inspector to scan for software vulnerabilities",
+          freeTrialAvailable: true,
+        });
+        findings.push(
+          makeFinding({
+            riskScore: 6.0,
+            title: "Amazon Inspector is not enabled",
+            resourceType: "AWS::Inspector2::AccountStatus",
+            resourceId: "inspector",
+            resourceArn: `arn:${partition}:inspector2:${region}:${accountId}:account`,
+            region,
+            description:
+              "Amazon Inspector is not enabled in this region. Inspector automatically discovers and scans EC2 instances, containers, and Lambda functions for software vulnerabilities.",
+            impact:
+              "Scans for software vulnerabilities in EC2 instances, container images, and Lambda functions. Without it, known CVEs may go undetected.",
+            remediationSteps: [
+              "Open the Amazon Inspector console.",
+              "Click 'Get Started' and enable Inspector.",
+              "Inspector offers a 15-day free trial.",
+              "Enable scanning for EC2, ECR, and Lambda as appropriate.",
+            ],
+          }),
+        );
       } else {
         warnings.push(`Inspector detection failed: ${err instanceof Error ? err.message : String(err)}`);
         services.push({ name: "Inspector", enabled: null, details: "Detection error" });
@@ -323,55 +384,86 @@ export class ServiceDetectionScanner implements Scanner {
       if (isAccessDenied(err)) {
         warnings.push("AWS Config: insufficient permissions to check status");
         services.push({ name: "AWS Config", enabled: null, details: "Access denied" });
+      } else if (isNotEnabled(err)) {
+        services.push({
+          name: "AWS Config",
+          enabled: false,
+          recommendation: "Enable AWS Config to track configuration changes",
+        });
+        findings.push(
+          makeFinding({
+            riskScore: 6.0,
+            title: "AWS Config is not enabled",
+            resourceType: "AWS::Config::ConfigurationRecorder",
+            resourceId: "config",
+            resourceArn: `arn:${partition}:config:${region}:${accountId}:configuration-recorder/none`,
+            region,
+            description:
+              "AWS Config is not enabled in this region. Config continuously records resource configurations and enables compliance auditing.",
+            impact:
+              "Tracks configuration changes and enables compliance rules. Without it, configuration drift and non-compliant resources go undetected.",
+            remediationSteps: [
+              "Open the AWS Config console.",
+              "Click 'Get Started' and configure a recorder.",
+              "Select the resource types to record.",
+              "Configure an S3 bucket for configuration snapshots.",
+            ],
+          }),
+        );
       } else {
         warnings.push(`AWS Config detection failed: ${err instanceof Error ? err.message : String(err)}`);
         services.push({ name: "AWS Config", enabled: null, details: "Detection error" });
       }
     }
 
-    // --- Macie ---
-    try {
-      const mc = createClient(Macie2Client, region);
-      await mc.send(new GetMacieSessionCommand({}));
-      services.push({
-        name: "Macie",
-        enabled: true,
-        details: "Sensitive data detection active",
-      });
-    } catch (err) {
-      if (isAccessDenied(err)) {
-        warnings.push("Macie: insufficient permissions to check status");
-        services.push({ name: "Macie", enabled: null, details: "Access denied" });
-      } else if (isNotEnabled(err)) {
+    // --- Macie (not available in AWS China regions) ---
+    if (region.startsWith("cn-")) {
+      services.push({ name: "Macie", enabled: null, details: "Not available in China regions" });
+      warnings.push("Macie is not available in AWS China regions.");
+    } else {
+      try {
+        const mc = createClient(Macie2Client, region);
+        await mc.send(new GetMacieSessionCommand({}));
         services.push({
           name: "Macie",
-          enabled: false,
-          recommendation: "Enable Macie to detect sensitive data in S3",
-          freeTrialAvailable: true,
+          enabled: true,
+          details: "Sensitive data detection active",
         });
-        findings.push(
-          makeFinding({
-            riskScore: 5.0,
-            title: "Amazon Macie is not enabled",
-            resourceType: "AWS::Macie::Session",
-            resourceId: "macie",
-            resourceArn: `arn:${partition}:macie2:${region}:${accountId}:session`,
-            region,
-            description:
-              "Amazon Macie is not enabled in this region. Macie uses machine learning to discover and protect sensitive data stored in S3.",
-            impact:
-              "Detects sensitive data (PII, credentials, financial data) in S3 buckets. Without it, sensitive data exposure may go unnoticed.",
-            remediationSteps: [
-              "Open the Amazon Macie console.",
-              "Click 'Get Started' and enable Macie.",
-              "Macie offers a 30-day free trial for sensitive data discovery.",
-              "Configure automated sensitive data discovery jobs.",
-            ],
-          }),
-        );
-      } else {
-        warnings.push(`Macie detection failed: ${err instanceof Error ? err.message : String(err)}`);
-        services.push({ name: "Macie", enabled: null, details: "Detection error" });
+      } catch (err) {
+        if (isAccessDenied(err)) {
+          warnings.push("Macie: insufficient permissions to check status");
+          services.push({ name: "Macie", enabled: null, details: "Access denied" });
+        } else if (isNotEnabled(err)) {
+          services.push({
+            name: "Macie",
+            enabled: false,
+            recommendation: "Enable Macie to detect sensitive data in S3",
+            freeTrialAvailable: true,
+          });
+          findings.push(
+            makeFinding({
+              riskScore: 5.0,
+              title: "Amazon Macie is not enabled",
+              resourceType: "AWS::Macie::Session",
+              resourceId: "macie",
+              resourceArn: `arn:${partition}:macie2:${region}:${accountId}:session`,
+              region,
+              description:
+                "Amazon Macie is not enabled in this region. Macie uses machine learning to discover and protect sensitive data stored in S3.",
+              impact:
+                "Detects sensitive data (PII, credentials, financial data) in S3 buckets. Without it, sensitive data exposure may go unnoticed.",
+              remediationSteps: [
+                "Open the Amazon Macie console.",
+                "Click 'Get Started' and enable Macie.",
+                "Macie offers a 30-day free trial for sensitive data discovery.",
+                "Configure automated sensitive data discovery jobs.",
+              ],
+            }),
+          );
+        } else {
+          warnings.push(`Macie detection failed: ${err instanceof Error ? err.message : String(err)}`);
+          services.push({ name: "Macie", enabled: null, details: "Detection error" });
+        }
       }
     }
 

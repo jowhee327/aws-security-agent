@@ -160,7 +160,7 @@ describe("ServiceDetectionScanner", () => {
     expect(result.warnings!.some((w) => w.includes("Security Hub") && w.includes("insufficient permissions"))).toBe(true);
   });
 
-  it("detects Macie normally in China regions", async () => {
+  it("skips Macie in China regions (not available)", async () => {
     mockSend.mockImplementation((cmd: { constructor: { name: string } }) => {
       const name = cmd.constructor.name;
       switch (name) {
@@ -175,7 +175,7 @@ describe("ServiceDetectionScanner", () => {
         case "DescribeConfigurationRecordersCommand":
           return { ConfigurationRecorders: [{ name: "default" }] };
         case "GetMacieSessionCommand":
-          return { status: "ENABLED" };
+          throw new Error("GetMacieSessionCommand should not be called in China regions");
         default:
           return {};
       }
@@ -185,12 +185,17 @@ describe("ServiceDetectionScanner", () => {
 
     expect(result.status).toBe("success");
     expect(result.findings).toHaveLength(0);
-    // Macie should be detected and enabled in China regions
+    // Macie should be skipped (null) in China regions, not queried
     const macieService = result.serviceDetection!.services.find((s) => s.name === "Macie");
     expect(macieService).toBeDefined();
-    expect(macieService!.enabled).toBe(true);
+    expect(macieService!.enabled).toBeNull();
+    expect(macieService!.details).toBe("Not available in China regions");
+    // Coverage should be 100% of known services (5 known, 5 enabled; Macie is unknown)
     expect(result.serviceDetection!.coveragePercent).toBe(100);
-    expect(result.serviceDetection!.maturityLevel).toBe("comprehensive");
+    expect(result.serviceDetection!.maturityLevel).toBe("advanced"); // 5 enabled = advanced
+    // Warning about Macie
+    expect(result.warnings).toBeDefined();
+    expect(result.warnings!.some((w) => w.includes("Macie") && w.includes("China"))).toBe(true);
   });
 
   it("computes intermediate maturity for 2-3 enabled services", async () => {

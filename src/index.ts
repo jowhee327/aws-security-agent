@@ -225,6 +225,7 @@ export function createServer(defaultRegion: string): McpServer {
         const maturityLevel = detection.maturityLevel;
 
         const enabledCount = services.filter((s) => s.enabled === true).length;
+        const knownCount = services.filter((s) => s.enabled !== null).length;
         const totalServices = services.length;
 
         // Build the report
@@ -275,7 +276,11 @@ export function createServer(defaultRegion: string): McpServer {
         lines.push("");
         lines.push("### Maturity Roadmap");
         lines.push("");
-        lines.push(`- **Current**: ${maturityLevel.charAt(0).toUpperCase() + maturityLevel.slice(1)} (${enabledCount}/${totalServices} services)`);
+        if (unknowns.length > 0) {
+          lines.push(`- **Current**: ${maturityLevel.charAt(0).toUpperCase() + maturityLevel.slice(1)} (${enabledCount}/${knownCount} known services, ${unknowns.length} unknown)`);
+        } else {
+          lines.push(`- **Current**: ${maturityLevel.charAt(0).toUpperCase() + maturityLevel.slice(1)} (${enabledCount}/${totalServices} services)`);
+        }
 
         if (maturityLevel !== "comprehensive") {
           const nextMilestones: Record<string, { level: string; target: number; suggestions: string[] }> = {
@@ -289,10 +294,10 @@ export function createServer(defaultRegion: string): McpServer {
               services.some((svc) => svc.name === s && !svc.enabled),
             );
             if (remaining.length > 0) {
-              lines.push(`- **Next milestone**: ${next.level} (${next.target}/${totalServices}) \u2014 enable ${remaining.join(" + ")}`);
+              lines.push(`- **Next milestone**: ${next.level} (${next.target}/${knownCount}) \u2014 enable ${remaining.join(" + ")}`);
             }
           }
-          lines.push(`- **Target**: Comprehensive (${totalServices}/${totalServices})`);
+          lines.push(`- **Target**: Comprehensive (${knownCount}/${knownCount})`);
         }
 
         lines.push("");

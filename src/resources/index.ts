@@ -58,7 +58,7 @@ Detects which AWS security services are enabled and assesses overall security ma
 - **GuardDuty not enabled** — Risk 7.5: Provides continuous threat detection.
 - **Inspector not enabled** — Risk 6.0: Scans for software vulnerabilities.
 - **AWS Config not enabled** — Risk 6.0: Tracks configuration changes.
-- **Macie not enabled** — Risk 5.0: Detects sensitive data in S3.
+- **Macie not enabled** — Risk 5.0: Detects sensitive data in S3 (not available in China regions).
 - CloudTrail detection is included for coverage metrics; findings handled by the CloudTrail module.
 
 ### Maturity Levels
