@@ -25,7 +25,10 @@ import { IamPrivilegeEscalationScanner } from "./scanners/iam-privilege-escalati
 import { PublicAccessVerifyScanner } from "./scanners/public-access-verify.js";
 import { LogIntegrityScanner } from "./scanners/log-integrity.js";
 import { TagComplianceScanner } from "./scanners/tag-compliance.js";
+import { IdleResourcesScanner } from "./scanners/idle-resources.js";
+import { DisasterRecoveryScanner } from "./scanners/disaster-recovery.js";
 import { generateMarkdownReport } from "./tools/report-tool.js";
+import { generateMlps3Report } from "./tools/mlps-report.js";
 import { saveResults } from "./tools/save-results.js";
 import { SCAN_GROUPS } from "./tools/scan-groups.js";
 import {
@@ -86,6 +89,10 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
     "Comprehensive logging integrity audit — CloudTrail, VPC Flow Logs, S3 access logging, ELB access logging.",
   tag_compliance:
     "Checks EC2, RDS, and S3 resources for required tags (Environment, Project, Owner).",
+  idle_resources:
+    "Finds unused/idle AWS resources (unattached EBS volumes, unused EIPs, stopped instances, unused security groups) that waste money and increase attack surface.",
+  disaster_recovery:
+    "Assesses disaster recovery readiness — RDS Multi-AZ & backups, EBS snapshot coverage, S3 versioning & cross-region replication.",
 };
 
 function summarizeResult(result: FullScanResult): string {
@@ -146,6 +153,8 @@ export function createServer(defaultRegion: string): McpServer {
     new PublicAccessVerifyScanner(),
     new LogIntegrityScanner(),
     new TagComplianceScanner(),
+    new IdleResourcesScanner(),
+    new DisasterRecoveryScanner(),
   ];
 
   const scannerMap = new Map<string, Scanner>();
@@ -198,6 +207,8 @@ export function createServer(defaultRegion: string): McpServer {
     { toolName: "scan_public_access_verify", moduleName: "public_access_verify", label: "Public Access Verify" },
     { toolName: "scan_log_integrity", moduleName: "log_integrity_audit", label: "Log Integrity Audit" },
     { toolName: "scan_tag_compliance", moduleName: "tag_compliance", label: "Tag Compliance" },
+    { toolName: "scan_idle_resources", moduleName: "idle_resources", label: "Idle Resources" },
+    { toolName: "scan_disaster_recovery", moduleName: "disaster_recovery", label: "Disaster Recovery" },
   ];
 
   for (const { toolName, moduleName, label } of individualScanners) {
@@ -325,6 +336,22 @@ export function createServer(defaultRegion: string): McpServer {
       try {
         const parsed: FullScanResult = JSON.parse(scan_results);
         const report = generateMarkdownReport(parsed);
+        return { content: [{ type: "text", text: report }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    },
+  );
+
+  // generate_mlps3_report
+  server.tool(
+    "generate_mlps3_report",
+    "Generate a GB/T 22239-2019 等保三级 compliance pre-check report from scan results. Best used with scan_group mlps3_precheck results. Read-only.",
+    { scan_results: z.string().describe("JSON string of FullScanResult from scan_group mlps3_precheck or scan_all") },
+    async ({ scan_results }) => {
+      try {
+        const parsed: FullScanResult = JSON.parse(scan_results);
+        const report = generateMlps3Report(parsed);
         return { content: [{ type: "text", text: report }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };

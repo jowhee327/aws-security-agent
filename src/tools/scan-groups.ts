@@ -7,7 +7,7 @@ export const SCAN_GROUPS: Record<string, {
   mlps3_precheck: {
     name: "等保三级预检",
     description: "GB/T 22239-2019 等保三级 AWS 云租户层配置检查",
-    modules: ["security_group", "s3", "iam", "cloudtrail", "rds", "ebs", "vpc", "service_detection", "iam_password_policy", "iam_mfa_audit", "cloudtrail_protection", "elb_https", "secret_exposure", "ssl_certificate", "dns_dangling", "network_reachability", "iam_privilege_escalation", "log_integrity_audit", "tag_compliance"],
+    modules: ["security_group", "s3", "iam", "cloudtrail", "rds", "ebs", "vpc", "service_detection", "iam_password_policy", "iam_mfa_audit", "cloudtrail_protection", "elb_https", "secret_exposure", "ssl_certificate", "dns_dangling", "network_reachability", "iam_privilege_escalation", "log_integrity_audit", "tag_compliance", "disaster_recovery"],
     reportType: "mlps3",
   },
   hw_defense: {
@@ -43,12 +43,12 @@ export const SCAN_GROUPS: Record<string, {
   disaster_recovery: {
     name: "灾备评估",
     description: "备份和灾备能力评估",
-    modules: ["rds", "ebs", "s3"],
+    modules: ["rds", "ebs", "s3", "disaster_recovery"],
   },
   idle_resources: {
     name: "闲置资源清理",
     description: "发现未使用的资源",
-    modules: ["iam", "ebs", "security_group"],
+    modules: ["iam", "ebs", "security_group", "idle_resources"],
   },
   tag_compliance: {
     name: "资源标签合规",
