@@ -21,6 +21,10 @@ import { SecretExposureScanner } from "./scanners/secret-exposure.js";
 import { SslCertificateScanner } from "./scanners/ssl-certificate.js";
 import { DnsDanglingScanner } from "./scanners/dns-dangling.js";
 import { NetworkReachabilityScanner } from "./scanners/network-reachability.js";
+import { IamPrivilegeEscalationScanner } from "./scanners/iam-privilege-escalation.js";
+import { PublicAccessVerifyScanner } from "./scanners/public-access-verify.js";
+import { LogIntegrityScanner } from "./scanners/log-integrity.js";
+import { TagComplianceScanner } from "./scanners/tag-compliance.js";
 import { generateMarkdownReport } from "./tools/report-tool.js";
 import { saveResults } from "./tools/save-results.js";
 import { SCAN_GROUPS } from "./tools/scan-groups.js";
@@ -74,6 +78,14 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
     "Checks Route53 CNAME records for dangling DNS (subdomain takeover risk).",
   network_reachability:
     "Analyzes true network reachability by combining Security Group + NACL rules for public EC2 instances.",
+  iam_privilege_escalation:
+    "Detects IAM privilege escalation paths — users/roles that can escalate to admin via policy manipulation, role creation, or service abuse.",
+  public_access_verify:
+    "Verifies actual public accessibility of resources marked as public (S3 HTTP check, RDS DNS resolution).",
+  log_integrity_audit:
+    "Comprehensive logging integrity audit — CloudTrail, VPC Flow Logs, S3 access logging, ELB access logging.",
+  tag_compliance:
+    "Checks EC2, RDS, and S3 resources for required tags (Environment, Project, Owner).",
 };
 
 function summarizeResult(result: FullScanResult): string {
@@ -130,6 +142,10 @@ export function createServer(defaultRegion: string): McpServer {
     new SslCertificateScanner(),
     new DnsDanglingScanner(),
     new NetworkReachabilityScanner(),
+    new IamPrivilegeEscalationScanner(),
+    new PublicAccessVerifyScanner(),
+    new LogIntegrityScanner(),
+    new TagComplianceScanner(),
   ];
 
   const scannerMap = new Map<string, Scanner>();
@@ -178,6 +194,10 @@ export function createServer(defaultRegion: string): McpServer {
     { toolName: "scan_ssl_certificate", moduleName: "ssl_certificate", label: "SSL Certificate" },
     { toolName: "scan_dns_dangling", moduleName: "dns_dangling", label: "Dangling DNS" },
     { toolName: "scan_network_reachability", moduleName: "network_reachability", label: "Network Reachability" },
+    { toolName: "scan_iam_privilege_escalation", moduleName: "iam_privilege_escalation", label: "IAM Privilege Escalation" },
+    { toolName: "scan_public_access_verify", moduleName: "public_access_verify", label: "Public Access Verify" },
+    { toolName: "scan_log_integrity", moduleName: "log_integrity_audit", label: "Log Integrity Audit" },
+    { toolName: "scan_tag_compliance", moduleName: "tag_compliance", label: "Tag Compliance" },
   ];
 
   for (const { toolName, moduleName, label } of individualScanners) {
@@ -209,7 +229,7 @@ export function createServer(defaultRegion: string): McpServer {
     "scan_group",
     "Run a predefined group of security scanners for a specific scenario (e.g., MLPS compliance, network defense). Read-only.",
     {
-      group: z.string().describe("Scan group ID: mlps3_precheck, hw_defense, exposure, pre_launch, data_encryption, least_privilege, log_integrity, disaster_recovery, idle_resources, tag_compliance, new_account_baseline"),
+      group: z.string().describe("Scan group ID: mlps3_precheck, hw_defense, exposure, pre_launch, data_encryption, least_privilege, log_integrity, disaster_recovery, idle_resources, tag_compliance, new_account_baseline, public_access_verify"),
       region: z.string().optional().describe("AWS region to scan (default: server region)"),
     },
     async ({ group, region }) => {
