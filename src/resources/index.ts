@@ -51,6 +51,23 @@ Reviews VPC network configuration.
 - **Instances in default VPC** — Risk 7.0: Resources in the default VPC lack proper isolation.
 - **Missing VPC Flow Logs** — Risk 7.0: No network traffic logging enabled.
 - **Default SG with custom inbound rules** — Risk 5.5: Default security group modified with open rules.
+
+## 8. Service Detection (service_detection)
+Detects which AWS security services are enabled and assesses overall security maturity.
+- **Security Hub not enabled** — Risk 7.5: Provides 300+ automated security checks.
+- **GuardDuty not enabled** — Risk 7.5: Provides continuous threat detection.
+- **Inspector not enabled** — Risk 6.0: Scans for software vulnerabilities.
+- **AWS Config not enabled** — Risk 6.0: Tracks configuration changes.
+- **Macie not enabled** — Risk 5.0: Detects sensitive data in S3 (not available in China regions).
+- CloudTrail detection is included for coverage metrics; findings handled by the CloudTrail module.
+
+### Maturity Levels
+| Enabled Services | Level |
+|------------------|-------|
+| 0–1 | Basic |
+| 2–3 | Intermediate |
+| 4–5 | Advanced |
+| 6   | Comprehensive |
 `;
 
 export const RISK_SCORING_CONTENT = `# Risk Scoring Model

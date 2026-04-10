@@ -14610,62 +14610,69 @@ var IamScanner = class {
       const summaryMap = summary.SummaryMap ?? {};
       let resourcesScanned = 1;
       const rootArn = `arn:${partition}:iam::${accountId}:root`;
-      if (summaryMap["AccountMFAEnabled"] === 0) {
-        findings.push(
-          makeFinding3({
-            riskScore: 10,
-            title: "Root account does not have MFA enabled",
-            resourceType: "AWS::IAM::Root",
-            resourceId: "root",
-            resourceArn: rootArn,
-            region: "global",
-            description: "The AWS root account does not have multi-factor authentication enabled.",
-            impact: "Compromised root credentials would grant unrestricted access to all AWS resources with no second factor of authentication.",
-            remediationSteps: [
-              "Enable MFA on the root account immediately using a hardware or virtual MFA device.",
-              "Store the MFA device in a secure location.",
-              "Avoid using the root account for daily operations."
-            ]
-          })
-        );
+      const isChinaRegion = region.startsWith("cn-");
+      if (!isChinaRegion) {
+        if (summaryMap["AccountMFAEnabled"] === 0) {
+          findings.push(
+            makeFinding3({
+              riskScore: 10,
+              title: "Root account does not have MFA enabled",
+              resourceType: "AWS::IAM::Root",
+              resourceId: "root",
+              resourceArn: rootArn,
+              region: "global",
+              description: "The AWS root account does not have multi-factor authentication enabled.",
+              impact: "Compromised root credentials would grant unrestricted access to all AWS resources with no second factor of authentication.",
+              remediationSteps: [
+                "Enable MFA on the root account immediately using a hardware or virtual MFA device.",
+                "Store the MFA device in a secure location.",
+                "Avoid using the root account for daily operations."
+              ]
+            })
+          );
+        }
+      } else {
+        warnings.push("Root user checks skipped: AWS China regions use partner-managed accounts without root user.");
       }
-      let rootHasAccessKey = false;
-      try {
-        const content = await waitForCredentialReport(client);
-        if (content) {
-          const csv = Buffer.from(content).toString("utf-8");
-          const lines = csv.split("\n");
-          const headers = lines[0]?.split(",") ?? [];
-          const ak1Idx = headers.indexOf("access_key_1_active");
-          const ak2Idx = headers.indexOf("access_key_2_active");
-          if (lines.length > 1) {
-            const rootRow = lines[1]?.split(",") ?? [];
-            if (ak1Idx >= 0 && rootRow[ak1Idx] === "true" || ak2Idx >= 0 && rootRow[ak2Idx] === "true") {
-              rootHasAccessKey = true;
+      if (!isChinaRegion) {
+        let rootHasAccessKey = false;
+        try {
+          const content = await waitForCredentialReport(client);
+          if (content) {
+            const csv = Buffer.from(content).toString("utf-8");
+            const lines = csv.split("\n");
+            const headers = lines[0]?.split(",") ?? [];
+            const ak1Idx = headers.indexOf("access_key_1_active");
+            const ak2Idx = headers.indexOf("access_key_2_active");
+            if (lines.length > 1) {
+              const rootRow = lines[1]?.split(",") ?? [];
+              if (ak1Idx >= 0 && rootRow[ak1Idx] === "true" || ak2Idx >= 0 && rootRow[ak2Idx] === "true") {
+                rootHasAccessKey = true;
+              }
             }
           }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          warnings.push(`Credential report check failed: ${msg}`);
         }
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        warnings.push(`Credential report check failed: ${msg}`);
-      }
-      if (rootHasAccessKey) {
-        findings.push(
-          makeFinding3({
-            riskScore: 9.5,
-            title: "Root account has active access keys",
-            resourceType: "AWS::IAM::Root",
-            resourceId: "root",
-            resourceArn: rootArn,
-            region: "global",
-            description: "The root account has one or more active access keys.",
-            impact: "Access keys for the root account provide unrestricted API access. If leaked, the entire account is compromised.",
-            remediationSteps: [
-              "Delete all root account access keys.",
-              "Use IAM users or roles with least-privilege policies instead."
-            ]
-          })
-        );
+        if (rootHasAccessKey) {
+          findings.push(
+            makeFinding3({
+              riskScore: 9.5,
+              title: "Root account has active access keys",
+              resourceType: "AWS::IAM::Root",
+              resourceId: "root",
+              resourceArn: rootArn,
+              region: "global",
+              description: "The root account has one or more active access keys.",
+              impact: "Access keys for the root account provide unrestricted API access. If leaked, the entire account is compromised.",
+              remediationSteps: [
+                "Delete all root account access keys.",
+                "Use IAM users or roles with least-privilege policies instead."
+              ]
+            })
+          );
+        }
       }
       const users = [];
       let marker;
@@ -15494,6 +15501,416 @@ var VpcScanner = class {
   }
 };
 
+// src/scanners/service-detection.ts
+import {
+  SecurityHubClient,
+  DescribeHubCommand
+} from "@aws-sdk/client-securityhub";
+import {
+  GuardDutyClient,
+  ListDetectorsCommand
+} from "@aws-sdk/client-guardduty";
+import {
+  Inspector2Client,
+  BatchGetAccountStatusCommand
+} from "@aws-sdk/client-inspector2";
+import {
+  ConfigServiceClient,
+  DescribeConfigurationRecordersCommand
+} from "@aws-sdk/client-config-service";
+import {
+  Macie2Client,
+  GetMacieSessionCommand
+} from "@aws-sdk/client-macie2";
+import {
+  CloudTrailClient as CloudTrailClient2,
+  DescribeTrailsCommand as DescribeTrailsCommand2
+} from "@aws-sdk/client-cloudtrail";
+function makeFinding8(opts) {
+  const severity = severityFromScore(opts.riskScore);
+  return { ...opts, severity, priority: priorityFromSeverity(severity) };
+}
+function isAccessDenied(err) {
+  if (!(err instanceof Error)) return false;
+  const name = err.name ?? "";
+  const code = err.Code ?? "";
+  return name === "AccessDeniedException" || name === "UnauthorizedAccess" || name === "AccessDenied" || code === "AccessDeniedException" || code === "AccessDenied" || name === "ForbiddenException" || // AWS SDK v3 uses __type or $metadata for some errors
+  (err.message?.includes("is not authorized to perform") ?? false) || (err.message?.includes("Access Denied") ?? false);
+}
+function isNotEnabled(err) {
+  if (!(err instanceof Error)) return false;
+  return err.name === "InvalidAccessException" || // Security Hub specific
+  err.name === "DisabledException" || err.message.includes("not enabled") || err.message.includes("not subscribed");
+}
+function computeMaturityLevel(enabledCount) {
+  if (enabledCount >= 6) return "comprehensive";
+  if (enabledCount >= 4) return "advanced";
+  if (enabledCount >= 2) return "intermediate";
+  return "basic";
+}
+var ServiceDetectionScanner = class {
+  moduleName = "service_detection";
+  async scan(ctx) {
+    const { region, partition, accountId } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    const services = [];
+    try {
+      const ct = createClient(CloudTrailClient2, region);
+      const resp = await ct.send(new DescribeTrailsCommand2({}));
+      const trails = resp.trailList ?? [];
+      if (trails.length > 0) {
+        services.push({
+          name: "CloudTrail",
+          enabled: true,
+          details: `${trails.length} trail(s) configured`
+        });
+      } else {
+        services.push({
+          name: "CloudTrail",
+          enabled: false,
+          recommendation: "Create a multi-region trail for API logging"
+        });
+      }
+    } catch (err) {
+      if (isAccessDenied(err)) {
+        warnings.push("CloudTrail: insufficient permissions to check status");
+        services.push({ name: "CloudTrail", enabled: null, details: "Access denied" });
+      } else if (isNotEnabled(err)) {
+        services.push({
+          name: "CloudTrail",
+          enabled: false,
+          recommendation: "Create a multi-region trail for API logging"
+        });
+      } else {
+        warnings.push(`CloudTrail detection failed: ${err instanceof Error ? err.message : String(err)}`);
+        services.push({ name: "CloudTrail", enabled: null, details: "Detection error" });
+      }
+    }
+    try {
+      const sh = createClient(SecurityHubClient, region);
+      await sh.send(new DescribeHubCommand({}));
+      services.push({
+        name: "Security Hub",
+        enabled: true,
+        details: "Enabled with automated security checks"
+      });
+    } catch (err) {
+      if (isAccessDenied(err)) {
+        warnings.push("Security Hub: insufficient permissions to check status");
+        services.push({ name: "Security Hub", enabled: null, details: "Access denied" });
+      } else if (isNotEnabled(err)) {
+        services.push({
+          name: "Security Hub",
+          enabled: false,
+          recommendation: "Enable Security Hub for 300+ automated security checks",
+          freeTrialAvailable: true
+        });
+        findings.push(
+          makeFinding8({
+            riskScore: 7.5,
+            title: "AWS Security Hub is not enabled",
+            resourceType: "AWS::SecurityHub::Hub",
+            resourceId: "securityhub",
+            resourceArn: `arn:${partition}:securityhub:${region}:${accountId}:hub/default`,
+            region,
+            description: "AWS Security Hub is not enabled in this region. Security Hub provides a comprehensive view of security alerts and compliance status.",
+            impact: "Enables 300+ automated security checks across AWS services. Without it, security findings are fragmented across individual services.",
+            remediationSteps: [
+              "Open the AWS Security Hub console.",
+              "Click 'Go to Security Hub' and enable it.",
+              "Enable the AWS Foundational Security Best Practices standard.",
+              "Security Hub offers a 30-day free trial."
+            ]
+          })
+        );
+      } else {
+        warnings.push(`Security Hub detection failed: ${err instanceof Error ? err.message : String(err)}`);
+        services.push({ name: "Security Hub", enabled: null, details: "Detection error" });
+      }
+    }
+    try {
+      const gd = createClient(GuardDutyClient, region);
+      const resp = await gd.send(new ListDetectorsCommand({}));
+      const detectors = resp.DetectorIds ?? [];
+      if (detectors.length > 0) {
+        services.push({
+          name: "GuardDuty",
+          enabled: true,
+          details: `${detectors.length} detector(s) active`
+        });
+      } else {
+        services.push({
+          name: "GuardDuty",
+          enabled: false,
+          recommendation: "Enable GuardDuty for continuous threat detection",
+          freeTrialAvailable: true
+        });
+        findings.push(
+          makeFinding8({
+            riskScore: 7.5,
+            title: "Amazon GuardDuty is not enabled",
+            resourceType: "AWS::GuardDuty::Detector",
+            resourceId: "guardduty",
+            resourceArn: `arn:${partition}:guardduty:${region}:${accountId}:detector/none`,
+            region,
+            description: "Amazon GuardDuty is not enabled in this region. GuardDuty provides intelligent threat detection by analyzing CloudTrail, VPC Flow Logs, and DNS logs.",
+            impact: "Provides continuous threat detection for account compromise, instance compromise, and malicious reconnaissance. Without it, many attack patterns go undetected.",
+            remediationSteps: [
+              "Open the Amazon GuardDuty console.",
+              "Click 'Get Started' and enable GuardDuty.",
+              "GuardDuty offers a 30-day free trial.",
+              "Consider enabling S3 protection and EKS protection add-ons."
+            ]
+          })
+        );
+      }
+    } catch (err) {
+      if (isAccessDenied(err)) {
+        warnings.push("GuardDuty: insufficient permissions to check status");
+        services.push({ name: "GuardDuty", enabled: null, details: "Access denied" });
+      } else if (isNotEnabled(err)) {
+        services.push({
+          name: "GuardDuty",
+          enabled: false,
+          recommendation: "Enable GuardDuty for continuous threat detection",
+          freeTrialAvailable: true
+        });
+        findings.push(
+          makeFinding8({
+            riskScore: 7.5,
+            title: "Amazon GuardDuty is not enabled",
+            resourceType: "AWS::GuardDuty::Detector",
+            resourceId: "guardduty",
+            resourceArn: `arn:${partition}:guardduty:${region}:${accountId}:detector/none`,
+            region,
+            description: "Amazon GuardDuty is not enabled in this region. GuardDuty provides intelligent threat detection by analyzing CloudTrail, VPC Flow Logs, and DNS logs.",
+            impact: "Provides continuous threat detection for account compromise, instance compromise, and malicious reconnaissance. Without it, many attack patterns go undetected.",
+            remediationSteps: [
+              "Open the Amazon GuardDuty console.",
+              "Click 'Get Started' and enable GuardDuty.",
+              "GuardDuty offers a 30-day free trial.",
+              "Consider enabling S3 protection and EKS protection add-ons."
+            ]
+          })
+        );
+      } else {
+        warnings.push(`GuardDuty detection failed: ${err instanceof Error ? err.message : String(err)}`);
+        services.push({ name: "GuardDuty", enabled: null, details: "Detection error" });
+      }
+    }
+    try {
+      const insp = createClient(Inspector2Client, region);
+      const resp = await insp.send(new BatchGetAccountStatusCommand({ accountIds: [accountId] }));
+      const accounts = resp.accounts ?? [];
+      const active = accounts.some(
+        (a) => a.state?.status === "ENABLED" || a.state?.status === "ENABLING"
+      );
+      if (active) {
+        services.push({
+          name: "Inspector",
+          enabled: true,
+          details: "Vulnerability scanning active"
+        });
+      } else {
+        services.push({
+          name: "Inspector",
+          enabled: false,
+          recommendation: "Enable Inspector to scan for software vulnerabilities",
+          freeTrialAvailable: true
+        });
+        findings.push(
+          makeFinding8({
+            riskScore: 6,
+            title: "Amazon Inspector is not enabled",
+            resourceType: "AWS::Inspector2::AccountStatus",
+            resourceId: "inspector",
+            resourceArn: `arn:${partition}:inspector2:${region}:${accountId}:account`,
+            region,
+            description: "Amazon Inspector is not enabled in this region. Inspector automatically discovers and scans EC2 instances, containers, and Lambda functions for software vulnerabilities.",
+            impact: "Scans for software vulnerabilities in EC2 instances, container images, and Lambda functions. Without it, known CVEs may go undetected.",
+            remediationSteps: [
+              "Open the Amazon Inspector console.",
+              "Click 'Get Started' and enable Inspector.",
+              "Inspector offers a 15-day free trial.",
+              "Enable scanning for EC2, ECR, and Lambda as appropriate."
+            ]
+          })
+        );
+      }
+    } catch (err) {
+      if (isAccessDenied(err)) {
+        warnings.push("Inspector: insufficient permissions to check status");
+        services.push({ name: "Inspector", enabled: null, details: "Access denied" });
+      } else if (isNotEnabled(err)) {
+        services.push({
+          name: "Inspector",
+          enabled: false,
+          recommendation: "Enable Inspector to scan for software vulnerabilities",
+          freeTrialAvailable: true
+        });
+        findings.push(
+          makeFinding8({
+            riskScore: 6,
+            title: "Amazon Inspector is not enabled",
+            resourceType: "AWS::Inspector2::AccountStatus",
+            resourceId: "inspector",
+            resourceArn: `arn:${partition}:inspector2:${region}:${accountId}:account`,
+            region,
+            description: "Amazon Inspector is not enabled in this region. Inspector automatically discovers and scans EC2 instances, containers, and Lambda functions for software vulnerabilities.",
+            impact: "Scans for software vulnerabilities in EC2 instances, container images, and Lambda functions. Without it, known CVEs may go undetected.",
+            remediationSteps: [
+              "Open the Amazon Inspector console.",
+              "Click 'Get Started' and enable Inspector.",
+              "Inspector offers a 15-day free trial.",
+              "Enable scanning for EC2, ECR, and Lambda as appropriate."
+            ]
+          })
+        );
+      } else {
+        warnings.push(`Inspector detection failed: ${err instanceof Error ? err.message : String(err)}`);
+        services.push({ name: "Inspector", enabled: null, details: "Detection error" });
+      }
+    }
+    try {
+      const cfg = createClient(ConfigServiceClient, region);
+      const resp = await cfg.send(new DescribeConfigurationRecordersCommand({}));
+      const recorders = resp.ConfigurationRecorders ?? [];
+      if (recorders.length > 0) {
+        services.push({
+          name: "AWS Config",
+          enabled: true,
+          details: `${recorders.length} recorder(s) configured`
+        });
+      } else {
+        services.push({
+          name: "AWS Config",
+          enabled: false,
+          recommendation: "Enable AWS Config to track configuration changes"
+        });
+        findings.push(
+          makeFinding8({
+            riskScore: 6,
+            title: "AWS Config is not enabled",
+            resourceType: "AWS::Config::ConfigurationRecorder",
+            resourceId: "config",
+            resourceArn: `arn:${partition}:config:${region}:${accountId}:configuration-recorder/none`,
+            region,
+            description: "AWS Config is not enabled in this region. Config continuously records resource configurations and enables compliance auditing.",
+            impact: "Tracks configuration changes and enables compliance rules. Without it, configuration drift and non-compliant resources go undetected.",
+            remediationSteps: [
+              "Open the AWS Config console.",
+              "Click 'Get Started' and configure a recorder.",
+              "Select the resource types to record.",
+              "Configure an S3 bucket for configuration snapshots."
+            ]
+          })
+        );
+      }
+    } catch (err) {
+      if (isAccessDenied(err)) {
+        warnings.push("AWS Config: insufficient permissions to check status");
+        services.push({ name: "AWS Config", enabled: null, details: "Access denied" });
+      } else if (isNotEnabled(err)) {
+        services.push({
+          name: "AWS Config",
+          enabled: false,
+          recommendation: "Enable AWS Config to track configuration changes"
+        });
+        findings.push(
+          makeFinding8({
+            riskScore: 6,
+            title: "AWS Config is not enabled",
+            resourceType: "AWS::Config::ConfigurationRecorder",
+            resourceId: "config",
+            resourceArn: `arn:${partition}:config:${region}:${accountId}:configuration-recorder/none`,
+            region,
+            description: "AWS Config is not enabled in this region. Config continuously records resource configurations and enables compliance auditing.",
+            impact: "Tracks configuration changes and enables compliance rules. Without it, configuration drift and non-compliant resources go undetected.",
+            remediationSteps: [
+              "Open the AWS Config console.",
+              "Click 'Get Started' and configure a recorder.",
+              "Select the resource types to record.",
+              "Configure an S3 bucket for configuration snapshots."
+            ]
+          })
+        );
+      } else {
+        warnings.push(`AWS Config detection failed: ${err instanceof Error ? err.message : String(err)}`);
+        services.push({ name: "AWS Config", enabled: null, details: "Detection error" });
+      }
+    }
+    if (region.startsWith("cn-")) {
+      services.push({ name: "Macie", enabled: null, details: "Not available in China regions" });
+      warnings.push("Macie is not available in AWS China regions.");
+    } else {
+      try {
+        const mc = createClient(Macie2Client, region);
+        await mc.send(new GetMacieSessionCommand({}));
+        services.push({
+          name: "Macie",
+          enabled: true,
+          details: "Sensitive data detection active"
+        });
+      } catch (err) {
+        if (isAccessDenied(err)) {
+          warnings.push("Macie: insufficient permissions to check status");
+          services.push({ name: "Macie", enabled: null, details: "Access denied" });
+        } else if (isNotEnabled(err)) {
+          services.push({
+            name: "Macie",
+            enabled: false,
+            recommendation: "Enable Macie to detect sensitive data in S3",
+            freeTrialAvailable: true
+          });
+          findings.push(
+            makeFinding8({
+              riskScore: 5,
+              title: "Amazon Macie is not enabled",
+              resourceType: "AWS::Macie::Session",
+              resourceId: "macie",
+              resourceArn: `arn:${partition}:macie2:${region}:${accountId}:session`,
+              region,
+              description: "Amazon Macie is not enabled in this region. Macie uses machine learning to discover and protect sensitive data stored in S3.",
+              impact: "Detects sensitive data (PII, credentials, financial data) in S3 buckets. Without it, sensitive data exposure may go unnoticed.",
+              remediationSteps: [
+                "Open the Amazon Macie console.",
+                "Click 'Get Started' and enable Macie.",
+                "Macie offers a 30-day free trial for sensitive data discovery.",
+                "Configure automated sensitive data discovery jobs."
+              ]
+            })
+          );
+        } else {
+          warnings.push(`Macie detection failed: ${err instanceof Error ? err.message : String(err)}`);
+          services.push({ name: "Macie", enabled: null, details: "Detection error" });
+        }
+      }
+    }
+    const knownServices = services.filter((s) => s.enabled !== null);
+    const enabledCount = services.filter((s) => s.enabled === true).length;
+    const coveragePercent = knownServices.length > 0 ? Math.round(enabledCount / knownServices.length * 100) : 0;
+    const maturityLevel = computeMaturityLevel(enabledCount);
+    const detectionResult = {
+      services,
+      coveragePercent,
+      maturityLevel
+    };
+    return {
+      module: this.moduleName,
+      status: "success",
+      warnings: warnings.length > 0 ? warnings : void 0,
+      resourcesScanned: services.length,
+      findingsCount: findings.length,
+      scanTimeMs: Date.now() - startMs,
+      findings,
+      // Attach the structured detection result as a custom property via the findings metadata
+      ...{ serviceDetection: detectionResult }
+    };
+  }
+};
+
 // src/tools/report-tool.ts
 var SEVERITY_ICON = {
   CRITICAL: "\u{1F534}",
@@ -15720,6 +16137,23 @@ Reviews VPC network configuration.
 - **Instances in default VPC** \u2014 Risk 7.0: Resources in the default VPC lack proper isolation.
 - **Missing VPC Flow Logs** \u2014 Risk 7.0: No network traffic logging enabled.
 - **Default SG with custom inbound rules** \u2014 Risk 5.5: Default security group modified with open rules.
+
+## 8. Service Detection (service_detection)
+Detects which AWS security services are enabled and assesses overall security maturity.
+- **Security Hub not enabled** \u2014 Risk 7.5: Provides 300+ automated security checks.
+- **GuardDuty not enabled** \u2014 Risk 7.5: Provides continuous threat detection.
+- **Inspector not enabled** \u2014 Risk 6.0: Scans for software vulnerabilities.
+- **AWS Config not enabled** \u2014 Risk 6.0: Tracks configuration changes.
+- **Macie not enabled** \u2014 Risk 5.0: Detects sensitive data in S3 (not available in China regions).
+- CloudTrail detection is included for coverage metrics; findings handled by the CloudTrail module.
+
+### Maturity Levels
+| Enabled Services | Level |
+|------------------|-------|
+| 0\u20131 | Basic |
+| 2\u20133 | Intermediate |
+| 4\u20135 | Advanced |
+| 6   | Comprehensive |
 `;
 var RISK_SCORING_CONTENT = `# Risk Scoring Model
 
@@ -15771,7 +16205,8 @@ var MODULE_DESCRIPTIONS = {
   cloudtrail: "Validates CloudTrail logging configuration (multi-region, log validation, CloudWatch integration).",
   rds: "Scans RDS instances for public accessibility, encryption, backups, and deletion protection.",
   ebs: "Checks EBS volumes and snapshots for encryption and public sharing.",
-  vpc: "Reviews VPC configuration including default VPC usage, flow logs, and default security groups."
+  vpc: "Reviews VPC configuration including default VPC usage, flow logs, and default security groups.",
+  service_detection: "Detects which AWS security services (Security Hub, GuardDuty, Inspector, Config, Macie) are enabled and assesses security maturity."
 };
 function summarizeResult(result) {
   const { summary } = result;
@@ -15813,7 +16248,8 @@ function createServer(defaultRegion) {
     new CloudTrailScanner(),
     new RdsScanner(),
     new EbsScanner(),
-    new VpcScanner()
+    new VpcScanner(),
+    new ServiceDetectionScanner()
   ];
   const scannerMap = /* @__PURE__ */ new Map();
   for (const s of allScanners) {
@@ -15821,7 +16257,7 @@ function createServer(defaultRegion) {
   }
   server.tool(
     "scan_all",
-    "Run all 7 security scanners in parallel. Read-only. Does not modify any AWS resources.",
+    "Run all 8 security scanners in parallel (including service detection). Read-only. Does not modify any AWS resources.",
     { region: external_exports.string().optional().describe("AWS region to scan (default: server region)") },
     async ({ region }) => {
       try {
@@ -15845,7 +16281,8 @@ function createServer(defaultRegion) {
     { toolName: "scan_cloudtrail", moduleName: "cloudtrail", label: "CloudTrail" },
     { toolName: "scan_rds", moduleName: "rds", label: "RDS" },
     { toolName: "scan_ebs", moduleName: "ebs", label: "EBS" },
-    { toolName: "scan_vpc", moduleName: "vpc", label: "VPC" }
+    { toolName: "scan_vpc", moduleName: "vpc", label: "VPC" },
+    { toolName: "detect_services", moduleName: "service_detection", label: "Security Service Detection" }
   ];
   for (const { toolName, moduleName, label } of individualScanners) {
     server.tool(
@@ -15881,6 +16318,121 @@ function createServer(defaultRegion) {
         return { content: [{ type: "text", text: report }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    }
+  );
+  server.tool(
+    "generate_maturity_report",
+    "Generate a security maturity assessment report from scan_all results. Requires service_detection module output. Read-only.",
+    { scan_results: external_exports.string().describe("JSON string of FullScanResult from scan_all") },
+    async ({ scan_results }) => {
+      try {
+        const parsed = JSON.parse(scan_results);
+        const sdModule = parsed.modules.find((m) => m.module === "service_detection");
+        if (!sdModule) {
+          return {
+            content: [{ type: "text", text: "Error: scan results do not include service_detection module. Run scan_all first." }],
+            isError: true
+          };
+        }
+        const detection = sdModule.serviceDetection;
+        if (!detection) {
+          return {
+            content: [{ type: "text", text: "Error: service detection data is missing (possible JSON round-trip loss). Run scan_all to get fresh results with complete service detection data." }],
+            isError: true
+          };
+        }
+        const serviceImpacts = {
+          "CloudTrail": "API activity logging",
+          "Security Hub": "+300 security checks",
+          "GuardDuty": "Threat detection",
+          "Inspector": "Vulnerability scanning",
+          "AWS Config": "Configuration tracking",
+          "Macie": "Sensitive data detection"
+        };
+        const serviceFreeTrials = {
+          "Security Hub": true,
+          "GuardDuty": true,
+          "Inspector": true,
+          "Macie": true
+        };
+        const services = detection.services;
+        const coveragePercent = detection.coveragePercent;
+        const maturityLevel = detection.maturityLevel;
+        const enabledCount = services.filter((s) => s.enabled === true).length;
+        const knownCount = services.filter((s) => s.enabled !== null).length;
+        const totalServices = services.length;
+        const lines = [];
+        lines.push("# AWS Security Maturity Assessment");
+        lines.push("");
+        lines.push(`## Account: ${parsed.accountId} | Region: ${parsed.region}`);
+        lines.push("");
+        lines.push(`## Security Service Coverage: ${coveragePercent}%`);
+        lines.push(`## Maturity Level: ${maturityLevel.charAt(0).toUpperCase() + maturityLevel.slice(1)}`);
+        lines.push("");
+        lines.push("### Service Status");
+        lines.push("");
+        lines.push("| Service | Status | Impact |");
+        lines.push("|---------|--------|--------|");
+        for (const svc of services) {
+          const status = svc.enabled === true ? "\u2705 Enabled" : svc.enabled === false ? "\u274C Not Enabled" : "\u26A0\uFE0F Unknown";
+          const impact = serviceImpacts[svc.name] ?? "";
+          lines.push(`| ${svc.name} | ${status} | ${impact} |`);
+        }
+        const unknowns = services.filter((s) => s.enabled === null);
+        if (unknowns.length > 0) {
+          lines.push("");
+          lines.push(`> \u26A0\uFE0F ${unknowns.length} service(s) could not be checked (access denied or detection error). Re-run with appropriate permissions for accurate coverage.`);
+        }
+        const disabled = services.filter((s) => s.enabled === false);
+        if (disabled.length > 0) {
+          lines.push("");
+          lines.push("### Recommendations (Priority Order)");
+          lines.push("");
+          const priorityOrder = ["Security Hub", "GuardDuty", "Inspector", "AWS Config", "Macie", "CloudTrail"];
+          const sorted = disabled.sort(
+            (a, b) => priorityOrder.indexOf(a.name) - priorityOrder.indexOf(b.name)
+          );
+          let idx = 1;
+          for (const svc of sorted) {
+            const trial = serviceFreeTrials[svc.name] ? " \u2014 free trial available" : "";
+            lines.push(`${idx}. Enable ${svc.name}${trial}`);
+            idx++;
+          }
+        }
+        lines.push("");
+        lines.push("### Maturity Roadmap");
+        lines.push("");
+        if (unknowns.length > 0) {
+          lines.push(`- **Current**: ${maturityLevel.charAt(0).toUpperCase() + maturityLevel.slice(1)} (${enabledCount}/${knownCount} known services, ${unknowns.length} unknown)`);
+        } else {
+          lines.push(`- **Current**: ${maturityLevel.charAt(0).toUpperCase() + maturityLevel.slice(1)} (${enabledCount}/${totalServices} services)`);
+        }
+        if (maturityLevel !== "comprehensive") {
+          const nextMilestones = {
+            basic: { level: "Intermediate", target: 2, suggestions: ["Security Hub", "GuardDuty"] },
+            intermediate: { level: "Advanced", target: 4, suggestions: ["Inspector", "AWS Config"] },
+            advanced: { level: "Comprehensive", target: 6, suggestions: ["Macie"] }
+          };
+          const next = nextMilestones[maturityLevel];
+          if (next) {
+            const remaining = next.suggestions.filter(
+              (s) => services.some((svc) => svc.name === s && !svc.enabled)
+            );
+            if (remaining.length > 0) {
+              lines.push(`- **Next milestone**: ${next.level} (${next.target}/${knownCount}) \u2014 enable ${remaining.join(" + ")}`);
+            }
+          }
+          lines.push(`- **Target**: Comprehensive (${knownCount}/${knownCount})`);
+        }
+        lines.push("");
+        const report = lines.join("\n");
+        return { content: [{ type: "text", text: report }] };
+      } catch (err) {
+        return {
+          content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }],
+          isError: true
+        };
       }
     }
   );

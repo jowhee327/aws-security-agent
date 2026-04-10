@@ -6,6 +6,7 @@ import { CloudTrailScanner } from '../../src/scanners/cloudtrail.js';
 import { RdsScanner } from '../../src/scanners/rds.js';
 import { EbsScanner } from '../../src/scanners/ebs.js';
 import { VpcScanner } from '../../src/scanners/vpc.js';
+import { ServiceDetectionScanner } from '../../src/scanners/service-detection.js';
 import { saveResults } from '../../src/tools/save-results.js';
 import { generateMarkdownReport } from '../../src/tools/report-tool.js';
 import { writeFileSync } from 'node:fs';
@@ -16,9 +17,9 @@ async function main() {
   console.log(`=== AWS Security MCP — China Region Test ===`);
   console.log(`Region : ${region}`);
   console.log(`Time   : ${new Date().toISOString()}\n`);
-  console.log('Running 7 scanners…\n');
+  console.log('Running 8 scanners (including service detection)…\n');
 
-  const scanners = [new SgScanner(), new S3Scanner(), new IamScanner(), new CloudTrailScanner(), new RdsScanner(), new EbsScanner(), new VpcScanner()];
+  const scanners = [new SgScanner(), new S3Scanner(), new IamScanner(), new CloudTrailScanner(), new RdsScanner(), new EbsScanner(), new VpcScanner(), new ServiceDetectionScanner()];
   const result = await runAllScanners(scanners, region);
 
   for (const m of result.modules) {
@@ -41,8 +42,8 @@ async function main() {
   console.log(`  HIGH           : ${result.summary.high}`);
   console.log(`  MEDIUM         : ${result.summary.medium}`);
   console.log(`  LOW            : ${result.summary.low}`);
-  console.log(`Modules OK       : ${result.summary.modulesSuccess}/7`);
-  console.log(`Modules error    : ${result.summary.modulesError}/7`);
+  console.log(`Modules OK       : ${result.summary.modulesSuccess}/8`);
+  console.log(`Modules error    : ${result.summary.modulesError}/8`);
 
   // Check ARN partition
   const sampleFindings = result.modules.flatMap(m => m.findings).slice(0, 3);

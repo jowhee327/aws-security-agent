@@ -11,6 +11,8 @@ import { CloudTrailScanner } from "./scanners/cloudtrail.js";
 import { RdsScanner } from "./scanners/rds.js";
 import { EbsScanner } from "./scanners/ebs.js";
 import { VpcScanner } from "./scanners/vpc.js";
+import { ServiceDetectionScanner } from "./scanners/service-detection.js";
+import type { ServiceDetectionResult } from "./scanners/service-detection.js";
 import { generateMarkdownReport } from "./tools/report-tool.js";
 import { saveResults } from "./tools/save-results.js";
 import {
@@ -45,6 +47,8 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
   rds: "Scans RDS instances for public accessibility, encryption, backups, and deletion protection.",
   ebs: "Checks EBS volumes and snapshots for encryption and public sharing.",
   vpc: "Reviews VPC configuration including default VPC usage, flow logs, and default security groups.",
+  service_detection:
+    "Detects which AWS security services (Security Hub, GuardDuty, Inspector, Config, Macie) are enabled and assesses security maturity.",
 };
 
 function summarizeResult(result: FullScanResult): string {
@@ -92,6 +96,7 @@ export function createServer(defaultRegion: string): McpServer {
     new RdsScanner(),
     new EbsScanner(),
     new VpcScanner(),
+    new ServiceDetectionScanner(),
   ];
 
   const scannerMap = new Map<string, Scanner>();
@@ -104,7 +109,7 @@ export function createServer(defaultRegion: string): McpServer {
   // 1. scan_all
   server.tool(
     "scan_all",
-    "Run all 7 security scanners in parallel. Read-only. Does not modify any AWS resources.",
+    "Run all 8 security scanners in parallel (including service detection). Read-only. Does not modify any AWS resources.",
     { region: z.string().optional().describe("AWS region to scan (default: server region)") },
     async ({ region }) => {
       try {
@@ -131,6 +136,7 @@ export function createServer(defaultRegion: string): McpServer {
     { toolName: "scan_rds", moduleName: "rds", label: "RDS" },
     { toolName: "scan_ebs", moduleName: "ebs", label: "EBS" },
     { toolName: "scan_vpc", moduleName: "vpc", label: "VPC" },
+    { toolName: "detect_services", moduleName: "service_detection", label: "Security Service Detection" },
   ];
 
   for (const { toolName, moduleName, label } of individualScanners) {
@@ -173,7 +179,142 @@ export function createServer(defaultRegion: string): McpServer {
     },
   );
 
-  // 10. save_results
+  // 10. generate_maturity_report
+  server.tool(
+    "generate_maturity_report",
+    "Generate a security maturity assessment report from scan_all results. Requires service_detection module output. Read-only.",
+    { scan_results: z.string().describe("JSON string of FullScanResult from scan_all") },
+    async ({ scan_results }) => {
+      try {
+        const parsed: FullScanResult = JSON.parse(scan_results);
+        const sdModule = parsed.modules.find((m) => m.module === "service_detection");
+        if (!sdModule) {
+          return {
+            content: [{ type: "text", text: "Error: scan results do not include service_detection module. Run scan_all first." }],
+            isError: true,
+          };
+        }
+
+        // Extract the serviceDetection data attached by the scanner
+        const detection = (sdModule as ScanResult & { serviceDetection?: ServiceDetectionResult }).serviceDetection;
+
+        if (!detection) {
+          return {
+            content: [{ type: "text", text: "Error: service detection data is missing (possible JSON round-trip loss). Run scan_all to get fresh results with complete service detection data." }],
+            isError: true,
+          };
+        }
+
+        const serviceImpacts: Record<string, string> = {
+          "CloudTrail": "API activity logging",
+          "Security Hub": "+300 security checks",
+          "GuardDuty": "Threat detection",
+          "Inspector": "Vulnerability scanning",
+          "AWS Config": "Configuration tracking",
+          "Macie": "Sensitive data detection",
+        };
+        const serviceFreeTrials: Record<string, boolean> = {
+          "Security Hub": true,
+          "GuardDuty": true,
+          "Inspector": true,
+          "Macie": true,
+        };
+
+        const services = detection.services;
+        const coveragePercent = detection.coveragePercent;
+        const maturityLevel = detection.maturityLevel;
+
+        const enabledCount = services.filter((s) => s.enabled === true).length;
+        const knownCount = services.filter((s) => s.enabled !== null).length;
+        const totalServices = services.length;
+
+        // Build the report
+        const lines: string[] = [];
+        lines.push("# AWS Security Maturity Assessment");
+        lines.push("");
+        lines.push(`## Account: ${parsed.accountId} | Region: ${parsed.region}`);
+        lines.push("");
+        lines.push(`## Security Service Coverage: ${coveragePercent}%`);
+        lines.push(`## Maturity Level: ${maturityLevel.charAt(0).toUpperCase() + maturityLevel.slice(1)}`);
+        lines.push("");
+        lines.push("### Service Status");
+        lines.push("");
+        lines.push("| Service | Status | Impact |");
+        lines.push("|---------|--------|--------|");
+        for (const svc of services) {
+          const status = svc.enabled === true ? "\u2705 Enabled" : svc.enabled === false ? "\u274c Not Enabled" : "\u26a0\ufe0f Unknown";
+          const impact = serviceImpacts[svc.name] ?? "";
+          lines.push(`| ${svc.name} | ${status} | ${impact} |`);
+        }
+
+        const unknowns = services.filter((s) => s.enabled === null);
+        if (unknowns.length > 0) {
+          lines.push("");
+          lines.push(`> \u26a0\ufe0f ${unknowns.length} service(s) could not be checked (access denied or detection error). Re-run with appropriate permissions for accurate coverage.`);
+        }
+
+        // Recommendations
+        const disabled = services.filter((s) => s.enabled === false);
+        if (disabled.length > 0) {
+          lines.push("");
+          lines.push("### Recommendations (Priority Order)");
+          lines.push("");
+          // Priority order: Security Hub, GuardDuty, Inspector, Config, Macie, CloudTrail
+          const priorityOrder = ["Security Hub", "GuardDuty", "Inspector", "AWS Config", "Macie", "CloudTrail"];
+          const sorted = disabled.sort(
+            (a, b) => priorityOrder.indexOf(a.name) - priorityOrder.indexOf(b.name),
+          );
+          let idx = 1;
+          for (const svc of sorted) {
+            const trial = serviceFreeTrials[svc.name] ? " \u2014 free trial available" : "";
+            lines.push(`${idx}. Enable ${svc.name}${trial}`);
+            idx++;
+          }
+        }
+
+        // Maturity roadmap
+        lines.push("");
+        lines.push("### Maturity Roadmap");
+        lines.push("");
+        if (unknowns.length > 0) {
+          lines.push(`- **Current**: ${maturityLevel.charAt(0).toUpperCase() + maturityLevel.slice(1)} (${enabledCount}/${knownCount} known services, ${unknowns.length} unknown)`);
+        } else {
+          lines.push(`- **Current**: ${maturityLevel.charAt(0).toUpperCase() + maturityLevel.slice(1)} (${enabledCount}/${totalServices} services)`);
+        }
+
+        if (maturityLevel !== "comprehensive") {
+          const nextMilestones: Record<string, { level: string; target: number; suggestions: string[] }> = {
+            basic: { level: "Intermediate", target: 2, suggestions: ["Security Hub", "GuardDuty"] },
+            intermediate: { level: "Advanced", target: 4, suggestions: ["Inspector", "AWS Config"] },
+            advanced: { level: "Comprehensive", target: 6, suggestions: ["Macie"] },
+          };
+          const next = nextMilestones[maturityLevel];
+          if (next) {
+            const remaining = next.suggestions.filter((s) =>
+              services.some((svc) => svc.name === s && !svc.enabled),
+            );
+            if (remaining.length > 0) {
+              lines.push(`- **Next milestone**: ${next.level} (${next.target}/${knownCount}) \u2014 enable ${remaining.join(" + ")}`);
+            }
+          }
+          lines.push(`- **Target**: Comprehensive (${knownCount}/${knownCount})`);
+        }
+
+        lines.push("");
+
+        const report = lines.join("\n");
+
+        return { content: [{ type: "text", text: report }] };
+      } catch (err) {
+        return {
+          content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // 11. save_results
   server.tool(
     "save_results",
     "Saves scan results to local disk or S3 for dashboard display. Does not modify any AWS resources.",

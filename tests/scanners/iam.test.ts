@@ -80,7 +80,7 @@ describe("IamScanner", () => {
     expect(rootMfaFinding).toBeUndefined();
   });
 
-  it("uses correct partition for China region", async () => {
+  it("skips root user checks in AWS China regions", async () => {
     const cnCtx: ScanContext = {
       region: "cn-north-1",
       partition: "aws-cn",
@@ -92,10 +92,6 @@ describe("IamScanner", () => {
       switch (name) {
         case "GetAccountSummaryCommand":
           return { SummaryMap: { AccountMFAEnabled: 0 } };
-        case "GenerateCredentialReportCommand":
-          return {};
-        case "GetCredentialReportCommand":
-          return { Content: Buffer.from("user,access_key_1_active,access_key_2_active\n<root_account>,false,false") };
         case "ListUsersCommand":
           return { Users: [], IsTruncated: false };
         default:
@@ -105,11 +101,21 @@ describe("IamScanner", () => {
 
     const result = await scanner.scan(cnCtx);
 
+    expect(result.status).toBe("success");
+    // Should NOT produce root MFA finding
     const rootMfaFinding = result.findings.find(
       (f) => f.title === "Root account does not have MFA enabled",
     );
-    expect(rootMfaFinding).toBeDefined();
-    expect(rootMfaFinding!.resourceArn).toBe("arn:aws-cn:iam::123456789012:root");
+    expect(rootMfaFinding).toBeUndefined();
+    // Should NOT produce root access key finding
+    const rootKeyFinding = result.findings.find(
+      (f) => f.title === "Root account has active access keys",
+    );
+    expect(rootKeyFinding).toBeUndefined();
+    // Should have China warning
+    expect(result.warnings).toContain(
+      "Root user checks skipped: AWS China regions use partner-managed accounts without root user.",
+    );
   });
 
   it("checks access key last used for inactive user detection", async () => {
