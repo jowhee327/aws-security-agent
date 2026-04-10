@@ -19192,6 +19192,637 @@ function generateMlps3Report(scanResults) {
   return lines.join("\n");
 }
 
+// src/tools/html-report.ts
+function esc2(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function calcScore(summary) {
+  const raw = 100 - summary.critical * 15 - summary.high * 5 - summary.medium * 2 - summary.low * 0.5;
+  return Math.max(0, Math.min(100, Math.round(raw)));
+}
+function formatDuration2(start, end) {
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  if (ms < 1e3) return `${ms}ms`;
+  const secs = Math.round(ms / 1e3);
+  if (secs < 60) return `${secs}s`;
+  return `${Math.floor(secs / 60)}m ${secs % 60}s`;
+}
+var SEV_COLOR = {
+  CRITICAL: "#ef4444",
+  HIGH: "#f97316",
+  MEDIUM: "#eab308",
+  LOW: "#22c55e"
+};
+var SEVERITY_ORDER2 = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
+function scoreColor(score) {
+  if (score >= 80) return "#22c55e";
+  if (score >= 50) return "#eab308";
+  return "#ef4444";
+}
+function sharedCss() {
+  return `
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:#0f172a;color:#f8fafc;font-family:Inter,system-ui,-apple-system,sans-serif;line-height:1.6;font-size:14px}
+    .container{max-width:900px;margin:0 auto;padding:40px 24px}
+    header{text-align:center;margin-bottom:40px;border-bottom:1px solid #334155;padding-bottom:24px}
+    header h1{font-size:28px;font-weight:700;margin-bottom:8px;letter-spacing:-0.5px}
+    .meta{color:#94a3b8;font-size:13px}
+    .disclaimer{color:#94a3b8;font-size:12px;font-style:italic;margin-top:8px;max-width:640px;margin-left:auto;margin-right:auto}
+    h2{font-size:20px;font-weight:600;margin:32px 0 16px;padding-bottom:8px;border-bottom:1px solid #334155}
+    h3{font-size:16px;font-weight:600;margin:16px 0 8px}
+    h4{font-size:14px;font-weight:600;margin:12px 0 4px}
+    .card{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:20px;margin-bottom:16px}
+    .summary{display:flex;gap:24px;margin-bottom:32px;flex-wrap:wrap}
+    .score-card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:24px 32px;text-align:center;flex:0 0 auto}
+    .score-value{font-size:48px;font-weight:700}
+    .score-label{color:#94a3b8;font-size:13px;margin-top:4px}
+    .severity-stats{display:flex;gap:12px;flex-wrap:wrap;flex:1;align-items:center;justify-content:center}
+    .stat-card{border-radius:8px;padding:16px 20px;text-align:center;min-width:100px;border:1px solid #334155;background:#1e293b}
+    .stat-count{font-size:28px;font-weight:700}
+    .stat-label{font-size:12px;color:#94a3b8;margin-top:2px}
+    .stat-critical .stat-count{color:#ef4444}
+    .stat-high .stat-count{color:#f97316}
+    .stat-medium .stat-count{color:#eab308}
+    .stat-low .stat-count{color:#22c55e}
+    .charts{display:flex;gap:24px;margin-bottom:32px;flex-wrap:wrap;justify-content:center}
+    .chart-box{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:20px;flex:1;min-width:280px}
+    .chart-title{font-size:14px;font-weight:600;margin-bottom:12px;text-align:center;color:#cbd5e1}
+    .sev-critical{border-left-color:#ef4444}
+    .sev-high{border-left-color:#f97316}
+    .sev-medium{border-left-color:#eab308}
+    .sev-low{border-left-color:#22c55e}
+    .badge{display:inline-block;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:0.5px;color:#fff}
+    .badge-critical{background:#ef4444}
+    .badge-high{background:#f97316}
+    .badge-medium{background:#eab308;color:#1e293b}
+    .badge-low{background:#22c55e;color:#1e293b}
+    .finding-title{font-size:15px;font-weight:600;margin-bottom:8px}
+    .finding-detail{color:#cbd5e1;font-size:13px;margin-bottom:4px}
+    .finding-detail strong{color:#f8fafc}
+    .remediation-steps{margin-top:8px;padding-left:20px}
+    .remediation-steps li{color:#cbd5e1;font-size:13px;margin-bottom:4px}
+    table{width:100%;border-collapse:collapse;margin-bottom:16px}
+    th{background:#334155;color:#f8fafc;padding:10px 12px;text-align:left;font-size:13px;font-weight:600}
+    td{padding:8px 12px;border-bottom:1px solid #334155;font-size:13px;color:#cbd5e1}
+    tr:hover td{background:rgba(51,65,85,0.3)}
+    .recommendations ol{padding-left:24px}
+    .recommendations li{margin-bottom:8px;color:#cbd5e1;font-size:13px}
+    .priority-p0{color:#ef4444;font-weight:700}
+    .priority-p1{color:#f97316;font-weight:700}
+    .priority-p2{color:#eab308;font-weight:700}
+    .priority-p3{color:#22c55e;font-weight:700}
+    footer{margin-top:48px;padding-top:24px;border-top:1px solid #334155;text-align:center}
+    footer p{color:#64748b;font-size:12px;margin-bottom:4px}
+    .check-item{display:flex;align-items:flex-start;gap:8px;padding:8px 12px;border-radius:6px;margin-bottom:4px;font-size:14px}
+    .check-pass{background:rgba(34,197,94,0.1)}
+    .check-fail{background:rgba(239,68,68,0.1)}
+    .check-unknown{background:rgba(148,163,184,0.1)}
+    .check-icon{font-size:16px;flex-shrink:0}
+    .check-name{font-weight:500}
+    .check-findings{margin-left:28px;margin-top:4px}
+    .check-findings li{color:#94a3b8;font-size:12px;margin-bottom:2px;list-style:none}
+    .no-findings{text-align:center;padding:40px;color:#22c55e;font-size:18px;font-weight:600}
+    .finding-fold{background:#1e293b;border:1px solid #334155;border-radius:8px;margin-bottom:12px;border-left:4px solid;overflow:hidden}
+    .finding-fold>summary{cursor:pointer;padding:12px 20px;display:flex;align-items:center;gap:12px;list-style:none;user-select:none}
+    .finding-fold>summary::-webkit-details-marker{display:none}
+    .finding-fold>summary::marker{content:""}
+    .finding-fold>summary .badge{margin-bottom:0}
+    .finding-fold>summary::after{content:"\\25B6";font-size:10px;color:#64748b;flex-shrink:0;transition:transform 0.2s}
+    .finding-fold[open]>summary::after{transform:rotate(90deg)}
+    .finding-fold[open]>summary{border-bottom:1px solid #334155}
+    .finding-body{padding:12px 20px 16px}
+    .finding-summary-title{font-weight:600;font-size:14px;flex:1}
+    .finding-summary-score{color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap}
+    .top5-card{display:flex;gap:16px;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:24px;margin-bottom:16px;border-left:4px solid}
+    .top5-card .badge{margin-bottom:0}
+    .top5-rank{font-size:28px;font-weight:800;color:#475569;min-width:44px;display:flex;align-items:flex-start;justify-content:center}
+    .top5-content{flex:1}
+    .top5-title{font-size:17px;font-weight:700;margin:8px 0}
+    .top5-detail{color:#cbd5e1;font-size:13px;margin-bottom:4px}
+    .top5-detail strong{color:#f8fafc}
+    .top5-remediation{margin-top:8px;padding-left:20px}
+    .top5-remediation li{color:#cbd5e1;font-size:13px;margin-bottom:4px}
+    .trend-section{margin-bottom:32px}
+    .trend-chart{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:20px;margin-bottom:16px}
+    .trend-title{font-size:14px;font-weight:600;margin-bottom:12px;text-align:center;color:#cbd5e1}
+    .category-fold{background:#1e293b;border:1px solid #334155;border-radius:8px;margin-bottom:16px;overflow:hidden}
+    .category-fold>summary{cursor:pointer;padding:16px 20px;display:flex;align-items:center;gap:12px;list-style:none;font-size:18px;font-weight:600;user-select:none}
+    .category-fold>summary::-webkit-details-marker{display:none}
+    .category-fold>summary::marker{content:""}
+    .category-fold>summary::after{content:"\\25B6";font-size:12px;color:#64748b;flex-shrink:0;transition:transform 0.2s}
+    .category-fold[open]>summary::after{transform:rotate(90deg)}
+    .category-fold[open]>summary{border-bottom:1px solid #334155}
+    .category-body{padding:12px 20px 16px}
+    .category-title{flex:1}
+    .category-stats{display:inline-flex;gap:12px;font-size:13px}
+    .category-stat-pass{color:#22c55e}
+    .category-stat-fail{color:#ef4444}
+    .category-stat-unknown{color:#94a3b8}
+    @media print{
+      body{background:#fff;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .container{max-width:100%;padding:20px}
+      .card,.score-card,.stat-card,.chart-box,.finding-fold,.top5-card,.trend-chart,.category-fold{background:#fff;border:1px solid #e2e8f0}
+      .badge{border:1px solid}
+      header{border-bottom-color:#e2e8f0}
+      h2{border-bottom-color:#e2e8f0}
+      th{background:#f1f5f9;color:#1e293b}
+      td{border-bottom-color:#e2e8f0;color:#475569}
+      footer{border-top-color:#e2e8f0}
+      .meta,.disclaimer{color:#64748b}
+      .finding-detail,.top5-detail{color:#475569}
+      .finding-detail strong,.top5-detail strong{color:#1e293b}
+      .stat-label,.score-label{color:#64748b}
+      .chart-title,.trend-title{color:#475569}
+      .remediation-steps li,.top5-remediation li{color:#475569}
+      .recommendations li{color:#475569}
+      .check-findings li{color:#64748b}
+      .finding-fold,.top5-card,.category-fold{break-inside:avoid}
+      .check-item{break-inside:avoid}
+      svg text{fill:#1e293b !important}
+      .finding-fold[open]>summary,.category-fold[open]>summary{border-bottom-color:#e2e8f0}
+    }
+  `;
+}
+function donutChart(summary) {
+  const total = summary.totalFindings;
+  const r = 80;
+  const circ = 2 * Math.PI * r;
+  if (total === 0) {
+    return [
+      '<svg viewBox="0 0 200 200" width="200" height="200">',
+      '  <circle cx="100" cy="100" r="80" fill="none" stroke="#334155" stroke-width="20"/>',
+      '  <text x="100" y="105" text-anchor="middle" fill="#22c55e" font-size="24" font-weight="700">0</text>',
+      "</svg>"
+    ].join("\n");
+  }
+  const segments = [
+    { count: summary.critical, color: SEV_COLOR.CRITICAL },
+    { count: summary.high, color: SEV_COLOR.HIGH },
+    { count: summary.medium, color: SEV_COLOR.MEDIUM },
+    { count: summary.low, color: SEV_COLOR.LOW }
+  ].filter((s) => s.count > 0);
+  let offset = 0;
+  const circles = segments.map((s) => {
+    const arc = s.count / total * circ;
+    const el = `<circle cx="100" cy="100" r="80" fill="none" stroke="${s.color}" stroke-width="20" stroke-dasharray="${arc.toFixed(2)} ${(circ - arc).toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 100 100)"/>`;
+    offset += arc;
+    return el;
+  });
+  return [
+    '<svg viewBox="0 0 200 200" width="200" height="200">',
+    ...circles.map((c) => `  ${c}`),
+    `  <text x="100" y="105" text-anchor="middle" fill="#f8fafc" font-size="28" font-weight="700">${total}</text>`,
+    "</svg>"
+  ].join("\n");
+}
+function barChart(modules) {
+  const withFindings = modules.filter((m) => m.findingsCount > 0).sort((a, b) => b.findingsCount - a.findingsCount).slice(0, 12);
+  if (withFindings.length === 0) {
+    return [
+      '<svg viewBox="0 0 400 50" width="100%">',
+      '  <text x="200" y="30" text-anchor="middle" fill="#22c55e" font-size="14" font-weight="600">All modules clean</text>',
+      "</svg>"
+    ].join("\n");
+  }
+  const maxCount = withFindings[0].findingsCount;
+  const barH = 22;
+  const gap = 6;
+  const labelW = 160;
+  const maxBarW = 190;
+  const height = withFindings.length * (barH + gap);
+  const bars = withFindings.map((m, i) => {
+    const y = i * (barH + gap);
+    const w = Math.max(4, m.findingsCount / maxCount * maxBarW);
+    const worstSev = m.findings.reduce((worst, f) => {
+      const idx = SEVERITY_ORDER2.indexOf(f.severity);
+      return idx < SEVERITY_ORDER2.indexOf(worst) ? f.severity : worst;
+    }, "LOW");
+    const color = SEV_COLOR[worstSev];
+    return [
+      `<text x="${labelW - 8}" y="${y + barH / 2 + 4}" text-anchor="end" fill="#94a3b8" font-size="11">${esc2(m.module)}</text>`,
+      `<rect x="${labelW}" y="${y}" width="${w.toFixed(1)}" height="${barH}" rx="3" fill="${color}" opacity="0.85"/>`,
+      `<text x="${labelW + w + 6}" y="${y + barH / 2 + 4}" fill="#f8fafc" font-size="11">${m.findingsCount}</text>`
+    ].join("\n");
+  });
+  return [
+    `<svg viewBox="0 0 400 ${height}" width="100%">`,
+    ...bars,
+    "</svg>"
+  ].join("\n");
+}
+function findingsTrendChart(history) {
+  const entries = history.slice(-30);
+  if (entries.length < 2) return "";
+  const W = 800;
+  const H = 260;
+  const pad = { top: 30, right: 20, bottom: 50, left: 50 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+  const maxVal = Math.max(
+    1,
+    ...entries.flatMap((e) => [e.critical, e.high, e.medium, e.low])
+  );
+  const xPos = (i) => pad.left + i / Math.max(1, entries.length - 1) * plotW;
+  const yPos = (v) => pad.top + plotH - v / maxVal * plotH;
+  const lines = [
+    { key: "critical", color: "#ef4444", label: "Critical" },
+    { key: "high", color: "#f97316", label: "High" },
+    { key: "medium", color: "#eab308", label: "Medium" },
+    { key: "low", color: "#22c55e", label: "Low" }
+  ];
+  const polylines = lines.map((line) => {
+    const pts = entries.map(
+      (e, i) => `${xPos(i).toFixed(1)},${yPos(e[line.key]).toFixed(1)}`
+    ).join(" ");
+    return `<polyline points="${pts}" fill="none" stroke="${line.color}" stroke-width="2" stroke-linejoin="round"/>`;
+  }).join("\n  ");
+  const xLabels = entries.map((e, i) => {
+    if (i % 5 !== 0 && i !== entries.length - 1) return "";
+    return `<text x="${xPos(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" fill="#94a3b8" font-size="10">${e.date.slice(5)}</text>`;
+  }).filter(Boolean).join("\n  ");
+  const ySteps = 5;
+  const yLabels = Array.from({ length: ySteps + 1 }, (_, i) => {
+    const val = Math.round(maxVal / ySteps * i);
+    return [
+      `<text x="${pad.left - 8}" y="${yPos(val).toFixed(1)}" text-anchor="end" fill="#94a3b8" font-size="10" dominant-baseline="middle">${val}</text>`,
+      `<line x1="${pad.left}" y1="${yPos(val).toFixed(1)}" x2="${W - pad.right}" y2="${yPos(val).toFixed(1)}" stroke="#334155" stroke-width="0.5"/>`
+    ].join("\n  ");
+  }).join("\n  ");
+  const legend = lines.map((line, i) => {
+    const lx = pad.left + i * 110;
+    return `<rect x="${lx}" y="8" width="14" height="3" rx="1" fill="${line.color}"/><text x="${lx + 18}" y="12" fill="#94a3b8" font-size="10">${line.label}</text>`;
+  }).join("\n  ");
+  return [
+    `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet">`,
+    `  ${legend}`,
+    `  ${yLabels}`,
+    `  ${polylines}`,
+    `  ${xLabels}`,
+    "</svg>"
+  ].join("\n");
+}
+function scoreTrendChart(history) {
+  const entries = history.slice(-30);
+  if (entries.length < 2) return "";
+  const W = 800;
+  const H = 220;
+  const pad = { top: 20, right: 20, bottom: 50, left: 50 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+  const xPos = (i) => pad.left + i / Math.max(1, entries.length - 1) * plotW;
+  const yPos = (v) => pad.top + plotH - v / 100 * plotH;
+  const pts = entries.map((e, i) => `${xPos(i).toFixed(1)},${yPos(e.score).toFixed(1)}`).join(" ");
+  const zones = [
+    `<rect x="${pad.left}" y="${yPos(100).toFixed(1)}" width="${plotW}" height="${(yPos(80) - yPos(100)).toFixed(1)}" fill="#22c55e" opacity="0.06"/>`,
+    `<rect x="${pad.left}" y="${yPos(80).toFixed(1)}" width="${plotW}" height="${(yPos(50) - yPos(80)).toFixed(1)}" fill="#eab308" opacity="0.06"/>`,
+    `<rect x="${pad.left}" y="${yPos(50).toFixed(1)}" width="${plotW}" height="${(yPos(0) - yPos(50)).toFixed(1)}" fill="#ef4444" opacity="0.06"/>`
+  ].join("\n  ");
+  const xLabels = entries.map((e, i) => {
+    if (i % 5 !== 0 && i !== entries.length - 1) return "";
+    return `<text x="${xPos(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" fill="#94a3b8" font-size="10">${e.date.slice(5)}</text>`;
+  }).filter(Boolean).join("\n  ");
+  const yVals = [0, 25, 50, 75, 100];
+  const yLabels = yVals.map(
+    (val) => `<text x="${pad.left - 8}" y="${yPos(val).toFixed(1)}" text-anchor="end" fill="#94a3b8" font-size="10" dominant-baseline="middle">${val}</text>
+  <line x1="${pad.left}" y1="${yPos(val).toFixed(1)}" x2="${W - pad.right}" y2="${yPos(val).toFixed(1)}" stroke="#334155" stroke-width="0.5"/>`
+  ).join("\n  ");
+  return [
+    `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet">`,
+    `  ${zones}`,
+    `  ${yLabels}`,
+    `  <polyline points="${pts}" fill="none" stroke="#60a5fa" stroke-width="2.5" stroke-linejoin="round"/>`,
+    `  ${xLabels}`,
+    "</svg>"
+  ].join("\n");
+}
+function generateHtmlReport(scanResults, history) {
+  const { summary, modules, accountId, region, scanStart, scanEnd } = scanResults;
+  const date5 = scanStart.split("T")[0];
+  const duration3 = formatDuration2(scanStart, scanEnd);
+  const score = calcScore(summary);
+  const allFindings = modules.flatMap(
+    (m) => m.findings.map((f) => ({ ...f, module: f.module ?? m.module }))
+  );
+  let top5Html = "";
+  if (allFindings.length > 0) {
+    const top5 = [...allFindings].sort((a, b) => b.riskScore - a.riskScore).slice(0, 5);
+    const cards = top5.map(
+      (f, i) => `
+      <div class="top5-card sev-${f.severity.toLowerCase()}">
+        <div class="top5-rank">#${i + 1}</div>
+        <div class="top5-content">
+          <span class="badge badge-${f.severity.toLowerCase()}">${f.severity}</span>
+          <div class="top5-title">${esc2(f.title)}</div>
+          <div class="top5-detail"><strong>Resource:</strong> ${esc2(f.resourceId)}</div>
+          <div class="top5-detail"><strong>Impact:</strong> ${esc2(f.impact)}</div>
+          <div class="top5-detail"><strong>Risk Score:</strong> ${f.riskScore}/10</div>
+          <h4>Remediation</h4>
+          <ol class="top5-remediation">${f.remediationSteps.map((s) => `<li>${esc2(s)}</li>`).join("")}</ol>
+        </div>
+      </div>`
+    ).join("\n");
+    top5Html = `
+    <section>
+      <h2>Top ${top5.length} Critical Findings</h2>
+      ${cards}
+    </section>`;
+  }
+  let findingsHtml;
+  if (summary.totalFindings === 0) {
+    findingsHtml = '<div class="no-findings">No security issues found.</div>';
+  } else {
+    const grouped = /* @__PURE__ */ new Map();
+    for (const sev of SEVERITY_ORDER2) grouped.set(sev, []);
+    for (const f of allFindings) grouped.get(f.severity).push(f);
+    const sections = SEVERITY_ORDER2.map((sev) => {
+      const findings = grouped.get(sev);
+      if (findings.length === 0) return "";
+      findings.sort((a, b) => b.riskScore - a.riskScore);
+      const openAttr = sev === "CRITICAL" ? " open" : "";
+      const cards = findings.map(
+        (f) => `
+        <details class="finding-fold sev-${sev.toLowerCase()}"${openAttr}>
+          <summary>
+            <span class="badge badge-${sev.toLowerCase()}">${sev}</span>
+            <span class="finding-summary-title">${esc2(f.title)}</span>
+            <span class="finding-summary-score">${f.riskScore}/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> ${esc2(f.resourceId)}</div>
+            <div class="finding-detail"><strong>Description:</strong> ${esc2(f.description)}</div>
+            <div class="finding-detail"><strong>Impact:</strong> ${esc2(f.impact)}</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps">${f.remediationSteps.map((s) => `<li>${esc2(s)}</li>`).join("")}</ol>
+          </div>
+        </details>`
+      ).join("\n");
+      return `<h3>${sev.charAt(0)}${sev.slice(1).toLowerCase()} (${findings.length})</h3>
+${cards}`;
+    }).filter(Boolean).join("\n");
+    findingsHtml = sections;
+  }
+  let trendHtml = "";
+  if (history && history.length >= 2) {
+    trendHtml = `
+    <section class="trend-section">
+      <h2>30-Day Trends</h2>
+      <div class="trend-chart">
+        <div class="trend-title">Findings by Severity</div>
+        ${findingsTrendChart(history)}
+      </div>
+      <div class="trend-chart">
+        <div class="trend-title">Security Score</div>
+        ${scoreTrendChart(history)}
+      </div>
+    </section>`;
+  }
+  const statsRows = modules.map(
+    (m) => `<tr><td>${esc2(m.module)}</td><td>${m.resourcesScanned}</td><td>${m.findingsCount}</td><td>${m.status === "success" ? "&#10003;" : "&#10007;"}</td></tr>`
+  ).join("\n");
+  let recsHtml = "";
+  if (summary.totalFindings > 0) {
+    const sorted = [...allFindings].sort((a, b) => b.riskScore - a.riskScore);
+    const items = sorted.map((f) => {
+      const pc = f.priority.toLowerCase();
+      const rem = f.remediationSteps[0] ?? "Review and remediate.";
+      return `<li><span class="priority-${pc}">[${f.priority}]</span> ${esc2(f.title)}: ${esc2(rem)}</li>`;
+    }).join("\n");
+    recsHtml = `
+      <section class="recommendations">
+        <h2>Recommendations (Priority Order)</h2>
+        <ol>${items}</ol>
+      </section>`;
+  }
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AWS Security Scan Report &mdash; ${esc2(date5)}</title>
+<style>${sharedCss()}</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>&#128737;&#65039; AWS Security Scan Report</h1>
+  <div class="meta">Account: ${esc2(accountId)} | Region: ${esc2(region)} | ${esc2(date5)} | Duration: ${esc2(duration3)}</div>
+</header>
+
+<section class="summary">
+  <div class="score-card">
+    <div class="score-value" style="color:${scoreColor(score)}">${score}</div>
+    <div class="score-label">Security Score</div>
+  </div>
+  <div class="severity-stats">
+    <div class="stat-card stat-critical"><div class="stat-count">${summary.critical}</div><div class="stat-label">Critical</div></div>
+    <div class="stat-card stat-high"><div class="stat-count">${summary.high}</div><div class="stat-label">High</div></div>
+    <div class="stat-card stat-medium"><div class="stat-count">${summary.medium}</div><div class="stat-label">Medium</div></div>
+    <div class="stat-card stat-low"><div class="stat-count">${summary.low}</div><div class="stat-label">Low</div></div>
+  </div>
+</section>
+
+<section class="charts">
+  <div class="chart-box">
+    <div class="chart-title">Severity Distribution</div>
+    <div style="text-align:center">${donutChart(summary)}</div>
+  </div>
+  <div class="chart-box">
+    <div class="chart-title">Findings by Module</div>
+    ${barChart(modules)}
+  </div>
+</section>
+
+${trendHtml}
+
+${top5Html}
+
+<section>
+  <h2>Scan Statistics</h2>
+  <table>
+    <thead><tr><th>Module</th><th>Resources</th><th>Findings</th><th>Status</th></tr></thead>
+    <tbody>${statsRows}</tbody>
+  </table>
+</section>
+
+<section>
+  <h2>All Findings by Severity</h2>
+  ${findingsHtml}
+</section>
+
+${recsHtml}
+
+<footer>
+  <p>Generated by AWS Security MCP Server v0.3.0</p>
+  <p>This report is for informational purposes only.</p>
+</footer>
+
+</div>
+</body>
+</html>`;
+}
+function generateMlps3HtmlReport(scanResults, history) {
+  const { accountId, region, scanStart } = scanResults;
+  const date5 = scanStart.split("T")[0];
+  const scanTime = scanStart.replace("T", " ").replace(/\.\d+Z$/, " UTC");
+  const allFindings = scanResults.modules.flatMap(
+    (m) => m.findings.map((f) => ({ ...f, module: f.module ?? m.module }))
+  );
+  const scanModules = scanResults.modules.map((m) => ({
+    module: m.module,
+    status: m.status
+  }));
+  const results = MLPS_CHECKS.map(
+    (check2) => evaluateCheck(check2, allFindings, scanModules)
+  );
+  const passCount = results.filter((r) => r.status === "pass").length;
+  const failCount = results.filter((r) => r.status === "fail").length;
+  const unknownCount = results.filter((r) => r.status === "unknown").length;
+  const checkedTotal = passCount + failCount;
+  const percent = checkedTotal > 0 ? Math.round(passCount / checkedTotal * 100) : 0;
+  let trendHtml = "";
+  if (history && history.length >= 2) {
+    trendHtml = `
+    <section class="trend-section">
+      <h2>30\u65E5\u8D8B\u52BF</h2>
+      <div class="trend-chart">
+        <div class="trend-title">\u6309\u4E25\u91CD\u6027\u5206\u7C7B\u7684\u53D1\u73B0</div>
+        ${findingsTrendChart(history)}
+      </div>
+      <div class="trend-chart">
+        <div class="trend-title">\u5B89\u5168\u8BC4\u5206</div>
+        ${scoreTrendChart(history)}
+      </div>
+    </section>`;
+  }
+  const categorySections = CATEGORY_ORDER.map((category) => {
+    const sectionTitle = CATEGORY_SECTION[category];
+    const categoryResults = results.filter(
+      (r) => r.check.category === category
+    );
+    if (categoryResults.length === 0) return "";
+    const catPass = categoryResults.filter((r) => r.status === "pass").length;
+    const catFail = categoryResults.filter((r) => r.status === "fail").length;
+    const catUnknown = categoryResults.filter(
+      (r) => r.status === "unknown"
+    ).length;
+    const hasFailure = catFail > 0;
+    const openAttr = hasFailure ? " open" : "";
+    const byId = /* @__PURE__ */ new Map();
+    for (const r of categoryResults) {
+      const existing = byId.get(r.check.id) ?? [];
+      existing.push(r);
+      byId.set(r.check.id, existing);
+    }
+    const groups = [...byId.entries()].map(([checkId, checkResults]) => {
+      const items = checkResults.map((r) => {
+        const icon = r.status === "pass" ? "&#10004;" : r.status === "fail" ? "&#10008;" : "&#9888;";
+        const cls = `check-${r.status}`;
+        const label = r.status === "unknown" ? " (\u672A\u68C0\u67E5)" : "";
+        let findingsHtml = "";
+        if (r.status === "fail" && r.relatedFindings.length > 0) {
+          const items2 = r.relatedFindings.slice(0, 3).map(
+            (f) => `<li>${esc2(f.severity)}: ${esc2(f.title)}</li>`
+          );
+          if (r.relatedFindings.length > 3) {
+            items2.push(
+              `<li>... \u53CA\u5176\u4ED6 ${r.relatedFindings.length - 3} \u9879</li>`
+            );
+          }
+          findingsHtml = `<ul class="check-findings">${items2.join("")}</ul>`;
+        }
+        return `<div class="check-item ${cls}"><span class="check-icon">${icon}</span><span class="check-name">${esc2(r.check.name)}${label}</span></div>${findingsHtml}`;
+      }).join("\n");
+      return `<h3>${esc2(checkId)} ${esc2(checkResults[0].check.name)}</h3>
+${items}`;
+    }).join("\n");
+    const statsHtml = [
+      catPass > 0 ? `<span class="category-stat-pass">&#10003; ${catPass}</span>` : "",
+      catFail > 0 ? `<span class="category-stat-fail">&#10007; ${catFail}</span>` : "",
+      catUnknown > 0 ? `<span class="category-stat-unknown">? ${catUnknown}</span>` : ""
+    ].filter(Boolean).join("");
+    return `<details class="category-fold"${openAttr}>
+  <summary>
+    <span class="category-title">${esc2(sectionTitle)}</span>
+    <span class="category-stats">${statsHtml}</span>
+  </summary>
+  <div class="category-body">${groups}</div>
+</details>`;
+  }).filter(Boolean).join("\n");
+  const failedResults = results.filter((r) => r.status === "fail");
+  let remediationHtml = "";
+  if (failedResults.length > 0) {
+    const allFailedFindings = /* @__PURE__ */ new Map();
+    for (const r of failedResults) {
+      for (const f of r.relatedFindings) {
+        const key = `${f.resourceId}:${f.title}`;
+        if (!allFailedFindings.has(key)) {
+          allFailedFindings.set(key, f);
+        }
+      }
+    }
+    const sorted = [...allFailedFindings.values()].sort(
+      (a, b) => b.riskScore - a.riskScore
+    );
+    const items = sorted.map((f) => {
+      const p = f.riskScore >= 9 ? "P0" : f.riskScore >= 7 ? "P1" : f.riskScore >= 4 ? "P2" : "P3";
+      const rem = f.remediationSteps[0] ?? "Review and remediate.";
+      return `<li><span class="priority-${p.toLowerCase()}">[${p}]</span> ${esc2(f.title)} &mdash; ${esc2(rem)}</li>`;
+    }).join("\n");
+    remediationHtml = `
+      <section class="recommendations">
+        <h2>\u5EFA\u8BAE\u6574\u6539\u9879\uFF08\u6309\u4F18\u5148\u7EA7\uFF09</h2>
+        <ol>${items}</ol>
+      </section>`;
+  }
+  const passRateColor = percent >= 80 ? "#22c55e" : percent >= 50 ? "#eab308" : "#ef4444";
+  const unknownNote = unknownCount > 0 ? `<div style="color:#94a3b8;font-size:12px;margin-top:8px">\uFF08\u672A\u68C0\u67E5\u9879\u4E0D\u8BA1\u5165\u901A\u8FC7\u7387\uFF09</div>` : "";
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>\u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0\u62A5\u544A &mdash; ${esc2(date5)}</title>
+<style>${sharedCss()}</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>&#128737;&#65039; \u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0\u62A5\u544A</h1>
+  <div class="disclaimer">\u672C\u62A5\u544A\u4E3A\u7B49\u4FDD\u9884\u68C0\u53C2\u8003\uFF0C\u4EC5\u8986\u76D6 AWS \u4E91\u5E73\u53F0\u914D\u7F6E\u68C0\u67E5\u3002\u5B8C\u6574\u7B49\u4FDD\u6D4B\u8BC4\u9700\u7531\u6301\u8BC1\u6D4B\u8BC4\u673A\u6784\u6267\u884C\u3002</div>
+  <div class="meta">\u8D26\u6237: ${esc2(accountId)} | \u533A\u57DF: ${esc2(region)} | \u626B\u63CF\u65F6\u95F4: ${esc2(scanTime)}</div>
+</header>
+
+<section class="summary">
+  <div class="score-card">
+    <div class="score-value" style="color:${passRateColor}">${percent}%</div>
+    <div class="score-label">\u901A\u8FC7\u7387</div>
+  </div>
+  <div class="severity-stats">
+    <div class="stat-card" style="border-color:#22c55e30"><div class="stat-count" style="color:#22c55e">${passCount}</div><div class="stat-label">\u901A\u8FC7</div></div>
+    <div class="stat-card" style="border-color:#ef444430"><div class="stat-count" style="color:#ef4444">${failCount}</div><div class="stat-label">\u4E0D\u901A\u8FC7</div></div>
+    ${unknownCount > 0 ? `<div class="stat-card" style="border-color:#94a3b830"><div class="stat-count" style="color:#94a3b8">${unknownCount}</div><div class="stat-label">\u672A\u68C0\u67E5</div></div>` : ""}
+  </div>
+</section>
+${unknownNote}
+
+${trendHtml}
+
+${categorySections}
+
+${remediationHtml}
+
+<footer>
+  <p>\u7531 AWS Security MCP Server v0.3.0 \u751F\u6210</p>
+  <p>\u672C\u62A5\u544A\u4EC5\u4F9B\u53C2\u8003\u3002\u5B8C\u6574\u7B49\u4FDD\u6D4B\u8BC4\u9700\u7531\u6301\u8BC1\u6D4B\u8BC4\u673A\u6784\u6267\u884C\u3002</p>
+</footer>
+
+</div>
+</body>
+</html>`;
+}
+
 // src/tools/save-results.ts
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
@@ -19693,6 +20324,38 @@ function createServer(defaultRegion) {
       try {
         const parsed = JSON.parse(scan_results);
         const report = generateMlps3Report(parsed);
+        return { content: [{ type: "text", text: report }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    }
+  );
+  server.tool(
+    "generate_html_report",
+    "Generate a professional HTML security report. Save the output as an .html file.",
+    {
+      scan_results: external_exports.string().describe("JSON string of FullScanResult from scan_all"),
+      history: external_exports.string().optional().describe("JSON string of DashboardHistoryEntry[] from dashboard data.json for 30-day trend charts")
+    },
+    async ({ scan_results, history }) => {
+      try {
+        const parsed = JSON.parse(scan_results);
+        const historyData = history ? JSON.parse(history) : void 0;
+        const report = generateHtmlReport(parsed, historyData);
+        return { content: [{ type: "text", text: report }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    }
+  );
+  server.tool(
+    "generate_mlps3_html_report",
+    "Generate a professional HTML MLPS Level 3 compliance report (\u7B49\u4FDD\u4E09\u7EA7). Save as .html file.",
+    { scan_results: external_exports.string().describe("JSON string of FullScanResult from scan_group mlps3_precheck or scan_all") },
+    async ({ scan_results }) => {
+      try {
+        const parsed = JSON.parse(scan_results);
+        const report = generateMlps3HtmlReport(parsed);
         return { content: [{ type: "text", text: report }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };

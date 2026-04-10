@@ -87,10 +87,13 @@ declare function runAllScanners(scanners: Scanner[], region: string): Promise<Fu
 
 declare function generateMarkdownReport(scanResults: FullScanResult): string;
 
+declare function generateHtmlReport(scanResults: FullScanResult, history?: DashboardHistoryEntry[]): string;
+declare function generateMlps3HtmlReport(scanResults: FullScanResult, history?: DashboardHistoryEntry[]): string;
+
 declare function calculateScore(summary: FullScanResult["summary"]): number;
 declare function saveResults(scanResults: FullScanResult, outputDir?: string): string;
 
 declare function createServer(defaultRegion: string): McpServer;
 declare function startServer(defaultRegion: string): Promise<void>;
 
-export { type DashboardData, type DashboardHistoryEntry, type Finding, type FullScanResult, type Priority, type ScanContext, type ScanResult, type Scanner, type Severity, calculateScore, createServer, generateMarkdownReport, runAllScanners, saveResults, startServer };
+export { type DashboardData, type DashboardHistoryEntry, type Finding, type FullScanResult, type Priority, type ScanContext, type ScanResult, type Scanner, type Severity, calculateScore, createServer, generateHtmlReport, generateMarkdownReport, generateMlps3HtmlReport, runAllScanners, saveResults, startServer };

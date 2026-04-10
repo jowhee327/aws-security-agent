@@ -31,12 +31,11 @@
     .charts{display:flex;gap:24px;margin-bottom:32px;flex-wrap:wrap;justify-content:center}
     .chart-box{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:20px;flex:1;min-width:280px}
     .chart-title{font-size:14px;font-weight:600;margin-bottom:12px;text-align:center;color:#cbd5e1}
-    .finding-card{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px 20px;margin-bottom:12px;border-left:4px solid}
     .sev-critical{border-left-color:#ef4444}
     .sev-high{border-left-color:#f97316}
     .sev-medium{border-left-color:#eab308}
     .sev-low{border-left-color:#22c55e}
-    .badge{display:inline-block;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:0.5px;color:#fff;margin-bottom:8px}
+    .badge{display:inline-block;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:0.5px;color:#fff}
     .badge-critical{background:#ef4444}
     .badge-high{background:#f97316}
     .badge-medium{background:#eab308;color:#1e293b}
@@ -67,10 +66,46 @@
     .check-findings{margin-left:28px;margin-top:4px}
     .check-findings li{color:#94a3b8;font-size:12px;margin-bottom:2px;list-style:none}
     .no-findings{text-align:center;padding:40px;color:#22c55e;font-size:18px;font-weight:600}
+    .finding-fold{background:#1e293b;border:1px solid #334155;border-radius:8px;margin-bottom:12px;border-left:4px solid;overflow:hidden}
+    .finding-fold>summary{cursor:pointer;padding:12px 20px;display:flex;align-items:center;gap:12px;list-style:none;user-select:none}
+    .finding-fold>summary::-webkit-details-marker{display:none}
+    .finding-fold>summary::marker{content:""}
+    .finding-fold>summary .badge{margin-bottom:0}
+    .finding-fold>summary::after{content:"\25B6";font-size:10px;color:#64748b;flex-shrink:0;transition:transform 0.2s}
+    .finding-fold[open]>summary::after{transform:rotate(90deg)}
+    .finding-fold[open]>summary{border-bottom:1px solid #334155}
+    .finding-body{padding:12px 20px 16px}
+    .finding-summary-title{font-weight:600;font-size:14px;flex:1}
+    .finding-summary-score{color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap}
+    .top5-card{display:flex;gap:16px;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:24px;margin-bottom:16px;border-left:4px solid}
+    .top5-card .badge{margin-bottom:0}
+    .top5-rank{font-size:28px;font-weight:800;color:#475569;min-width:44px;display:flex;align-items:flex-start;justify-content:center}
+    .top5-content{flex:1}
+    .top5-title{font-size:17px;font-weight:700;margin:8px 0}
+    .top5-detail{color:#cbd5e1;font-size:13px;margin-bottom:4px}
+    .top5-detail strong{color:#f8fafc}
+    .top5-remediation{margin-top:8px;padding-left:20px}
+    .top5-remediation li{color:#cbd5e1;font-size:13px;margin-bottom:4px}
+    .trend-section{margin-bottom:32px}
+    .trend-chart{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:20px;margin-bottom:16px}
+    .trend-title{font-size:14px;font-weight:600;margin-bottom:12px;text-align:center;color:#cbd5e1}
+    .category-fold{background:#1e293b;border:1px solid #334155;border-radius:8px;margin-bottom:16px;overflow:hidden}
+    .category-fold>summary{cursor:pointer;padding:16px 20px;display:flex;align-items:center;gap:12px;list-style:none;font-size:18px;font-weight:600;user-select:none}
+    .category-fold>summary::-webkit-details-marker{display:none}
+    .category-fold>summary::marker{content:""}
+    .category-fold>summary::after{content:"\25B6";font-size:12px;color:#64748b;flex-shrink:0;transition:transform 0.2s}
+    .category-fold[open]>summary::after{transform:rotate(90deg)}
+    .category-fold[open]>summary{border-bottom:1px solid #334155}
+    .category-body{padding:12px 20px 16px}
+    .category-title{flex:1}
+    .category-stats{display:inline-flex;gap:12px;font-size:13px}
+    .category-stat-pass{color:#22c55e}
+    .category-stat-fail{color:#ef4444}
+    .category-stat-unknown{color:#94a3b8}
     @media print{
       body{background:#fff;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .container{max-width:100%;padding:20px}
-      .card,.score-card,.stat-card,.finding-card,.chart-box{background:#fff;border:1px solid #e2e8f0}
+      .card,.score-card,.stat-card,.chart-box,.finding-fold,.top5-card,.trend-chart,.category-fold{background:#fff;border:1px solid #e2e8f0}
       .badge{border:1px solid}
       header{border-bottom-color:#e2e8f0}
       h2{border-bottom-color:#e2e8f0}
@@ -78,16 +113,17 @@
       td{border-bottom-color:#e2e8f0;color:#475569}
       footer{border-top-color:#e2e8f0}
       .meta,.disclaimer{color:#64748b}
-      .finding-detail{color:#475569}
-      .finding-detail strong{color:#1e293b}
+      .finding-detail,.top5-detail{color:#475569}
+      .finding-detail strong,.top5-detail strong{color:#1e293b}
       .stat-label,.score-label{color:#64748b}
-      .chart-title{color:#475569}
-      .remediation-steps li{color:#475569}
+      .chart-title,.trend-title{color:#475569}
+      .remediation-steps li,.top5-remediation li{color:#475569}
       .recommendations li{color:#475569}
       .check-findings li{color:#64748b}
-      .finding-card{break-inside:avoid}
+      .finding-fold,.top5-card,.category-fold{break-inside:avoid}
       .check-item{break-inside:avoid}
       svg text{fill:#1e293b !important}
+      .finding-fold[open]>summary,.category-fold[open]>summary{border-bottom-color:#e2e8f0}
     }
   </style>
 </head>
@@ -141,540 +177,77 @@
   </div>
 </section>
 
-<section>
-  <h2>Findings by Severity</h2>
-  <h3>High (3)</h3>
 
-        <div class="finding-card sev-high">
+
+
+    <section>
+      <h2>Top 5 Critical Findings</h2>
+      
+      <div class="top5-card sev-high">
+        <div class="top5-rank">#1</div>
+        <div class="top5-content">
           <span class="badge badge-high">HIGH</span>
-          <div class="finding-title">Account-level S3 Block Public Access is not configured</div>
-          <div class="finding-detail"><strong>Resource:</strong> 468254682119</div>
-          <div class="finding-detail"><strong>Description:</strong> Account 468254682119 has no Block Public Access configuration set at the account level.</div>
-          <div class="finding-detail"><strong>Impact:</strong> There is no account-level safeguard against public S3 bucket access.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 8.5/10</div>
+          <div class="top5-title">Account-level S3 Block Public Access is not configured</div>
+          <div class="top5-detail"><strong>Resource:</strong> 468254682119</div>
+          <div class="top5-detail"><strong>Impact:</strong> There is no account-level safeguard against public S3 bucket access.</div>
+          <div class="top5-detail"><strong>Risk Score:</strong> 8.5/10</div>
           <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable all four Block Public Access settings at the account level.</li></ol>
+          <ol class="top5-remediation"><li>Enable all four Block Public Access settings at the account level.</li></ol>
         </div>
+      </div>
 
-        <div class="finding-card sev-high">
+      <div class="top5-card sev-high">
+        <div class="top5-rank">#2</div>
+        <div class="top5-content">
           <span class="badge badge-high">HIGH</span>
-          <div class="finding-title">IAM user hzhaoam has access key older than 90 days</div>
-          <div class="finding-detail"><strong>Resource:</strong> AKIAW2BRHNQD6OGWH6VQ</div>
-          <div class="finding-detail"><strong>Description:</strong> Access key AKIAW2BRHNQD6OGWH6VQ for user &quot;hzhaoam&quot; is 1800 days old.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Old access keys are more likely to have been exposed or leaked over time.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 7.5/10</div>
+          <div class="top5-title">IAM user hzhaoam has access key older than 90 days</div>
+          <div class="top5-detail"><strong>Resource:</strong> AKIAW2BRHNQD6OGWH6VQ</div>
+          <div class="top5-detail"><strong>Impact:</strong> Old access keys are more likely to have been exposed or leaked over time.</div>
+          <div class="top5-detail"><strong>Risk Score:</strong> 7.5/10</div>
           <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Rotate the access key by creating a new key and deleting the old one.</li><li>Implement an access key rotation policy (maximum 90 days).</li><li>Consider using IAM roles or temporary credentials instead.</li></ol>
+          <ol class="top5-remediation"><li>Rotate the access key by creating a new key and deleting the old one.</li><li>Implement an access key rotation policy (maximum 90 days).</li><li>Consider using IAM roles or temporary credentials instead.</li></ol>
         </div>
+      </div>
 
-        <div class="finding-card sev-high">
+      <div class="top5-card sev-high">
+        <div class="top5-rank">#3</div>
+        <div class="top5-content">
           <span class="badge badge-high">HIGH</span>
-          <div class="finding-title">EBS default encryption is not enabled in cn-north-1</div>
-          <div class="finding-detail"><strong>Resource:</strong> ebs-default-cn-north-1</div>
-          <div class="finding-detail"><strong>Description:</strong> EBS default encryption is not enabled in region cn-north-1.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Newly created EBS volumes will not be encrypted by default, requiring manual encryption per volume.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 7/10</div>
+          <div class="top5-title">EBS default encryption is not enabled in cn-north-1</div>
+          <div class="top5-detail"><strong>Resource:</strong> ebs-default-cn-north-1</div>
+          <div class="top5-detail"><strong>Impact:</strong> Newly created EBS volumes will not be encrypted by default, requiring manual encryption per volume.</div>
+          <div class="top5-detail"><strong>Risk Score:</strong> 7/10</div>
           <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable EBS encryption by default for the region using the EC2 console or API.</li><li>This ensures all new volumes and snapshots are automatically encrypted.</li></ol>
+          <ol class="top5-remediation"><li>Enable EBS encryption by default for the region using the EC2 console or API.</li><li>This ensures all new volumes and snapshots are automatically encrypted.</li></ol>
         </div>
-<h3>Medium (13)</h3>
+      </div>
 
-        <div class="finding-card sev-medium">
+      <div class="top5-card sev-medium">
+        <div class="top5-rank">#4</div>
+        <div class="top5-content">
           <span class="badge badge-medium">MEDIUM</span>
-          <div class="finding-title">CloudTrail trail test-management-events has no log file validation</div>
-          <div class="finding-detail"><strong>Resource:</strong> test-management-events</div>
-          <div class="finding-detail"><strong>Description:</strong> Trail &quot;test-management-events&quot; does not have log file validation enabled.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Log files could be modified or deleted without detection, undermining audit integrity.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 6/10</div>
+          <div class="top5-title">CloudTrail trail test-management-events has no log file validation</div>
+          <div class="top5-detail"><strong>Resource:</strong> test-management-events</div>
+          <div class="top5-detail"><strong>Impact:</strong> Log files could be modified or deleted without detection, undermining audit integrity.</div>
+          <div class="top5-detail"><strong>Risk Score:</strong> 6/10</div>
           <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable log file validation on the trail.</li><li>This creates digest files that can be used to verify log integrity.</li></ol>
+          <ol class="top5-remediation"><li>Enable log file validation on the trail.</li><li>This creates digest files that can be used to verify log integrity.</li></ol>
         </div>
+      </div>
 
-        <div class="finding-card sev-medium">
+      <div class="top5-card sev-medium">
+        <div class="top5-rank">#5</div>
+        <div class="top5-content">
           <span class="badge badge-medium">MEDIUM</span>
-          <div class="finding-title">EBS volume vol-0eac0a11ed76b3c38 is not encrypted</div>
-          <div class="finding-detail"><strong>Resource:</strong> vol-0eac0a11ed76b3c38</div>
-          <div class="finding-detail"><strong>Description:</strong> EBS volume &quot;vol-0eac0a11ed76b3c38&quot; (200GB, in-use) is not encrypted.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Data on this volume is stored unencrypted. A compromised snapshot or physical media could expose data.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 6/10</div>
+          <div class="top5-title">EBS volume vol-0eac0a11ed76b3c38 is not encrypted</div>
+          <div class="top5-detail"><strong>Resource:</strong> vol-0eac0a11ed76b3c38</div>
+          <div class="top5-detail"><strong>Impact:</strong> Data on this volume is stored unencrypted. A compromised snapshot or physical media could expose data.</div>
+          <div class="top5-detail"><strong>Risk Score:</strong> 6/10</div>
           <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Create an encrypted snapshot of this volume.</li><li>Create a new encrypted volume from the snapshot.</li><li>Migrate data to the new encrypted volume and delete the old one.</li></ol>
+          <ol class="top5-remediation"><li>Create an encrypted snapshot of this volume.</li><li>Create a new encrypted volume from the snapshot.</li><li>Migrate data to the new encrypted volume and delete the old one.</li></ol>
         </div>
-
-        <div class="finding-card sev-medium">
-          <span class="badge badge-medium">MEDIUM</span>
-          <div class="finding-title">EBS volume vol-0df6a1e35847c7e77 is not encrypted</div>
-          <div class="finding-detail"><strong>Resource:</strong> vol-0df6a1e35847c7e77</div>
-          <div class="finding-detail"><strong>Description:</strong> EBS volume &quot;vol-0df6a1e35847c7e77&quot; (40GB, in-use) is not encrypted.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Data on this volume is stored unencrypted. A compromised snapshot or physical media could expose data.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 6/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Create an encrypted snapshot of this volume.</li><li>Create a new encrypted volume from the snapshot.</li><li>Migrate data to the new encrypted volume and delete the old one.</li></ol>
-        </div>
-
-        <div class="finding-card sev-medium">
-          <span class="badge badge-medium">MEDIUM</span>
-          <div class="finding-title">EBS volume vol-0c92b56ebb3aa05ae is not encrypted</div>
-          <div class="finding-detail"><strong>Resource:</strong> vol-0c92b56ebb3aa05ae</div>
-          <div class="finding-detail"><strong>Description:</strong> EBS volume &quot;vol-0c92b56ebb3aa05ae&quot; (500GB, in-use) is not encrypted.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Data on this volume is stored unencrypted. A compromised snapshot or physical media could expose data.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 6/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Create an encrypted snapshot of this volume.</li><li>Create a new encrypted volume from the snapshot.</li><li>Migrate data to the new encrypted volume and delete the old one.</li></ol>
-        </div>
-
-        <div class="finding-card sev-medium">
-          <span class="badge badge-medium">MEDIUM</span>
-          <div class="finding-title">CloudTrail trail nwcd-org-cloudtrail-logs not integrated with CloudWatch Logs</div>
-          <div class="finding-detail"><strong>Resource:</strong> nwcd-org-cloudtrail-logs</div>
-          <div class="finding-detail"><strong>Description:</strong> Trail &quot;nwcd-org-cloudtrail-logs&quot; is not configured to deliver logs to CloudWatch Logs.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Real-time monitoring and alerting on API activity is not possible without CloudWatch Logs integration.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 5.5/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Configure the trail to deliver logs to a CloudWatch Logs log group.</li><li>Create metric filters and alarms for critical security events.</li></ol>
-        </div>
-
-        <div class="finding-card sev-medium">
-          <span class="badge badge-medium">MEDIUM</span>
-          <div class="finding-title">CloudTrail trail test-management-events not integrated with CloudWatch Logs</div>
-          <div class="finding-detail"><strong>Resource:</strong> test-management-events</div>
-          <div class="finding-detail"><strong>Description:</strong> Trail &quot;test-management-events&quot; is not configured to deliver logs to CloudWatch Logs.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Real-time monitoring and alerting on API activity is not possible without CloudWatch Logs integration.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 5.5/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Configure the trail to deliver logs to a CloudWatch Logs log group.</li><li>Create metric filters and alarms for critical security events.</li></ol>
-        </div>
-
-        <div class="finding-card sev-medium">
-          <span class="badge badge-medium">MEDIUM</span>
-          <div class="finding-title">EBS snapshot snap-055bc19828e4e3092 is not encrypted</div>
-          <div class="finding-detail"><strong>Resource:</strong> snap-055bc19828e4e3092</div>
-          <div class="finding-detail"><strong>Description:</strong> EBS snapshot &quot;snap-055bc19828e4e3092&quot; (volume: vol-05f6c4160ac0a93e6) is not encrypted.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Unencrypted snapshots can be copied or shared, exposing data without encryption protection.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 5.5/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Copy the snapshot with encryption enabled.</li><li>Delete the unencrypted snapshot after verifying the encrypted copy.</li></ol>
-        </div>
-
-        <div class="finding-card sev-medium">
-          <span class="badge badge-medium">MEDIUM</span>
-          <div class="finding-title">EBS snapshot snap-031bfc4c9db6428ef is not encrypted</div>
-          <div class="finding-detail"><strong>Resource:</strong> snap-031bfc4c9db6428ef</div>
-          <div class="finding-detail"><strong>Description:</strong> EBS snapshot &quot;snap-031bfc4c9db6428ef&quot; (volume: vol-0d6aaae479efcf0b0) is not encrypted.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Unencrypted snapshots can be copied or shared, exposing data without encryption protection.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 5.5/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Copy the snapshot with encryption enabled.</li><li>Delete the unencrypted snapshot after verifying the encrypted copy.</li></ol>
-        </div>
-
-        <div class="finding-card sev-medium">
-          <span class="badge badge-medium">MEDIUM</span>
-          <div class="finding-title">EBS snapshot snap-0f4dbd4e045f4f9e3 is not encrypted</div>
-          <div class="finding-detail"><strong>Resource:</strong> snap-0f4dbd4e045f4f9e3</div>
-          <div class="finding-detail"><strong>Description:</strong> EBS snapshot &quot;snap-0f4dbd4e045f4f9e3&quot; (volume: vol-0be166f626acbc0c3) is not encrypted.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Unencrypted snapshots can be copied or shared, exposing data without encryption protection.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 5.5/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Copy the snapshot with encryption enabled.</li><li>Delete the unencrypted snapshot after verifying the encrypted copy.</li></ol>
-        </div>
-
-        <div class="finding-card sev-medium">
-          <span class="badge badge-medium">MEDIUM</span>
-          <div class="finding-title">EBS snapshot snap-0ef0b31b558e620d4 is not encrypted</div>
-          <div class="finding-detail"><strong>Resource:</strong> snap-0ef0b31b558e620d4</div>
-          <div class="finding-detail"><strong>Description:</strong> EBS snapshot &quot;snap-0ef0b31b558e620d4&quot; (volume: vol-0df6a1e35847c7e77) is not encrypted.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Unencrypted snapshots can be copied or shared, exposing data without encryption protection.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 5.5/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Copy the snapshot with encryption enabled.</li><li>Delete the unencrypted snapshot after verifying the encrypted copy.</li></ol>
-        </div>
-
-        <div class="finding-card sev-medium">
-          <span class="badge badge-medium">MEDIUM</span>
-          <div class="finding-title">EBS snapshot snap-0e0f19b1ae5393d69 is not encrypted</div>
-          <div class="finding-detail"><strong>Resource:</strong> snap-0e0f19b1ae5393d69</div>
-          <div class="finding-detail"><strong>Description:</strong> EBS snapshot &quot;snap-0e0f19b1ae5393d69&quot; (volume: vol-0df6a1e35847c7e77) is not encrypted.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Unencrypted snapshots can be copied or shared, exposing data without encryption protection.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 5.5/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Copy the snapshot with encryption enabled.</li><li>Delete the unencrypted snapshot after verifying the encrypted copy.</li></ol>
-        </div>
-
-        <div class="finding-card sev-medium">
-          <span class="badge badge-medium">MEDIUM</span>
-          <div class="finding-title">EBS snapshot snap-050d8b9be81aa28a7 is not encrypted</div>
-          <div class="finding-detail"><strong>Resource:</strong> snap-050d8b9be81aa28a7</div>
-          <div class="finding-detail"><strong>Description:</strong> EBS snapshot &quot;snap-050d8b9be81aa28a7&quot; (volume: vol-019b7411771fdd09d) is not encrypted.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Unencrypted snapshots can be copied or shared, exposing data without encryption protection.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 5.5/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Copy the snapshot with encryption enabled.</li><li>Delete the unencrypted snapshot after verifying the encrypted copy.</li></ol>
-        </div>
-
-        <div class="finding-card sev-medium">
-          <span class="badge badge-medium">MEDIUM</span>
-          <div class="finding-title">EBS snapshot snap-00b95c437eab79cf6 is not encrypted</div>
-          <div class="finding-detail"><strong>Resource:</strong> snap-00b95c437eab79cf6</div>
-          <div class="finding-detail"><strong>Description:</strong> EBS snapshot &quot;snap-00b95c437eab79cf6&quot; (volume: vol-0eac0a11ed76b3c38) is not encrypted.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Unencrypted snapshots can be copied or shared, exposing data without encryption protection.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 5.5/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Copy the snapshot with encryption enabled.</li><li>Delete the unencrypted snapshot after verifying the encrypted copy.</li></ol>
-        </div>
-<h3>Low (32)</h3>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket auto-sg-update-stack-cloudtraillogbucket-6xueze51oacf does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> auto-sg-update-stack-cloudtraillogbucket-6xueze51oacf</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;auto-sg-update-stack-cloudtraillogbucket-6xueze51oacf&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket auto-sg-update-stack-cloudtraillogbucket-u990nisosy1p does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> auto-sg-update-stack-cloudtraillogbucket-u990nisosy1p</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;auto-sg-update-stack-cloudtraillogbucket-u990nisosy1p&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket aws-announcements does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> aws-announcements</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;aws-announcements&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket aws-cloudtrail-logs-468254682119-f51cea71 does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> aws-cloudtrail-logs-468254682119-f51cea71</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;aws-cloudtrail-logs-468254682119-f51cea71&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket aws-logs-468254682119-cn-north-1 does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> aws-logs-468254682119-cn-north-1</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;aws-logs-468254682119-cn-north-1&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket cf-templates-sa18zsjm1j5a-cn-north-1 does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> cf-templates-sa18zsjm1j5a-cn-north-1</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;cf-templates-sa18zsjm1j5a-cn-north-1&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket cf-templates-sa18zsjm1j5a-cn-northwest-1 does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> cf-templates-sa18zsjm1j5a-cn-northwest-1</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;cf-templates-sa18zsjm1j5a-cn-northwest-1&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket config-bucket-468254682119 does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> config-bucket-468254682119</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;config-bucket-468254682119&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket customer-test does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> customer-test</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;customer-test&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket deletetest does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> deletetest</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;deletetest&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket elasticbeanstalk-cn-north-1-468254682119 does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> elasticbeanstalk-cn-north-1-468254682119</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;elasticbeanstalk-cn-north-1-468254682119&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket flowlog-query does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> flowlog-query</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;flowlog-query&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket gluetest123 does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> gluetest123</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;gluetest123&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket new-announcement-1-layerbucket-qq68fwstawit does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> new-announcement-1-layerbucket-qq68fwstawit</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;new-announcement-1-layerbucket-qq68fwstawit&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket new-announcement-layerbucket-mrdnacn5wydm does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> new-announcement-layerbucket-mrdnacn5wydm</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;new-announcement-layerbucket-mrdnacn5wydm&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket niodbr does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> niodbr</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;niodbr&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket s3-proxy-test does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> s3-proxy-test</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;s3-proxy-test&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket s3-sync-source does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> s3-sync-source</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;s3-sync-source&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket sagemaker-studio-468254682119-4buvn7imlhw does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> sagemaker-studio-468254682119-4buvn7imlhw</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;sagemaker-studio-468254682119-4buvn7imlhw&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket sagemaker-studio-468254682119-5rby7mo1jdj does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> sagemaker-studio-468254682119-5rby7mo1jdj</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;sagemaker-studio-468254682119-5rby7mo1jdj&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket sagemaker-studio-468254682119-ki9n6806iyk does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> sagemaker-studio-468254682119-ki9n6806iyk</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;sagemaker-studio-468254682119-ki9n6806iyk&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket sagemaker-studio-468254682119-xfg0l0rg8s does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> sagemaker-studio-468254682119-xfg0l0rg8s</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;sagemaker-studio-468254682119-xfg0l0rg8s&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket terraform-states-test does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> terraform-states-test</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;terraform-states-test&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket tesla-cur does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> tesla-cur</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;tesla-cur&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket tesla-dbr does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> tesla-dbr</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;tesla-dbr&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket test-s3-access-log does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> test-s3-access-log</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;test-s3-access-log&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket test-volvo does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> test-volvo</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;test-volvo&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket volvo123 does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> volvo123</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;volvo123&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket webtest does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> webtest</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;webtest&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket will does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> will</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;will&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket will-flowlog does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> will-flowlog</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;will-flowlog&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-
-        <div class="finding-card sev-low">
-          <span class="badge badge-low">LOW</span>
-          <div class="finding-title">S3 bucket will-pc-backup does not have versioning enabled</div>
-          <div class="finding-detail"><strong>Resource:</strong> will-pc-backup</div>
-          <div class="finding-detail"><strong>Description:</strong> Bucket &quot;will-pc-backup&quot; versioning is not set.</div>
-          <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
-          <div class="finding-detail"><strong>Risk Score:</strong> 3/10</div>
-          <h4>Remediation</h4>
-          <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
-        </div>
-</section>
+      </div>
+    </section>
 
 <section>
   <h2>Scan Statistics</h2>
@@ -689,6 +262,733 @@
 <tr><td>vpc</td><td>1</td><td>0</td><td>&#10003;</td></tr>
 <tr><td>service_detection</td><td>1</td><td>0</td><td>&#10003;</td></tr></tbody>
   </table>
+</section>
+
+<section>
+  <h2>All Findings by Severity</h2>
+  <h3>High (3)</h3>
+
+        <details class="finding-fold sev-high">
+          <summary>
+            <span class="badge badge-high">HIGH</span>
+            <span class="finding-summary-title">Account-level S3 Block Public Access is not configured</span>
+            <span class="finding-summary-score">8.5/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> 468254682119</div>
+            <div class="finding-detail"><strong>Description:</strong> Account 468254682119 has no Block Public Access configuration set at the account level.</div>
+            <div class="finding-detail"><strong>Impact:</strong> There is no account-level safeguard against public S3 bucket access.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable all four Block Public Access settings at the account level.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-high">
+          <summary>
+            <span class="badge badge-high">HIGH</span>
+            <span class="finding-summary-title">IAM user hzhaoam has access key older than 90 days</span>
+            <span class="finding-summary-score">7.5/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> AKIAW2BRHNQD6OGWH6VQ</div>
+            <div class="finding-detail"><strong>Description:</strong> Access key AKIAW2BRHNQD6OGWH6VQ for user &quot;hzhaoam&quot; is 1800 days old.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Old access keys are more likely to have been exposed or leaked over time.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Rotate the access key by creating a new key and deleting the old one.</li><li>Implement an access key rotation policy (maximum 90 days).</li><li>Consider using IAM roles or temporary credentials instead.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-high">
+          <summary>
+            <span class="badge badge-high">HIGH</span>
+            <span class="finding-summary-title">EBS default encryption is not enabled in cn-north-1</span>
+            <span class="finding-summary-score">7/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> ebs-default-cn-north-1</div>
+            <div class="finding-detail"><strong>Description:</strong> EBS default encryption is not enabled in region cn-north-1.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Newly created EBS volumes will not be encrypted by default, requiring manual encryption per volume.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable EBS encryption by default for the region using the EC2 console or API.</li><li>This ensures all new volumes and snapshots are automatically encrypted.</li></ol>
+          </div>
+        </details>
+<h3>Medium (13)</h3>
+
+        <details class="finding-fold sev-medium">
+          <summary>
+            <span class="badge badge-medium">MEDIUM</span>
+            <span class="finding-summary-title">CloudTrail trail test-management-events has no log file validation</span>
+            <span class="finding-summary-score">6/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> test-management-events</div>
+            <div class="finding-detail"><strong>Description:</strong> Trail &quot;test-management-events&quot; does not have log file validation enabled.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Log files could be modified or deleted without detection, undermining audit integrity.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable log file validation on the trail.</li><li>This creates digest files that can be used to verify log integrity.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-medium">
+          <summary>
+            <span class="badge badge-medium">MEDIUM</span>
+            <span class="finding-summary-title">EBS volume vol-0eac0a11ed76b3c38 is not encrypted</span>
+            <span class="finding-summary-score">6/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> vol-0eac0a11ed76b3c38</div>
+            <div class="finding-detail"><strong>Description:</strong> EBS volume &quot;vol-0eac0a11ed76b3c38&quot; (200GB, in-use) is not encrypted.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Data on this volume is stored unencrypted. A compromised snapshot or physical media could expose data.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Create an encrypted snapshot of this volume.</li><li>Create a new encrypted volume from the snapshot.</li><li>Migrate data to the new encrypted volume and delete the old one.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-medium">
+          <summary>
+            <span class="badge badge-medium">MEDIUM</span>
+            <span class="finding-summary-title">EBS volume vol-0df6a1e35847c7e77 is not encrypted</span>
+            <span class="finding-summary-score">6/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> vol-0df6a1e35847c7e77</div>
+            <div class="finding-detail"><strong>Description:</strong> EBS volume &quot;vol-0df6a1e35847c7e77&quot; (40GB, in-use) is not encrypted.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Data on this volume is stored unencrypted. A compromised snapshot or physical media could expose data.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Create an encrypted snapshot of this volume.</li><li>Create a new encrypted volume from the snapshot.</li><li>Migrate data to the new encrypted volume and delete the old one.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-medium">
+          <summary>
+            <span class="badge badge-medium">MEDIUM</span>
+            <span class="finding-summary-title">EBS volume vol-0c92b56ebb3aa05ae is not encrypted</span>
+            <span class="finding-summary-score">6/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> vol-0c92b56ebb3aa05ae</div>
+            <div class="finding-detail"><strong>Description:</strong> EBS volume &quot;vol-0c92b56ebb3aa05ae&quot; (500GB, in-use) is not encrypted.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Data on this volume is stored unencrypted. A compromised snapshot or physical media could expose data.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Create an encrypted snapshot of this volume.</li><li>Create a new encrypted volume from the snapshot.</li><li>Migrate data to the new encrypted volume and delete the old one.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-medium">
+          <summary>
+            <span class="badge badge-medium">MEDIUM</span>
+            <span class="finding-summary-title">CloudTrail trail nwcd-org-cloudtrail-logs not integrated with CloudWatch Logs</span>
+            <span class="finding-summary-score">5.5/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> nwcd-org-cloudtrail-logs</div>
+            <div class="finding-detail"><strong>Description:</strong> Trail &quot;nwcd-org-cloudtrail-logs&quot; is not configured to deliver logs to CloudWatch Logs.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Real-time monitoring and alerting on API activity is not possible without CloudWatch Logs integration.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Configure the trail to deliver logs to a CloudWatch Logs log group.</li><li>Create metric filters and alarms for critical security events.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-medium">
+          <summary>
+            <span class="badge badge-medium">MEDIUM</span>
+            <span class="finding-summary-title">CloudTrail trail test-management-events not integrated with CloudWatch Logs</span>
+            <span class="finding-summary-score">5.5/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> test-management-events</div>
+            <div class="finding-detail"><strong>Description:</strong> Trail &quot;test-management-events&quot; is not configured to deliver logs to CloudWatch Logs.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Real-time monitoring and alerting on API activity is not possible without CloudWatch Logs integration.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Configure the trail to deliver logs to a CloudWatch Logs log group.</li><li>Create metric filters and alarms for critical security events.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-medium">
+          <summary>
+            <span class="badge badge-medium">MEDIUM</span>
+            <span class="finding-summary-title">EBS snapshot snap-055bc19828e4e3092 is not encrypted</span>
+            <span class="finding-summary-score">5.5/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> snap-055bc19828e4e3092</div>
+            <div class="finding-detail"><strong>Description:</strong> EBS snapshot &quot;snap-055bc19828e4e3092&quot; (volume: vol-05f6c4160ac0a93e6) is not encrypted.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Unencrypted snapshots can be copied or shared, exposing data without encryption protection.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Copy the snapshot with encryption enabled.</li><li>Delete the unencrypted snapshot after verifying the encrypted copy.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-medium">
+          <summary>
+            <span class="badge badge-medium">MEDIUM</span>
+            <span class="finding-summary-title">EBS snapshot snap-031bfc4c9db6428ef is not encrypted</span>
+            <span class="finding-summary-score">5.5/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> snap-031bfc4c9db6428ef</div>
+            <div class="finding-detail"><strong>Description:</strong> EBS snapshot &quot;snap-031bfc4c9db6428ef&quot; (volume: vol-0d6aaae479efcf0b0) is not encrypted.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Unencrypted snapshots can be copied or shared, exposing data without encryption protection.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Copy the snapshot with encryption enabled.</li><li>Delete the unencrypted snapshot after verifying the encrypted copy.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-medium">
+          <summary>
+            <span class="badge badge-medium">MEDIUM</span>
+            <span class="finding-summary-title">EBS snapshot snap-0f4dbd4e045f4f9e3 is not encrypted</span>
+            <span class="finding-summary-score">5.5/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> snap-0f4dbd4e045f4f9e3</div>
+            <div class="finding-detail"><strong>Description:</strong> EBS snapshot &quot;snap-0f4dbd4e045f4f9e3&quot; (volume: vol-0be166f626acbc0c3) is not encrypted.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Unencrypted snapshots can be copied or shared, exposing data without encryption protection.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Copy the snapshot with encryption enabled.</li><li>Delete the unencrypted snapshot after verifying the encrypted copy.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-medium">
+          <summary>
+            <span class="badge badge-medium">MEDIUM</span>
+            <span class="finding-summary-title">EBS snapshot snap-0ef0b31b558e620d4 is not encrypted</span>
+            <span class="finding-summary-score">5.5/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> snap-0ef0b31b558e620d4</div>
+            <div class="finding-detail"><strong>Description:</strong> EBS snapshot &quot;snap-0ef0b31b558e620d4&quot; (volume: vol-0df6a1e35847c7e77) is not encrypted.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Unencrypted snapshots can be copied or shared, exposing data without encryption protection.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Copy the snapshot with encryption enabled.</li><li>Delete the unencrypted snapshot after verifying the encrypted copy.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-medium">
+          <summary>
+            <span class="badge badge-medium">MEDIUM</span>
+            <span class="finding-summary-title">EBS snapshot snap-0e0f19b1ae5393d69 is not encrypted</span>
+            <span class="finding-summary-score">5.5/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> snap-0e0f19b1ae5393d69</div>
+            <div class="finding-detail"><strong>Description:</strong> EBS snapshot &quot;snap-0e0f19b1ae5393d69&quot; (volume: vol-0df6a1e35847c7e77) is not encrypted.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Unencrypted snapshots can be copied or shared, exposing data without encryption protection.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Copy the snapshot with encryption enabled.</li><li>Delete the unencrypted snapshot after verifying the encrypted copy.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-medium">
+          <summary>
+            <span class="badge badge-medium">MEDIUM</span>
+            <span class="finding-summary-title">EBS snapshot snap-050d8b9be81aa28a7 is not encrypted</span>
+            <span class="finding-summary-score">5.5/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> snap-050d8b9be81aa28a7</div>
+            <div class="finding-detail"><strong>Description:</strong> EBS snapshot &quot;snap-050d8b9be81aa28a7&quot; (volume: vol-019b7411771fdd09d) is not encrypted.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Unencrypted snapshots can be copied or shared, exposing data without encryption protection.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Copy the snapshot with encryption enabled.</li><li>Delete the unencrypted snapshot after verifying the encrypted copy.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-medium">
+          <summary>
+            <span class="badge badge-medium">MEDIUM</span>
+            <span class="finding-summary-title">EBS snapshot snap-00b95c437eab79cf6 is not encrypted</span>
+            <span class="finding-summary-score">5.5/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> snap-00b95c437eab79cf6</div>
+            <div class="finding-detail"><strong>Description:</strong> EBS snapshot &quot;snap-00b95c437eab79cf6&quot; (volume: vol-0eac0a11ed76b3c38) is not encrypted.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Unencrypted snapshots can be copied or shared, exposing data without encryption protection.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Copy the snapshot with encryption enabled.</li><li>Delete the unencrypted snapshot after verifying the encrypted copy.</li></ol>
+          </div>
+        </details>
+<h3>Low (32)</h3>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket auto-sg-update-stack-cloudtraillogbucket-6xueze51oacf does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> auto-sg-update-stack-cloudtraillogbucket-6xueze51oacf</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;auto-sg-update-stack-cloudtraillogbucket-6xueze51oacf&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket auto-sg-update-stack-cloudtraillogbucket-u990nisosy1p does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> auto-sg-update-stack-cloudtraillogbucket-u990nisosy1p</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;auto-sg-update-stack-cloudtraillogbucket-u990nisosy1p&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket aws-announcements does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> aws-announcements</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;aws-announcements&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket aws-cloudtrail-logs-468254682119-f51cea71 does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> aws-cloudtrail-logs-468254682119-f51cea71</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;aws-cloudtrail-logs-468254682119-f51cea71&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket aws-logs-468254682119-cn-north-1 does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> aws-logs-468254682119-cn-north-1</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;aws-logs-468254682119-cn-north-1&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket cf-templates-sa18zsjm1j5a-cn-north-1 does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> cf-templates-sa18zsjm1j5a-cn-north-1</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;cf-templates-sa18zsjm1j5a-cn-north-1&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket cf-templates-sa18zsjm1j5a-cn-northwest-1 does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> cf-templates-sa18zsjm1j5a-cn-northwest-1</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;cf-templates-sa18zsjm1j5a-cn-northwest-1&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket config-bucket-468254682119 does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> config-bucket-468254682119</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;config-bucket-468254682119&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket customer-test does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> customer-test</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;customer-test&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket deletetest does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> deletetest</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;deletetest&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket elasticbeanstalk-cn-north-1-468254682119 does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> elasticbeanstalk-cn-north-1-468254682119</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;elasticbeanstalk-cn-north-1-468254682119&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket flowlog-query does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> flowlog-query</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;flowlog-query&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket gluetest123 does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> gluetest123</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;gluetest123&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket new-announcement-1-layerbucket-qq68fwstawit does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> new-announcement-1-layerbucket-qq68fwstawit</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;new-announcement-1-layerbucket-qq68fwstawit&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket new-announcement-layerbucket-mrdnacn5wydm does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> new-announcement-layerbucket-mrdnacn5wydm</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;new-announcement-layerbucket-mrdnacn5wydm&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket niodbr does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> niodbr</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;niodbr&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket s3-proxy-test does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> s3-proxy-test</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;s3-proxy-test&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket s3-sync-source does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> s3-sync-source</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;s3-sync-source&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket sagemaker-studio-468254682119-4buvn7imlhw does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> sagemaker-studio-468254682119-4buvn7imlhw</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;sagemaker-studio-468254682119-4buvn7imlhw&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket sagemaker-studio-468254682119-5rby7mo1jdj does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> sagemaker-studio-468254682119-5rby7mo1jdj</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;sagemaker-studio-468254682119-5rby7mo1jdj&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket sagemaker-studio-468254682119-ki9n6806iyk does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> sagemaker-studio-468254682119-ki9n6806iyk</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;sagemaker-studio-468254682119-ki9n6806iyk&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket sagemaker-studio-468254682119-xfg0l0rg8s does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> sagemaker-studio-468254682119-xfg0l0rg8s</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;sagemaker-studio-468254682119-xfg0l0rg8s&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket terraform-states-test does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> terraform-states-test</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;terraform-states-test&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket tesla-cur does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> tesla-cur</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;tesla-cur&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket tesla-dbr does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> tesla-dbr</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;tesla-dbr&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket test-s3-access-log does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> test-s3-access-log</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;test-s3-access-log&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket test-volvo does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> test-volvo</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;test-volvo&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket volvo123 does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> volvo123</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;volvo123&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket webtest does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> webtest</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;webtest&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket will does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> will</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;will&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket will-flowlog does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> will-flowlog</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;will-flowlog&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
+
+        <details class="finding-fold sev-low">
+          <summary>
+            <span class="badge badge-low">LOW</span>
+            <span class="finding-summary-title">S3 bucket will-pc-backup does not have versioning enabled</span>
+            <span class="finding-summary-score">3/10</span>
+          </summary>
+          <div class="finding-body">
+            <div class="finding-detail"><strong>Resource:</strong> will-pc-backup</div>
+            <div class="finding-detail"><strong>Description:</strong> Bucket &quot;will-pc-backup&quot; versioning is not set.</div>
+            <div class="finding-detail"><strong>Impact:</strong> Accidental deletion or overwrite of objects cannot be recovered.</div>
+            <h4>Remediation</h4>
+            <ol class="remediation-steps"><li>Enable versioning on the bucket.</li><li>Consider adding lifecycle rules to manage version storage costs.</li></ol>
+          </div>
+        </details>
 </section>
 
 
