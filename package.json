@@ -1,0 +1,46 @@
+{
+  "name": "aws-security-mcp",
+  "version": "0.1.0",
+  "description": "MCP Server for AWS security scanning",
+  "bin": {
+    "aws-security-mcp": "./dist/bin/aws-security-mcp.js"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "dashboard/dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "build:dashboard": "cd dashboard && npm install && npm run build",
+    "build:all": "npm run build && npm run build:dashboard",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build:all"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cloudtrail": "^3.700.0",
+    "@aws-sdk/client-ec2": "^3.700.0",
+    "@aws-sdk/client-iam": "^3.700.0",
+    "@aws-sdk/client-rds": "^3.700.0",
+    "@aws-sdk/client-s3": "^3.700.0",
+    "@aws-sdk/client-s3-control": "^3.700.0",
+    "@aws-sdk/client-sts": "^3.700.0",
+    "@aws-sdk/credential-providers": "^3.700.0",
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

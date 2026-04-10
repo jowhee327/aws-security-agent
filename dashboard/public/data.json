@@ -1,0 +1,926 @@
+{
+  "lastScan": {
+    "scanStart": "2026-04-10T09:39:33.943Z",
+    "scanEnd": "2026-04-10T09:39:57.022Z",
+    "region": "cn-north-1",
+    "accountId": "468254682119",
+    "summary": {
+      "totalFindings": 50,
+      "critical": 2,
+      "high": 3,
+      "medium": 13,
+      "low": 32,
+      "modulesSuccess": 7,
+      "modulesError": 0
+    },
+    "modules": [
+      {
+        "module": "security_group",
+        "findingsCount": 0,
+        "status": "success"
+      },
+      {
+        "module": "s3",
+        "findingsCount": 33,
+        "status": "success"
+      },
+      {
+        "module": "iam",
+        "findingsCount": 3,
+        "status": "success"
+      },
+      {
+        "module": "cloudtrail",
+        "findingsCount": 3,
+        "status": "success"
+      },
+      {
+        "module": "rds",
+        "findingsCount": 0,
+        "status": "success"
+      },
+      {
+        "module": "ebs",
+        "findingsCount": 11,
+        "status": "success"
+      },
+      {
+        "module": "vpc",
+        "findingsCount": 0,
+        "status": "success"
+      }
+    ],
+    "findings": [
+      {
+        "riskScore": 8.5,
+        "title": "Account-level S3 Block Public Access is not configured",
+        "resourceType": "AWS::S3::AccountPublicAccessBlock",
+        "resourceId": "468254682119",
+        "resourceArn": "arn:aws-cn:iam::468254682119:root",
+        "region": "global",
+        "description": "Account 468254682119 has no Block Public Access configuration set at the account level.",
+        "impact": "There is no account-level safeguard against public S3 bucket access.",
+        "remediationSteps": [
+          "Enable all four Block Public Access settings at the account level."
+        ],
+        "severity": "HIGH",
+        "priority": "P1",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket auto-sg-update-stack-cloudtraillogbucket-6xueze51oacf does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "auto-sg-update-stack-cloudtraillogbucket-6xueze51oacf",
+        "resourceArn": "arn:aws-cn:s3:::auto-sg-update-stack-cloudtraillogbucket-6xueze51oacf",
+        "region": "cn-north-1",
+        "description": "Bucket \"auto-sg-update-stack-cloudtraillogbucket-6xueze51oacf\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket auto-sg-update-stack-cloudtraillogbucket-u990nisosy1p does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "auto-sg-update-stack-cloudtraillogbucket-u990nisosy1p",
+        "resourceArn": "arn:aws-cn:s3:::auto-sg-update-stack-cloudtraillogbucket-u990nisosy1p",
+        "region": "cn-northwest-1",
+        "description": "Bucket \"auto-sg-update-stack-cloudtraillogbucket-u990nisosy1p\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket aws-announcements does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "aws-announcements",
+        "resourceArn": "arn:aws-cn:s3:::aws-announcements",
+        "region": "cn-north-1",
+        "description": "Bucket \"aws-announcements\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket aws-cloudtrail-logs-468254682119-f51cea71 does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "aws-cloudtrail-logs-468254682119-f51cea71",
+        "resourceArn": "arn:aws-cn:s3:::aws-cloudtrail-logs-468254682119-f51cea71",
+        "region": "cn-north-1",
+        "description": "Bucket \"aws-cloudtrail-logs-468254682119-f51cea71\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket aws-logs-468254682119-cn-north-1 does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "aws-logs-468254682119-cn-north-1",
+        "resourceArn": "arn:aws-cn:s3:::aws-logs-468254682119-cn-north-1",
+        "region": "cn-north-1",
+        "description": "Bucket \"aws-logs-468254682119-cn-north-1\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket cf-templates-sa18zsjm1j5a-cn-north-1 does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "cf-templates-sa18zsjm1j5a-cn-north-1",
+        "resourceArn": "arn:aws-cn:s3:::cf-templates-sa18zsjm1j5a-cn-north-1",
+        "region": "cn-north-1",
+        "description": "Bucket \"cf-templates-sa18zsjm1j5a-cn-north-1\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket cf-templates-sa18zsjm1j5a-cn-northwest-1 does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "cf-templates-sa18zsjm1j5a-cn-northwest-1",
+        "resourceArn": "arn:aws-cn:s3:::cf-templates-sa18zsjm1j5a-cn-northwest-1",
+        "region": "cn-northwest-1",
+        "description": "Bucket \"cf-templates-sa18zsjm1j5a-cn-northwest-1\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket config-bucket-468254682119 does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "config-bucket-468254682119",
+        "resourceArn": "arn:aws-cn:s3:::config-bucket-468254682119",
+        "region": "cn-northwest-1",
+        "description": "Bucket \"config-bucket-468254682119\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket customer-test does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "customer-test",
+        "resourceArn": "arn:aws-cn:s3:::customer-test",
+        "region": "cn-north-1",
+        "description": "Bucket \"customer-test\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket deletetest does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "deletetest",
+        "resourceArn": "arn:aws-cn:s3:::deletetest",
+        "region": "cn-northwest-1",
+        "description": "Bucket \"deletetest\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket elasticbeanstalk-cn-north-1-468254682119 does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "elasticbeanstalk-cn-north-1-468254682119",
+        "resourceArn": "arn:aws-cn:s3:::elasticbeanstalk-cn-north-1-468254682119",
+        "region": "cn-north-1",
+        "description": "Bucket \"elasticbeanstalk-cn-north-1-468254682119\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket flowlog-query does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "flowlog-query",
+        "resourceArn": "arn:aws-cn:s3:::flowlog-query",
+        "region": "cn-north-1",
+        "description": "Bucket \"flowlog-query\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket gluetest123 does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "gluetest123",
+        "resourceArn": "arn:aws-cn:s3:::gluetest123",
+        "region": "cn-northwest-1",
+        "description": "Bucket \"gluetest123\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket new-announcement-1-layerbucket-qq68fwstawit does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "new-announcement-1-layerbucket-qq68fwstawit",
+        "resourceArn": "arn:aws-cn:s3:::new-announcement-1-layerbucket-qq68fwstawit",
+        "region": "cn-north-1",
+        "description": "Bucket \"new-announcement-1-layerbucket-qq68fwstawit\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket new-announcement-layerbucket-mrdnacn5wydm does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "new-announcement-layerbucket-mrdnacn5wydm",
+        "resourceArn": "arn:aws-cn:s3:::new-announcement-layerbucket-mrdnacn5wydm",
+        "region": "cn-north-1",
+        "description": "Bucket \"new-announcement-layerbucket-mrdnacn5wydm\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket niodbr does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "niodbr",
+        "resourceArn": "arn:aws-cn:s3:::niodbr",
+        "region": "cn-north-1",
+        "description": "Bucket \"niodbr\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket s3-proxy-test does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "s3-proxy-test",
+        "resourceArn": "arn:aws-cn:s3:::s3-proxy-test",
+        "region": "cn-north-1",
+        "description": "Bucket \"s3-proxy-test\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket s3-sync-source does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "s3-sync-source",
+        "resourceArn": "arn:aws-cn:s3:::s3-sync-source",
+        "region": "cn-northwest-1",
+        "description": "Bucket \"s3-sync-source\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket sagemaker-studio-468254682119-4buvn7imlhw does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "sagemaker-studio-468254682119-4buvn7imlhw",
+        "resourceArn": "arn:aws-cn:s3:::sagemaker-studio-468254682119-4buvn7imlhw",
+        "region": "cn-north-1",
+        "description": "Bucket \"sagemaker-studio-468254682119-4buvn7imlhw\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket sagemaker-studio-468254682119-5rby7mo1jdj does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "sagemaker-studio-468254682119-5rby7mo1jdj",
+        "resourceArn": "arn:aws-cn:s3:::sagemaker-studio-468254682119-5rby7mo1jdj",
+        "region": "cn-north-1",
+        "description": "Bucket \"sagemaker-studio-468254682119-5rby7mo1jdj\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket sagemaker-studio-468254682119-ki9n6806iyk does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "sagemaker-studio-468254682119-ki9n6806iyk",
+        "resourceArn": "arn:aws-cn:s3:::sagemaker-studio-468254682119-ki9n6806iyk",
+        "region": "cn-northwest-1",
+        "description": "Bucket \"sagemaker-studio-468254682119-ki9n6806iyk\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket sagemaker-studio-468254682119-xfg0l0rg8s does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "sagemaker-studio-468254682119-xfg0l0rg8s",
+        "resourceArn": "arn:aws-cn:s3:::sagemaker-studio-468254682119-xfg0l0rg8s",
+        "region": "cn-north-1",
+        "description": "Bucket \"sagemaker-studio-468254682119-xfg0l0rg8s\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket terraform-states-test does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "terraform-states-test",
+        "resourceArn": "arn:aws-cn:s3:::terraform-states-test",
+        "region": "cn-north-1",
+        "description": "Bucket \"terraform-states-test\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket tesla-cur does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "tesla-cur",
+        "resourceArn": "arn:aws-cn:s3:::tesla-cur",
+        "region": "cn-north-1",
+        "description": "Bucket \"tesla-cur\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket tesla-dbr does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "tesla-dbr",
+        "resourceArn": "arn:aws-cn:s3:::tesla-dbr",
+        "region": "cn-north-1",
+        "description": "Bucket \"tesla-dbr\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket test-s3-access-log does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "test-s3-access-log",
+        "resourceArn": "arn:aws-cn:s3:::test-s3-access-log",
+        "region": "cn-north-1",
+        "description": "Bucket \"test-s3-access-log\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket test-volvo does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "test-volvo",
+        "resourceArn": "arn:aws-cn:s3:::test-volvo",
+        "region": "cn-north-1",
+        "description": "Bucket \"test-volvo\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket volvo123 does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "volvo123",
+        "resourceArn": "arn:aws-cn:s3:::volvo123",
+        "region": "cn-north-1",
+        "description": "Bucket \"volvo123\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket webtest does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "webtest",
+        "resourceArn": "arn:aws-cn:s3:::webtest",
+        "region": "cn-north-1",
+        "description": "Bucket \"webtest\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket will does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "will",
+        "resourceArn": "arn:aws-cn:s3:::will",
+        "region": "cn-north-1",
+        "description": "Bucket \"will\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket will-flowlog does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "will-flowlog",
+        "resourceArn": "arn:aws-cn:s3:::will-flowlog",
+        "region": "cn-north-1",
+        "description": "Bucket \"will-flowlog\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 3,
+        "title": "S3 bucket will-pc-backup does not have versioning enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "will-pc-backup",
+        "resourceArn": "arn:aws-cn:s3:::will-pc-backup",
+        "region": "cn-north-1",
+        "description": "Bucket \"will-pc-backup\" versioning is not set.",
+        "impact": "Accidental deletion or overwrite of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the bucket.",
+          "Consider adding lifecycle rules to manage version storage costs."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "s3"
+      },
+      {
+        "riskScore": 10,
+        "title": "Root account does not have MFA enabled",
+        "resourceType": "AWS::IAM::Root",
+        "resourceId": "root",
+        "resourceArn": "arn:aws-cn:iam::468254682119:root",
+        "region": "global",
+        "description": "The AWS root account does not have multi-factor authentication enabled.",
+        "impact": "Compromised root credentials would grant unrestricted access to all AWS resources with no second factor of authentication.",
+        "remediationSteps": [
+          "Enable MFA on the root account immediately using a hardware or virtual MFA device.",
+          "Store the MFA device in a secure location.",
+          "Avoid using the root account for daily operations."
+        ],
+        "severity": "CRITICAL",
+        "priority": "P0",
+        "module": "iam"
+      },
+      {
+        "riskScore": 9.5,
+        "title": "Root account has active access keys",
+        "resourceType": "AWS::IAM::Root",
+        "resourceId": "root",
+        "resourceArn": "arn:aws-cn:iam::468254682119:root",
+        "region": "global",
+        "description": "The root account has one or more active access keys.",
+        "impact": "Access keys for the root account provide unrestricted API access. If leaked, the entire account is compromised.",
+        "remediationSteps": [
+          "Delete all root account access keys.",
+          "Use IAM users or roles with least-privilege policies instead."
+        ],
+        "severity": "CRITICAL",
+        "priority": "P0",
+        "module": "iam"
+      },
+      {
+        "riskScore": 7.5,
+        "title": "IAM user hzhaoam has access key older than 90 days",
+        "resourceType": "AWS::IAM::AccessKey",
+        "resourceId": "AKIAW2BRHNQD6OGWH6VQ",
+        "resourceArn": "arn:aws-cn:iam::468254682119:user/hzhaoam",
+        "region": "global",
+        "description": "Access key AKIAW2BRHNQD6OGWH6VQ for user \"hzhaoam\" is 1799 days old.",
+        "impact": "Old access keys are more likely to have been exposed or leaked over time.",
+        "remediationSteps": [
+          "Rotate the access key by creating a new key and deleting the old one.",
+          "Implement an access key rotation policy (maximum 90 days).",
+          "Consider using IAM roles or temporary credentials instead."
+        ],
+        "severity": "HIGH",
+        "priority": "P1",
+        "module": "iam"
+      },
+      {
+        "riskScore": 5.5,
+        "title": "CloudTrail trail nwcd-org-cloudtrail-logs not integrated with CloudWatch Logs",
+        "resourceType": "AWS::CloudTrail::Trail",
+        "resourceId": "nwcd-org-cloudtrail-logs",
+        "resourceArn": "arn:aws-cn:cloudtrail:cn-northwest-1:362115975032:trail/nwcd-org-cloudtrail-logs",
+        "region": "cn-north-1",
+        "description": "Trail \"nwcd-org-cloudtrail-logs\" is not configured to deliver logs to CloudWatch Logs.",
+        "impact": "Real-time monitoring and alerting on API activity is not possible without CloudWatch Logs integration.",
+        "remediationSteps": [
+          "Configure the trail to deliver logs to a CloudWatch Logs log group.",
+          "Create metric filters and alarms for critical security events."
+        ],
+        "severity": "MEDIUM",
+        "priority": "P2",
+        "module": "cloudtrail"
+      },
+      {
+        "riskScore": 6,
+        "title": "CloudTrail trail test-management-events has no log file validation",
+        "resourceType": "AWS::CloudTrail::Trail",
+        "resourceId": "test-management-events",
+        "resourceArn": "arn:aws-cn:cloudtrail:cn-north-1:468254682119:trail/test-management-events",
+        "region": "cn-north-1",
+        "description": "Trail \"test-management-events\" does not have log file validation enabled.",
+        "impact": "Log files could be modified or deleted without detection, undermining audit integrity.",
+        "remediationSteps": [
+          "Enable log file validation on the trail.",
+          "This creates digest files that can be used to verify log integrity."
+        ],
+        "severity": "MEDIUM",
+        "priority": "P2",
+        "module": "cloudtrail"
+      },
+      {
+        "riskScore": 5.5,
+        "title": "CloudTrail trail test-management-events not integrated with CloudWatch Logs",
+        "resourceType": "AWS::CloudTrail::Trail",
+        "resourceId": "test-management-events",
+        "resourceArn": "arn:aws-cn:cloudtrail:cn-north-1:468254682119:trail/test-management-events",
+        "region": "cn-north-1",
+        "description": "Trail \"test-management-events\" is not configured to deliver logs to CloudWatch Logs.",
+        "impact": "Real-time monitoring and alerting on API activity is not possible without CloudWatch Logs integration.",
+        "remediationSteps": [
+          "Configure the trail to deliver logs to a CloudWatch Logs log group.",
+          "Create metric filters and alarms for critical security events."
+        ],
+        "severity": "MEDIUM",
+        "priority": "P2",
+        "module": "cloudtrail"
+      },
+      {
+        "riskScore": 7,
+        "title": "EBS default encryption is not enabled in cn-north-1",
+        "resourceType": "AWS::EC2::EBSDefaultEncryption",
+        "resourceId": "ebs-default-cn-north-1",
+        "resourceArn": "arn:aws-cn:ec2:cn-north-1:468254682119:ebs-default-encryption",
+        "region": "cn-north-1",
+        "description": "EBS default encryption is not enabled in region cn-north-1.",
+        "impact": "Newly created EBS volumes will not be encrypted by default, requiring manual encryption per volume.",
+        "remediationSteps": [
+          "Enable EBS encryption by default for the region using the EC2 console or API.",
+          "This ensures all new volumes and snapshots are automatically encrypted."
+        ],
+        "severity": "HIGH",
+        "priority": "P1",
+        "module": "ebs"
+      },
+      {
+        "riskScore": 6,
+        "title": "EBS volume vol-0eac0a11ed76b3c38 is not encrypted",
+        "resourceType": "AWS::EC2::Volume",
+        "resourceId": "vol-0eac0a11ed76b3c38",
+        "resourceArn": "arn:aws-cn:ec2:cn-north-1:468254682119:volume/vol-0eac0a11ed76b3c38",
+        "region": "cn-north-1",
+        "description": "EBS volume \"vol-0eac0a11ed76b3c38\" (200GB, in-use) is not encrypted.",
+        "impact": "Data on this volume is stored unencrypted. A compromised snapshot or physical media could expose data.",
+        "remediationSteps": [
+          "Create an encrypted snapshot of this volume.",
+          "Create a new encrypted volume from the snapshot.",
+          "Migrate data to the new encrypted volume and delete the old one."
+        ],
+        "severity": "MEDIUM",
+        "priority": "P2",
+        "module": "ebs"
+      },
+      {
+        "riskScore": 6,
+        "title": "EBS volume vol-0df6a1e35847c7e77 is not encrypted",
+        "resourceType": "AWS::EC2::Volume",
+        "resourceId": "vol-0df6a1e35847c7e77",
+        "resourceArn": "arn:aws-cn:ec2:cn-north-1:468254682119:volume/vol-0df6a1e35847c7e77",
+        "region": "cn-north-1",
+        "description": "EBS volume \"vol-0df6a1e35847c7e77\" (40GB, in-use) is not encrypted.",
+        "impact": "Data on this volume is stored unencrypted. A compromised snapshot or physical media could expose data.",
+        "remediationSteps": [
+          "Create an encrypted snapshot of this volume.",
+          "Create a new encrypted volume from the snapshot.",
+          "Migrate data to the new encrypted volume and delete the old one."
+        ],
+        "severity": "MEDIUM",
+        "priority": "P2",
+        "module": "ebs"
+      },
+      {
+        "riskScore": 6,
+        "title": "EBS volume vol-0c92b56ebb3aa05ae is not encrypted",
+        "resourceType": "AWS::EC2::Volume",
+        "resourceId": "vol-0c92b56ebb3aa05ae",
+        "resourceArn": "arn:aws-cn:ec2:cn-north-1:468254682119:volume/vol-0c92b56ebb3aa05ae",
+        "region": "cn-north-1",
+        "description": "EBS volume \"vol-0c92b56ebb3aa05ae\" (500GB, in-use) is not encrypted.",
+        "impact": "Data on this volume is stored unencrypted. A compromised snapshot or physical media could expose data.",
+        "remediationSteps": [
+          "Create an encrypted snapshot of this volume.",
+          "Create a new encrypted volume from the snapshot.",
+          "Migrate data to the new encrypted volume and delete the old one."
+        ],
+        "severity": "MEDIUM",
+        "priority": "P2",
+        "module": "ebs"
+      },
+      {
+        "riskScore": 5.5,
+        "title": "EBS snapshot snap-055bc19828e4e3092 is not encrypted",
+        "resourceType": "AWS::EC2::Snapshot",
+        "resourceId": "snap-055bc19828e4e3092",
+        "resourceArn": "arn:aws-cn:ec2:cn-north-1:468254682119:snapshot/snap-055bc19828e4e3092",
+        "region": "cn-north-1",
+        "description": "EBS snapshot \"snap-055bc19828e4e3092\" (volume: vol-05f6c4160ac0a93e6) is not encrypted.",
+        "impact": "Unencrypted snapshots can be copied or shared, exposing data without encryption protection.",
+        "remediationSteps": [
+          "Copy the snapshot with encryption enabled.",
+          "Delete the unencrypted snapshot after verifying the encrypted copy."
+        ],
+        "severity": "MEDIUM",
+        "priority": "P2",
+        "module": "ebs"
+      },
+      {
+        "riskScore": 5.5,
+        "title": "EBS snapshot snap-031bfc4c9db6428ef is not encrypted",
+        "resourceType": "AWS::EC2::Snapshot",
+        "resourceId": "snap-031bfc4c9db6428ef",
+        "resourceArn": "arn:aws-cn:ec2:cn-north-1:468254682119:snapshot/snap-031bfc4c9db6428ef",
+        "region": "cn-north-1",
+        "description": "EBS snapshot \"snap-031bfc4c9db6428ef\" (volume: vol-0d6aaae479efcf0b0) is not encrypted.",
+        "impact": "Unencrypted snapshots can be copied or shared, exposing data without encryption protection.",
+        "remediationSteps": [
+          "Copy the snapshot with encryption enabled.",
+          "Delete the unencrypted snapshot after verifying the encrypted copy."
+        ],
+        "severity": "MEDIUM",
+        "priority": "P2",
+        "module": "ebs"
+      },
+      {
+        "riskScore": 5.5,
+        "title": "EBS snapshot snap-0f4dbd4e045f4f9e3 is not encrypted",
+        "resourceType": "AWS::EC2::Snapshot",
+        "resourceId": "snap-0f4dbd4e045f4f9e3",
+        "resourceArn": "arn:aws-cn:ec2:cn-north-1:468254682119:snapshot/snap-0f4dbd4e045f4f9e3",
+        "region": "cn-north-1",
+        "description": "EBS snapshot \"snap-0f4dbd4e045f4f9e3\" (volume: vol-0be166f626acbc0c3) is not encrypted.",
+        "impact": "Unencrypted snapshots can be copied or shared, exposing data without encryption protection.",
+        "remediationSteps": [
+          "Copy the snapshot with encryption enabled.",
+          "Delete the unencrypted snapshot after verifying the encrypted copy."
+        ],
+        "severity": "MEDIUM",
+        "priority": "P2",
+        "module": "ebs"
+      },
+      {
+        "riskScore": 5.5,
+        "title": "EBS snapshot snap-0ef0b31b558e620d4 is not encrypted",
+        "resourceType": "AWS::EC2::Snapshot",
+        "resourceId": "snap-0ef0b31b558e620d4",
+        "resourceArn": "arn:aws-cn:ec2:cn-north-1:468254682119:snapshot/snap-0ef0b31b558e620d4",
+        "region": "cn-north-1",
+        "description": "EBS snapshot \"snap-0ef0b31b558e620d4\" (volume: vol-0df6a1e35847c7e77) is not encrypted.",
+        "impact": "Unencrypted snapshots can be copied or shared, exposing data without encryption protection.",
+        "remediationSteps": [
+          "Copy the snapshot with encryption enabled.",
+          "Delete the unencrypted snapshot after verifying the encrypted copy."
+        ],
+        "severity": "MEDIUM",
+        "priority": "P2",
+        "module": "ebs"
+      },
+      {
+        "riskScore": 5.5,
+        "title": "EBS snapshot snap-0e0f19b1ae5393d69 is not encrypted",
+        "resourceType": "AWS::EC2::Snapshot",
+        "resourceId": "snap-0e0f19b1ae5393d69",
+        "resourceArn": "arn:aws-cn:ec2:cn-north-1:468254682119:snapshot/snap-0e0f19b1ae5393d69",
+        "region": "cn-north-1",
+        "description": "EBS snapshot \"snap-0e0f19b1ae5393d69\" (volume: vol-0df6a1e35847c7e77) is not encrypted.",
+        "impact": "Unencrypted snapshots can be copied or shared, exposing data without encryption protection.",
+        "remediationSteps": [
+          "Copy the snapshot with encryption enabled.",
+          "Delete the unencrypted snapshot after verifying the encrypted copy."
+        ],
+        "severity": "MEDIUM",
+        "priority": "P2",
+        "module": "ebs"
+      },
+      {
+        "riskScore": 5.5,
+        "title": "EBS snapshot snap-050d8b9be81aa28a7 is not encrypted",
+        "resourceType": "AWS::EC2::Snapshot",
+        "resourceId": "snap-050d8b9be81aa28a7",
+        "resourceArn": "arn:aws-cn:ec2:cn-north-1:468254682119:snapshot/snap-050d8b9be81aa28a7",
+        "region": "cn-north-1",
+        "description": "EBS snapshot \"snap-050d8b9be81aa28a7\" (volume: vol-019b7411771fdd09d) is not encrypted.",
+        "impact": "Unencrypted snapshots can be copied or shared, exposing data without encryption protection.",
+        "remediationSteps": [
+          "Copy the snapshot with encryption enabled.",
+          "Delete the unencrypted snapshot after verifying the encrypted copy."
+        ],
+        "severity": "MEDIUM",
+        "priority": "P2",
+        "module": "ebs"
+      },
+      {
+        "riskScore": 5.5,
+        "title": "EBS snapshot snap-00b95c437eab79cf6 is not encrypted",
+        "resourceType": "AWS::EC2::Snapshot",
+        "resourceId": "snap-00b95c437eab79cf6",
+        "resourceArn": "arn:aws-cn:ec2:cn-north-1:468254682119:snapshot/snap-00b95c437eab79cf6",
+        "region": "cn-north-1",
+        "description": "EBS snapshot \"snap-00b95c437eab79cf6\" (volume: vol-0eac0a11ed76b3c38) is not encrypted.",
+        "impact": "Unencrypted snapshots can be copied or shared, exposing data without encryption protection.",
+        "remediationSteps": [
+          "Copy the snapshot with encryption enabled.",
+          "Delete the unencrypted snapshot after verifying the encrypted copy."
+        ],
+        "severity": "MEDIUM",
+        "priority": "P2",
+        "module": "ebs"
+      }
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-04-10",
+      "score": 13,
+      "critical": 2,
+      "high": 3,
+      "medium": 13,
+      "low": 32,
+      "totalFindings": 50
+    }
+  ],
+  "meta": {
+    "generatedAt": "2026-04-10T09:39:57.024Z",
+    "version": "1.0.0",
+    "dataRetentionDays": 30
+  }
+}
