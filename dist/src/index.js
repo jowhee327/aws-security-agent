@@ -15685,6 +15685,2927 @@ var ServiceDetectionScanner = class {
   }
 };
 
+// src/scanners/iam-password-policy.ts
+import {
+  IAMClient as IAMClient2,
+  GetAccountPasswordPolicyCommand
+} from "@aws-sdk/client-iam";
+function makeFinding9(opts) {
+  const severity = severityFromScore(opts.riskScore);
+  return { ...opts, severity, priority: priorityFromSeverity(severity) };
+}
+var IamPasswordPolicyScanner = class {
+  moduleName = "iam_password_policy";
+  async scan(ctx) {
+    const { region, partition, accountId } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    try {
+      const iamRegion = getIamRegion(region);
+      const client = createClient(IAMClient2, iamRegion);
+      const policyArn = `arn:${partition}:iam::${accountId}:account-password-policy`;
+      let policy;
+      try {
+        const resp = await client.send(new GetAccountPasswordPolicyCommand({}));
+        policy = resp.PasswordPolicy;
+      } catch (e) {
+        if (e instanceof Error && e.name === "NoSuchEntityException") {
+          findings.push(
+            makeFinding9({
+              riskScore: 7.5,
+              title: "No IAM password policy configured",
+              resourceType: "AWS::IAM::AccountPasswordPolicy",
+              resourceId: "account-password-policy",
+              resourceArn: policyArn,
+              region: iamRegion,
+              description: "The AWS account does not have a custom password policy. The default policy has weak requirements.",
+              impact: "Users can set weak passwords that are easily compromised via brute-force or credential stuffing attacks.",
+              remediationSteps: [
+                "Create an IAM password policy with minimum length >= 8.",
+                "Require uppercase, lowercase, numbers, and symbols.",
+                "Set maximum password age to 90 days or less.",
+                "Set password reuse prevention to at least 5 previous passwords."
+              ]
+            })
+          );
+          return {
+            module: this.moduleName,
+            status: "success",
+            warnings: warnings.length > 0 ? warnings : void 0,
+            resourcesScanned: 1,
+            findingsCount: findings.length,
+            scanTimeMs: Date.now() - startMs,
+            findings
+          };
+        }
+        throw e;
+      }
+      if (!policy) {
+        warnings.push("Password policy response was empty.");
+        return {
+          module: this.moduleName,
+          status: "success",
+          warnings,
+          resourcesScanned: 0,
+          findingsCount: 0,
+          scanTimeMs: Date.now() - startMs,
+          findings: []
+        };
+      }
+      if ((policy.MinimumPasswordLength ?? 0) < 8) {
+        findings.push(
+          makeFinding9({
+            riskScore: 7,
+            title: "IAM password policy minimum length is too short",
+            resourceType: "AWS::IAM::AccountPasswordPolicy",
+            resourceId: "account-password-policy",
+            resourceArn: policyArn,
+            region: iamRegion,
+            description: `Minimum password length is ${policy.MinimumPasswordLength ?? 0}, which is below the recommended minimum of 8 characters.`,
+            impact: "Short passwords are more vulnerable to brute-force attacks.",
+            remediationSteps: [
+              "Update the password policy to require at least 8 characters.",
+              "Consider requiring 14+ characters for stronger security."
+            ]
+          })
+        );
+      }
+      const complexityChecks = [
+        { field: policy.RequireUppercaseCharacters, label: "uppercase characters" },
+        { field: policy.RequireLowercaseCharacters, label: "lowercase characters" },
+        { field: policy.RequireNumbers, label: "numbers" },
+        { field: policy.RequireSymbols, label: "symbols" }
+      ];
+      const missing = complexityChecks.filter((c) => !c.field).map((c) => c.label);
+      if (missing.length > 0) {
+        findings.push(
+          makeFinding9({
+            riskScore: 6,
+            title: "IAM password policy missing complexity requirements",
+            resourceType: "AWS::IAM::AccountPasswordPolicy",
+            resourceId: "account-password-policy",
+            resourceArn: policyArn,
+            region: iamRegion,
+            description: `Password policy does not require: ${missing.join(", ")}.`,
+            impact: "Passwords without complexity requirements are easier to guess or crack.",
+            remediationSteps: [
+              "Update the password policy to require uppercase, lowercase, numbers, and symbols."
+            ]
+          })
+        );
+      }
+      if (!policy.MaxPasswordAge || policy.MaxPasswordAge === 0) {
+        findings.push(
+          makeFinding9({
+            riskScore: 5.5,
+            title: "IAM password policy has no password expiry",
+            resourceType: "AWS::IAM::AccountPasswordPolicy",
+            resourceId: "account-password-policy",
+            resourceArn: policyArn,
+            region: iamRegion,
+            description: "No maximum password age is set. Passwords never expire.",
+            impact: "Compromised passwords remain valid indefinitely, increasing the window for unauthorized access.",
+            remediationSteps: [
+              "Set MaxPasswordAge to 90 days or less.",
+              "Combine with MFA for defense in depth."
+            ]
+          })
+        );
+      }
+      if (!policy.PasswordReusePrevention || policy.PasswordReusePrevention === 0) {
+        findings.push(
+          makeFinding9({
+            riskScore: 5,
+            title: "IAM password policy has no reuse prevention",
+            resourceType: "AWS::IAM::AccountPasswordPolicy",
+            resourceId: "account-password-policy",
+            resourceArn: policyArn,
+            region: iamRegion,
+            description: "No password reuse prevention is configured. Users can reuse previous passwords.",
+            impact: "Users may cycle back to previously compromised passwords.",
+            remediationSteps: [
+              "Set PasswordReusePrevention to at least 5.",
+              "This prevents reuse of the last 5 passwords."
+            ]
+          })
+        );
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: 1,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: 0,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+
+// src/scanners/iam-mfa-audit.ts
+import {
+  IAMClient as IAMClient3,
+  ListUsersCommand as ListUsersCommand2,
+  ListMFADevicesCommand,
+  GetLoginProfileCommand
+} from "@aws-sdk/client-iam";
+function makeFinding10(opts) {
+  const severity = severityFromScore(opts.riskScore);
+  return { ...opts, severity, priority: priorityFromSeverity(severity) };
+}
+var IamMfaAuditScanner = class {
+  moduleName = "iam_mfa_audit";
+  async scan(ctx) {
+    const { region, partition, accountId } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    try {
+      const iamRegion = getIamRegion(region);
+      const client = createClient(IAMClient3, iamRegion);
+      const users = [];
+      let marker;
+      do {
+        const resp = await client.send(new ListUsersCommand2({ Marker: marker }));
+        if (resp.Users) {
+          for (const u of resp.Users) {
+            users.push({
+              UserName: u.UserName ?? "unknown",
+              Arn: u.Arn ?? `arn:${partition}:iam::${accountId}:user/${u.UserName ?? "unknown"}`
+            });
+          }
+        }
+        marker = resp.IsTruncated ? resp.Marker : void 0;
+      } while (marker);
+      if (users.length === 0) {
+        return {
+          module: this.moduleName,
+          status: "success",
+          warnings: warnings.length > 0 ? warnings : void 0,
+          resourcesScanned: 0,
+          findingsCount: 0,
+          scanTimeMs: Date.now() - startMs,
+          findings
+        };
+      }
+      let usersWithConsole = 0;
+      let usersWithMfa = 0;
+      let totalChecked = 0;
+      for (const user of users) {
+        let hasConsole = false;
+        try {
+          await client.send(new GetLoginProfileCommand({ UserName: user.UserName }));
+          hasConsole = true;
+          usersWithConsole++;
+        } catch (e) {
+          if (e instanceof Error && e.name === "NoSuchEntityException") {
+            continue;
+          }
+          warnings.push(`Could not check login profile for ${user.UserName}: ${e instanceof Error ? e.message : String(e)}`);
+          hasConsole = true;
+          usersWithConsole++;
+        }
+        totalChecked++;
+        const mfaResp = await client.send(
+          new ListMFADevicesCommand({ UserName: user.UserName })
+        );
+        const mfaDevices = mfaResp.MFADevices ?? [];
+        if (mfaDevices.length > 0) {
+          usersWithMfa++;
+        } else if (hasConsole) {
+          findings.push(
+            makeFinding10({
+              riskScore: 7.5,
+              title: `IAM user ${user.UserName} has console access without MFA`,
+              resourceType: "AWS::IAM::User",
+              resourceId: user.UserName,
+              resourceArn: user.Arn,
+              region: iamRegion,
+              description: `User "${user.UserName}" has console login enabled but no MFA device configured.`,
+              impact: "Account is vulnerable to credential theft. If the password is compromised, there is no second factor to prevent unauthorized access.",
+              remediationSteps: [
+                `Enable MFA for user ${user.UserName}.`,
+                "Use a virtual MFA device (e.g., Google Authenticator) or a hardware security key.",
+                "Consider enforcing MFA via IAM policy conditions."
+              ]
+            })
+          );
+        }
+      }
+      if (usersWithConsole > 0 && usersWithMfa < usersWithConsole) {
+        const adoptionPercent = Math.round(usersWithMfa / usersWithConsole * 100);
+        findings.push(
+          makeFinding10({
+            riskScore: 6,
+            title: "MFA adoption is not 100% for console users",
+            resourceType: "AWS::IAM::Account",
+            resourceId: "mfa-adoption",
+            resourceArn: `arn:${partition}:iam::${accountId}:root`,
+            region: iamRegion,
+            description: `MFA is enabled for ${usersWithMfa}/${usersWithConsole} console users (${adoptionPercent}% adoption).`,
+            impact: "Users without MFA present a higher risk of account compromise.",
+            remediationSteps: [
+              "Enable MFA for all IAM users with console access.",
+              "Use an SCP or IAM policy to deny actions without MFA.",
+              "Consider using AWS SSO with mandatory MFA for centralized access."
+            ]
+          })
+        );
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: users.length,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: 0,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+
+// src/scanners/cloudtrail-protection.ts
+import {
+  CloudTrailClient as CloudTrailClient3,
+  DescribeTrailsCommand as DescribeTrailsCommand3
+} from "@aws-sdk/client-cloudtrail";
+import {
+  S3Client as S3Client2,
+  GetBucketEncryptionCommand as GetBucketEncryptionCommand2,
+  GetBucketVersioningCommand as GetBucketVersioningCommand2,
+  GetPublicAccessBlockCommand as GetPublicAccessBlockCommand2,
+  GetBucketLocationCommand as GetBucketLocationCommand2
+} from "@aws-sdk/client-s3";
+function makeFinding11(opts) {
+  const severity = severityFromScore(opts.riskScore);
+  return { ...opts, severity, priority: priorityFromSeverity(severity) };
+}
+async function getBucketRegion2(client, bucketName, defaultRegion, warnings) {
+  try {
+    const resp = await client.send(
+      new GetBucketLocationCommand2({ Bucket: bucketName })
+    );
+    return String(resp.LocationConstraint ?? "") || "us-east-1";
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    warnings.push(`Failed to detect region for bucket ${bucketName}, using ${defaultRegion}: ${msg}`);
+    return defaultRegion;
+  }
+}
+var CloudTrailProtectionScanner = class {
+  moduleName = "cloudtrail_protection";
+  async scan(ctx) {
+    const { region, partition } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    try {
+      const ctClient = createClient(CloudTrailClient3, region);
+      const resp = await ctClient.send(new DescribeTrailsCommand3({}));
+      const trails = resp.trailList ?? [];
+      if (trails.length === 0) {
+        warnings.push("No CloudTrail trails found \u2014 nothing to check for log protection.");
+        return {
+          module: this.moduleName,
+          status: "success",
+          warnings,
+          resourcesScanned: 0,
+          findingsCount: 0,
+          scanTimeMs: Date.now() - startMs,
+          findings
+        };
+      }
+      const checkedBuckets = /* @__PURE__ */ new Set();
+      let resourcesScanned = 0;
+      for (const trail of trails) {
+        const bucketName = trail.S3BucketName;
+        if (!bucketName || checkedBuckets.has(bucketName)) continue;
+        checkedBuckets.add(bucketName);
+        resourcesScanned++;
+        const trailName = trail.Name ?? "unknown";
+        const bucketArn = `arn:${partition}:s3:::${bucketName}`;
+        const defaultS3 = createClient(S3Client2, region);
+        const bucketRegion = await getBucketRegion2(defaultS3, bucketName, region, warnings);
+        const s3Client = bucketRegion === region ? defaultS3 : createClient(S3Client2, bucketRegion);
+        try {
+          await s3Client.send(
+            new GetBucketEncryptionCommand2({ Bucket: bucketName })
+          );
+        } catch (e) {
+          if (e instanceof Error && (e.name === "ServerSideEncryptionConfigurationNotFoundError" || e.name === "NoSuchBucketEncryption")) {
+            findings.push(
+              makeFinding11({
+                riskScore: 7.5,
+                title: `CloudTrail S3 bucket ${bucketName} is not encrypted`,
+                resourceType: "AWS::S3::Bucket",
+                resourceId: bucketName,
+                resourceArn: bucketArn,
+                region,
+                description: `S3 bucket "${bucketName}" used by trail "${trailName}" does not have default encryption enabled.`,
+                impact: "CloudTrail logs stored without encryption can be read by anyone with access to the S3 bucket, exposing sensitive API activity data.",
+                remediationSteps: [
+                  "Enable default encryption on the S3 bucket (SSE-S3 or SSE-KMS).",
+                  "Consider using a CMK for encryption to enable key rotation and access auditing."
+                ]
+              })
+            );
+          } else {
+            warnings.push(`Could not check encryption for bucket ${bucketName}: ${e instanceof Error ? e.message : String(e)}`);
+          }
+        }
+        try {
+          const versionResp = await s3Client.send(
+            new GetBucketVersioningCommand2({ Bucket: bucketName })
+          );
+          if (versionResp.Status !== "Enabled") {
+            findings.push(
+              makeFinding11({
+                riskScore: 6,
+                title: `CloudTrail S3 bucket ${bucketName} does not have versioning enabled`,
+                resourceType: "AWS::S3::Bucket",
+                resourceId: bucketName,
+                resourceArn: bucketArn,
+                region,
+                description: `S3 bucket "${bucketName}" used by trail "${trailName}" does not have versioning enabled.`,
+                impact: "Without versioning, deleted or overwritten log files cannot be recovered. An attacker could tamper with or destroy audit logs.",
+                remediationSteps: [
+                  "Enable versioning on the CloudTrail S3 bucket.",
+                  "Consider enabling MFA Delete for additional protection."
+                ]
+              })
+            );
+          }
+        } catch (e) {
+          warnings.push(`Could not check versioning for bucket ${bucketName}: ${e instanceof Error ? e.message : String(e)}`);
+        }
+        try {
+          const bpaResp = await s3Client.send(
+            new GetPublicAccessBlockCommand2({ Bucket: bucketName })
+          );
+          const config2 = bpaResp.PublicAccessBlockConfiguration;
+          if (!config2 || !config2.BlockPublicAcls || !config2.IgnorePublicAcls || !config2.BlockPublicPolicy || !config2.RestrictPublicBuckets) {
+            findings.push(
+              makeFinding11({
+                riskScore: 7.5,
+                title: `CloudTrail S3 bucket ${bucketName} does not have full Block Public Access`,
+                resourceType: "AWS::S3::Bucket",
+                resourceId: bucketName,
+                resourceArn: bucketArn,
+                region,
+                description: `S3 bucket "${bucketName}" used by trail "${trailName}" does not have all Block Public Access settings enabled.`,
+                impact: "CloudTrail logs could be exposed publicly, leaking API activity, IP addresses, and resource details to attackers.",
+                remediationSteps: [
+                  "Enable all four Block Public Access settings on the bucket.",
+                  "Verify no bucket policy grants public access."
+                ]
+              })
+            );
+          }
+        } catch (e) {
+          if (e instanceof Error && e.name === "NoSuchPublicAccessBlockConfiguration") {
+            findings.push(
+              makeFinding11({
+                riskScore: 9,
+                title: `CloudTrail S3 bucket ${bucketName} has no Block Public Access configuration`,
+                resourceType: "AWS::S3::Bucket",
+                resourceId: bucketName,
+                resourceArn: bucketArn,
+                region,
+                description: `S3 bucket "${bucketName}" used by trail "${trailName}" has no Block Public Access configuration at all.`,
+                impact: "Without any Block Public Access, the bucket is at high risk of accidental or malicious public exposure of CloudTrail audit logs.",
+                remediationSteps: [
+                  "Immediately enable Block Public Access on this bucket.",
+                  "Review bucket policy and ACLs for any existing public grants."
+                ]
+              })
+            );
+          } else {
+            warnings.push(`Could not check Block Public Access for bucket ${bucketName}: ${e instanceof Error ? e.message : String(e)}`);
+          }
+        }
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: 0,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+
+// src/scanners/elb-https.ts
+import {
+  ElasticLoadBalancingV2Client,
+  DescribeLoadBalancersCommand,
+  DescribeListenersCommand
+} from "@aws-sdk/client-elastic-load-balancing-v2";
+function makeFinding12(opts) {
+  const severity = severityFromScore(opts.riskScore);
+  return { ...opts, severity, priority: priorityFromSeverity(severity) };
+}
+var ElbHttpsScanner = class {
+  moduleName = "elb_https";
+  async scan(ctx) {
+    const { region } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    try {
+      const client = createClient(ElasticLoadBalancingV2Client, region);
+      const loadBalancers = [];
+      let marker;
+      do {
+        const resp = await client.send(
+          new DescribeLoadBalancersCommand({ Marker: marker })
+        );
+        if (resp.LoadBalancers) {
+          loadBalancers.push(...resp.LoadBalancers);
+        }
+        marker = resp.NextMarker;
+      } while (marker);
+      for (const lb of loadBalancers) {
+        const lbName = lb.LoadBalancerName ?? "unknown";
+        const lbArn = lb.LoadBalancerArn ?? "unknown";
+        const lbType = lb.Type ?? "application";
+        let listeners = [];
+        try {
+          let listenerMarker;
+          do {
+            const listenerResp = await client.send(
+              new DescribeListenersCommand({
+                LoadBalancerArn: lbArn,
+                Marker: listenerMarker
+              })
+            );
+            if (listenerResp.Listeners) {
+              listeners.push(...listenerResp.Listeners);
+            }
+            listenerMarker = listenerResp.NextMarker;
+          } while (listenerMarker);
+        } catch (e) {
+          warnings.push(`Could not list listeners for ${lbName}: ${e instanceof Error ? e.message : String(e)}`);
+          continue;
+        }
+        for (const listener of listeners) {
+          const protocol = listener.Protocol ?? "unknown";
+          const port = listener.Port ?? 0;
+          if (lbType === "application") {
+            if (protocol === "HTTP") {
+              const hasRedirect = (listener.DefaultActions ?? []).some(
+                (action) => action.Type === "redirect" && action.RedirectConfig?.Protocol === "HTTPS"
+              );
+              if (!hasRedirect) {
+                findings.push(
+                  makeFinding12({
+                    riskScore: 7.5,
+                    title: `ALB ${lbName} has HTTP listener on port ${port} without HTTPS redirect`,
+                    resourceType: "AWS::ElasticLoadBalancingV2::Listener",
+                    resourceId: `${lbName}:${port}`,
+                    resourceArn: listener.ListenerArn ?? lbArn,
+                    region,
+                    description: `ALB "${lbName}" has an HTTP listener on port ${port} that does not redirect to HTTPS.`,
+                    impact: "Traffic is transmitted in plaintext, exposing sensitive data to interception and man-in-the-middle attacks.",
+                    remediationSteps: [
+                      "Add a redirect action on the HTTP listener to forward all traffic to HTTPS.",
+                      "Alternatively, remove the HTTP listener if HTTPS is already configured."
+                    ]
+                  })
+                );
+              }
+            }
+            if (protocol === "HTTPS" && listener.Certificates) {
+              for (const cert of listener.Certificates) {
+                if (!cert.CertificateArn) continue;
+              }
+            }
+          } else if (lbType === "network") {
+            if (protocol === "TCP" || protocol === "UDP") {
+              findings.push(
+                makeFinding12({
+                  riskScore: 6,
+                  title: `NLB ${lbName} has ${protocol} listener on port ${port} without TLS`,
+                  resourceType: "AWS::ElasticLoadBalancingV2::Listener",
+                  resourceId: `${lbName}:${port}`,
+                  resourceArn: listener.ListenerArn ?? lbArn,
+                  region,
+                  description: `NLB "${lbName}" has a ${protocol} listener on port ${port} without TLS termination.`,
+                  impact: "Traffic is not encrypted at the load balancer level. If backend services do not implement their own TLS, data is transmitted in plaintext.",
+                  remediationSteps: [
+                    "Switch the listener protocol to TLS and attach an ACM certificate.",
+                    "If end-to-end encryption is handled by the application, document this as an accepted risk."
+                  ]
+                })
+              );
+            }
+          }
+        }
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: loadBalancers.length,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: 0,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+
+// src/scanners/secret-exposure.ts
+import {
+  LambdaClient,
+  ListFunctionsCommand
+} from "@aws-sdk/client-lambda";
+import {
+  EC2Client as EC2Client4,
+  DescribeInstancesCommand as DescribeInstancesCommand3,
+  DescribeInstanceAttributeCommand
+} from "@aws-sdk/client-ec2";
+var SECRET_PATTERNS = [
+  { name: "AWS Access Key", pattern: /AKIA[0-9A-Z]{16}/, matchType: "value" },
+  { name: "Private Key", pattern: /-----BEGIN.*PRIVATE KEY-----/, matchType: "value" },
+  { name: "Password in env var", pattern: /^(PASSWORD|PASSWD|DB_PASSWORD|SECRET|API_KEY|APIKEY|TOKEN|AUTH_TOKEN)$/i, matchType: "name" }
+];
+function makeFinding13(opts) {
+  const severity = severityFromScore(opts.riskScore);
+  return { ...opts, severity, priority: priorityFromSeverity(severity) };
+}
+var SecretExposureScanner = class {
+  moduleName = "secret_exposure";
+  async scan(ctx) {
+    const { region, partition, accountId } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    let resourcesScanned = 0;
+    try {
+      try {
+        const lambda = createClient(LambdaClient, region);
+        const functions = [];
+        let marker;
+        do {
+          const resp = await lambda.send(
+            new ListFunctionsCommand({ Marker: marker })
+          );
+          if (resp.Functions) functions.push(...resp.Functions);
+          marker = resp.NextMarker;
+        } while (marker);
+        resourcesScanned += functions.length;
+        for (const fn of functions) {
+          const fnName = fn.FunctionName ?? "unknown";
+          const fnArn = fn.FunctionArn ?? `arn:${partition}:lambda:${region}:${accountId}:function:${fnName}`;
+          const envVars = fn.Environment?.Variables ?? {};
+          for (const [varName, varValue] of Object.entries(envVars)) {
+            for (const sp of SECRET_PATTERNS) {
+              if (sp.matchType === "name") {
+                if (sp.pattern.test(varName)) {
+                  findings.push(
+                    makeFinding13({
+                      riskScore: 7.5,
+                      title: `Lambda ${fnName} has suspicious env var "${varName}"`,
+                      resourceType: "AWS::Lambda::Function",
+                      resourceId: fnName,
+                      resourceArn: fnArn,
+                      region,
+                      description: `Lambda function "${fnName}" has an environment variable named "${varName}" which may contain a secret.`,
+                      impact: "Secrets in Lambda environment variables are visible to anyone with lambda:GetFunctionConfiguration permission and may leak through logs.",
+                      remediationSteps: [
+                        "Move the secret to AWS Secrets Manager or SSM Parameter Store (SecureString).",
+                        "Update the Lambda function to fetch the secret at runtime.",
+                        "Rotate the exposed credential immediately."
+                      ]
+                    })
+                  );
+                }
+              } else {
+                if (sp.pattern.test(varValue)) {
+                  const riskScore = sp.name === "AWS Access Key" ? 9.5 : 9;
+                  findings.push(
+                    makeFinding13({
+                      riskScore,
+                      title: `Lambda ${fnName} env var contains ${sp.name}`,
+                      resourceType: "AWS::Lambda::Function",
+                      resourceId: fnName,
+                      resourceArn: fnArn,
+                      region,
+                      description: `Lambda function "${fnName}" has an environment variable containing a ${sp.name} pattern.`,
+                      impact: "Hard-coded credentials in Lambda environment variables can be extracted by any principal with read access to the function configuration.",
+                      remediationSteps: [
+                        "Remove the hard-coded credential from environment variables.",
+                        "Use AWS Secrets Manager or SSM Parameter Store (SecureString) instead.",
+                        "Rotate the exposed credential immediately.",
+                        "Review CloudTrail logs for unauthorized use of the credential."
+                      ]
+                    })
+                  );
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        warnings.push(`Lambda scan error: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      try {
+        const ec2 = createClient(EC2Client4, region);
+        const instances = [];
+        let nextToken;
+        do {
+          const resp = await ec2.send(
+            new DescribeInstancesCommand3({ NextToken: nextToken })
+          );
+          for (const res of resp.Reservations ?? []) {
+            if (res.Instances) instances.push(...res.Instances);
+          }
+          nextToken = resp.NextToken;
+        } while (nextToken);
+        resourcesScanned += instances.length;
+        for (const inst of instances) {
+          const instId = inst.InstanceId ?? "unknown";
+          const instArn = `arn:${partition}:ec2:${region}:${accountId}:instance/${instId}`;
+          let userData;
+          try {
+            const attrResp = await ec2.send(
+              new DescribeInstanceAttributeCommand({
+                InstanceId: instId,
+                Attribute: "userData"
+              })
+            );
+            const raw = attrResp.UserData?.Value;
+            if (raw) {
+              userData = Buffer.from(raw, "base64").toString("utf-8");
+            }
+          } catch (e) {
+            warnings.push(`Could not read userData for ${instId}: ${e instanceof Error ? e.message : String(e)}`);
+            continue;
+          }
+          if (!userData) continue;
+          for (const sp of SECRET_PATTERNS) {
+            if (sp.matchType === "name") continue;
+            if (sp.pattern.test(userData)) {
+              const riskScore = sp.name === "AWS Access Key" ? 9.5 : 8;
+              findings.push(
+                makeFinding13({
+                  riskScore,
+                  title: `EC2 ${instId} userData contains ${sp.name}`,
+                  resourceType: "AWS::EC2::Instance",
+                  resourceId: instId,
+                  resourceArn: instArn,
+                  region,
+                  description: `EC2 instance "${instId}" has user data containing a ${sp.name} pattern.`,
+                  impact: "Instance user data is accessible to anyone with ec2:DescribeInstanceAttribute permission and from the instance metadata service.",
+                  remediationSteps: [
+                    "Remove the secret from instance user data.",
+                    "Use IAM instance profiles for AWS API access instead of embedding keys.",
+                    "Use Secrets Manager or SSM Parameter Store for other secrets.",
+                    "Rotate the exposed credential immediately."
+                  ]
+                })
+              );
+            }
+          }
+        }
+      } catch (e) {
+        warnings.push(`EC2 userData scan error: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: 0,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+
+// src/scanners/ssl-certificate.ts
+import {
+  ACMClient,
+  ListCertificatesCommand,
+  DescribeCertificateCommand
+} from "@aws-sdk/client-acm";
+function makeFinding14(opts) {
+  const severity = severityFromScore(opts.riskScore);
+  return { ...opts, severity, priority: priorityFromSeverity(severity) };
+}
+var SslCertificateScanner = class {
+  moduleName = "ssl_certificate";
+  async scan(ctx) {
+    const { region } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    try {
+      const client = createClient(ACMClient, region);
+      const certs = [];
+      let nextToken;
+      do {
+        const resp = await client.send(
+          new ListCertificatesCommand({ NextToken: nextToken })
+        );
+        if (resp.CertificateSummaryList) {
+          certs.push(...resp.CertificateSummaryList);
+        }
+        nextToken = resp.NextToken;
+      } while (nextToken);
+      for (const cert of certs) {
+        const certArn = cert.CertificateArn ?? "unknown";
+        const domainName = cert.DomainName ?? "unknown";
+        let detail;
+        try {
+          const descResp = await client.send(
+            new DescribeCertificateCommand({ CertificateArn: certArn })
+          );
+          detail = descResp.Certificate;
+        } catch (e) {
+          warnings.push(`Could not describe certificate ${certArn}: ${e instanceof Error ? e.message : String(e)}`);
+          continue;
+        }
+        if (!detail) continue;
+        const status = detail.Status ?? "UNKNOWN";
+        const inUseBy = detail.InUseBy ?? [];
+        const inUseStr = inUseBy.length > 0 ? ` In use by ${inUseBy.length} resource(s).` : " Not currently in use.";
+        if (status === "FAILED") {
+          findings.push(
+            makeFinding14({
+              riskScore: 7.5,
+              title: `Certificate for ${domainName} is in FAILED status`,
+              resourceType: "AWS::ACM::Certificate",
+              resourceId: domainName,
+              resourceArn: certArn,
+              region,
+              description: `ACM certificate for "${domainName}" has status FAILED.${inUseStr}`,
+              impact: "The certificate failed validation and cannot be used for TLS termination. Services relying on it may lose HTTPS protection.",
+              remediationSteps: [
+                "Check the failure reason in the ACM console.",
+                "Request a new certificate with correct domain validation.",
+                "If using DNS validation, ensure the CNAME records are correctly configured."
+              ]
+            })
+          );
+          continue;
+        }
+        if (status === "ISSUED" && detail.NotAfter) {
+          const now = /* @__PURE__ */ new Date();
+          const expiryDate = new Date(detail.NotAfter);
+          const daysUntilExpiry = Math.floor(
+            (expiryDate.getTime() - now.getTime()) / (1e3 * 60 * 60 * 24)
+          );
+          if (daysUntilExpiry < 0) {
+            findings.push(
+              makeFinding14({
+                riskScore: 8,
+                title: `Certificate for ${domainName} has expired`,
+                resourceType: "AWS::ACM::Certificate",
+                resourceId: domainName,
+                resourceArn: certArn,
+                region,
+                description: `ACM certificate for "${domainName}" expired ${Math.abs(daysUntilExpiry)} days ago.${inUseStr}`,
+                impact: "Expired certificates cause TLS errors for end users. Browsers will display security warnings and block access.",
+                remediationSteps: [
+                  "Renew or replace the certificate immediately.",
+                  "If using ACM-managed renewal, check why automatic renewal failed.",
+                  "Verify domain validation records are still in place."
+                ]
+              })
+            );
+          } else if (daysUntilExpiry < 30) {
+            findings.push(
+              makeFinding14({
+                riskScore: 6,
+                title: `Certificate for ${domainName} expires in ${daysUntilExpiry} days`,
+                resourceType: "AWS::ACM::Certificate",
+                resourceId: domainName,
+                resourceArn: certArn,
+                region,
+                description: `ACM certificate for "${domainName}" expires in ${daysUntilExpiry} days (${expiryDate.toISOString().split("T")[0]}).${inUseStr}`,
+                impact: "Certificate will expire soon. If not renewed, services will experience TLS errors.",
+                remediationSteps: [
+                  "Verify ACM automatic renewal is working (check renewal status).",
+                  "If imported certificate, prepare and import the renewed certificate.",
+                  "Set up CloudWatch alarms for certificate expiry."
+                ]
+              })
+            );
+          } else if (daysUntilExpiry < 90) {
+            findings.push(
+              makeFinding14({
+                riskScore: 4,
+                title: `Certificate for ${domainName} expires in ${daysUntilExpiry} days`,
+                resourceType: "AWS::ACM::Certificate",
+                resourceId: domainName,
+                resourceArn: certArn,
+                region,
+                description: `ACM certificate for "${domainName}" expires in ${daysUntilExpiry} days (${expiryDate.toISOString().split("T")[0]}).${inUseStr}`,
+                impact: "Certificate is approaching expiry. Plan renewal to avoid service disruption.",
+                remediationSteps: [
+                  "Verify ACM automatic renewal is configured and working.",
+                  "If imported certificate, begin the renewal process.",
+                  "Consider setting up monitoring for certificate expiry dates."
+                ]
+              })
+            );
+          }
+        }
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: certs.length,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: 0,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+
+// src/scanners/dns-dangling.ts
+import {
+  Route53Client,
+  ListHostedZonesCommand,
+  ListResourceRecordSetsCommand
+} from "@aws-sdk/client-route-53";
+import {
+  S3Client as S3Client3,
+  HeadBucketCommand
+} from "@aws-sdk/client-s3";
+import { promises as dns } from "dns";
+function makeFinding15(opts) {
+  const severity = severityFromScore(opts.riskScore);
+  return { ...opts, severity, priority: priorityFromSeverity(severity) };
+}
+function extractS3BucketName(target) {
+  const s3Pattern = /^([^.]+)\.s3[.-]/;
+  const m = target.match(s3Pattern);
+  return m ? m[1] : null;
+}
+function classifyTarget(target) {
+  if (/\.s3[.-](.*\.)?amazonaws\.com(\.cn)?\.?$/.test(target)) return "s3";
+  if (/\.elb\.amazonaws\.com(\.cn)?\.?$/.test(target)) return "elb";
+  if (/\.cloudfront\.net\.?$/.test(target)) return "cloudfront";
+  return null;
+}
+async function dnsResolves(hostname3) {
+  try {
+    const h = hostname3.endsWith(".") ? hostname3.slice(0, -1) : hostname3;
+    await dns.resolve(h);
+    return true;
+  } catch {
+    return false;
+  }
+}
+var DnsDanglingScanner = class {
+  moduleName = "dns_dangling";
+  async scan(ctx) {
+    const { region, partition, accountId } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    let resourcesScanned = 0;
+    try {
+      const route53 = createClient(Route53Client, region);
+      const zones = [];
+      let marker;
+      do {
+        const resp = await route53.send(
+          new ListHostedZonesCommand({ Marker: marker })
+        );
+        if (resp.HostedZones) zones.push(...resp.HostedZones);
+        marker = resp.IsTruncated ? resp.NextMarker : void 0;
+      } while (marker);
+      for (const zone of zones) {
+        const zoneId = zone.Id ?? "unknown";
+        const zoneName = zone.Name ?? "unknown";
+        const shortZoneId = zoneId.replace("/hostedzone/", "");
+        const records = [];
+        let nextName;
+        let nextType;
+        do {
+          const resp = await route53.send(
+            new ListResourceRecordSetsCommand({
+              HostedZoneId: shortZoneId,
+              StartRecordName: nextName,
+              StartRecordType: nextType
+            })
+          );
+          if (resp.ResourceRecordSets) records.push(...resp.ResourceRecordSets);
+          if (resp.IsTruncated) {
+            nextName = resp.NextRecordName;
+            nextType = resp.NextRecordType;
+          } else {
+            nextName = void 0;
+            nextType = void 0;
+          }
+        } while (nextName);
+        const cnameRecords = records.filter(
+          (r) => r.Type === "CNAME" && r.ResourceRecords && r.ResourceRecords.length > 0
+        );
+        resourcesScanned += cnameRecords.length;
+        for (const record2 of cnameRecords) {
+          const recordName = record2.Name ?? "unknown";
+          const target = record2.ResourceRecords[0].Value ?? "";
+          const recordArn = `arn:${partition}:route53:::hostedzone/${shortZoneId}`;
+          const targetType = classifyTarget(target);
+          if (targetType === "s3") {
+            const bucketName = extractS3BucketName(target);
+            if (bucketName) {
+              let bucketExists = false;
+              try {
+                const s3 = createClient(S3Client3, region);
+                await s3.send(new HeadBucketCommand({ Bucket: bucketName }));
+                bucketExists = true;
+              } catch (e) {
+                const errName = e.name ?? "";
+                if (errName === "Forbidden" || errName === "AccessDenied" || errName === "403") {
+                  bucketExists = true;
+                }
+              }
+              if (!bucketExists) {
+                findings.push(
+                  makeFinding15({
+                    riskScore: 9.5,
+                    title: `CNAME ${recordName} points to non-existent S3 bucket "${bucketName}"`,
+                    resourceType: "AWS::Route53::RecordSet",
+                    resourceId: recordName,
+                    resourceArn: recordArn,
+                    region,
+                    description: `DNS record "${recordName}" in zone "${zoneName}" has a CNAME to S3 bucket "${bucketName}" which does not exist. An attacker can claim this bucket for subdomain takeover.`,
+                    impact: "Critical subdomain takeover vulnerability. An attacker can create the S3 bucket and serve arbitrary content on your domain, enabling phishing, cookie theft, and reputation damage.",
+                    remediationSteps: [
+                      "Immediately create the S3 bucket to prevent takeover.",
+                      "Remove the dangling DNS record if the bucket is no longer needed.",
+                      "Audit all CNAME records pointing to S3 buckets."
+                    ]
+                  })
+                );
+              }
+            }
+          } else if (targetType === "elb") {
+            const resolves = await dnsResolves(target);
+            if (!resolves) {
+              findings.push(
+                makeFinding15({
+                  riskScore: 8,
+                  title: `CNAME ${recordName} points to non-resolving ELB`,
+                  resourceType: "AWS::Route53::RecordSet",
+                  resourceId: recordName,
+                  resourceArn: recordArn,
+                  region,
+                  description: `DNS record "${recordName}" in zone "${zoneName}" has a CNAME to ELB "${target}" which does not resolve. The load balancer may have been deleted.`,
+                  impact: "Potential subdomain takeover if the ELB DNS name can be re-registered. Dangling DNS records indicate resource lifecycle gaps.",
+                  remediationSteps: [
+                    "Remove the dangling DNS record.",
+                    "If the ELB was deleted, clean up all associated DNS records.",
+                    "Implement automated DNS record cleanup when decommissioning resources."
+                  ]
+                })
+              );
+            }
+          } else if (targetType === "cloudfront") {
+            const resolves = await dnsResolves(target);
+            if (!resolves) {
+              findings.push(
+                makeFinding15({
+                  riskScore: 7.5,
+                  title: `CNAME ${recordName} points to non-resolving CloudFront distribution`,
+                  resourceType: "AWS::Route53::RecordSet",
+                  resourceId: recordName,
+                  resourceArn: recordArn,
+                  region,
+                  description: `DNS record "${recordName}" in zone "${zoneName}" has a CNAME to CloudFront "${target}" which does not resolve. The distribution may have been deleted.`,
+                  impact: "Potential subdomain takeover via CloudFront. An attacker may create a distribution with this alternate domain name.",
+                  remediationSteps: [
+                    "Remove the dangling DNS record.",
+                    "If the CloudFront distribution was deleted, clean up associated DNS records.",
+                    "Use CloudFront Origin Access Identity to limit exposure."
+                  ]
+                })
+              );
+            }
+          } else if (targetType === null) {
+            const resolves = await dnsResolves(target);
+            if (!resolves) {
+              findings.push(
+                makeFinding15({
+                  riskScore: 5,
+                  title: `CNAME ${recordName} target does not resolve`,
+                  resourceType: "AWS::Route53::RecordSet",
+                  resourceId: recordName,
+                  resourceArn: recordArn,
+                  region,
+                  description: `DNS record "${recordName}" in zone "${zoneName}" has a CNAME to "${target}" which does not resolve.`,
+                  impact: "Orphaned DNS record pointing to a non-existent target. May indicate incomplete resource cleanup.",
+                  remediationSteps: [
+                    "Verify the target resource still exists.",
+                    "Remove the DNS record if it is no longer needed.",
+                    "Implement DNS record lifecycle management."
+                  ]
+                })
+              );
+            }
+          }
+        }
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: 0,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+
+// src/scanners/network-reachability.ts
+import {
+  EC2Client as EC2Client5,
+  DescribeInstancesCommand as DescribeInstancesCommand4,
+  DescribeSecurityGroupsCommand as DescribeSecurityGroupsCommand3,
+  DescribeNetworkAclsCommand,
+  DescribeAddressesCommand
+} from "@aws-sdk/client-ec2";
+var HIGH_RISK_PORTS2 = {
+  22: "SSH",
+  3389: "RDP",
+  3306: "MySQL",
+  5432: "PostgreSQL",
+  1433: "MSSQL",
+  27017: "MongoDB",
+  6379: "Redis",
+  9200: "Elasticsearch",
+  11211: "Memcached"
+};
+function makeFinding16(opts) {
+  const severity = severityFromScore(opts.riskScore);
+  return { ...opts, severity, priority: priorityFromSeverity(severity) };
+}
+function sgAllowsPort(sgs, port) {
+  for (const sg of sgs) {
+    for (const perm of sg.IpPermissions ?? []) {
+      if (permissionAllowsWorldPort(perm, port)) return true;
+    }
+  }
+  return false;
+}
+function sgAllowsAllPorts(sgs) {
+  for (const sg of sgs) {
+    for (const perm of sg.IpPermissions ?? []) {
+      if (isAllPorts2(perm) && hasWorldCidr(perm)) return true;
+    }
+  }
+  return false;
+}
+function permissionAllowsWorldPort(perm, port) {
+  if (!hasWorldCidr(perm)) return false;
+  const from = perm.FromPort ?? -1;
+  const to = perm.ToPort ?? -1;
+  if (from === -1 && to === -1) return true;
+  return port >= from && port <= to;
+}
+function hasWorldCidr(perm) {
+  const hasIpv4 = (perm.IpRanges ?? []).some((r) => r.CidrIp === "0.0.0.0/0");
+  const hasIpv6 = (perm.Ipv6Ranges ?? []).some((r) => r.CidrIpv6 === "::/0");
+  return hasIpv4 || hasIpv6;
+}
+function isAllPorts2(perm) {
+  const from = perm.FromPort ?? -1;
+  const to = perm.ToPort ?? -1;
+  return from === -1 && to === -1 || from === 0 && to === 65535;
+}
+function naclAllowsPort(nacl, port) {
+  const inboundRules = (nacl.Entries ?? []).filter((e) => e.Egress === false).sort((a, b) => (a.RuleNumber ?? 0) - (b.RuleNumber ?? 0));
+  for (const rule of inboundRules) {
+    if (naclRuleMatchesPort(rule, port) && naclRuleMatchesWorldCidr(rule)) {
+      return rule.RuleAction === "allow";
+    }
+  }
+  return false;
+}
+function naclRuleMatchesPort(rule, port) {
+  if (rule.Protocol === "-1") return true;
+  if (rule.Protocol !== "6" && rule.Protocol !== "17") return false;
+  const from = rule.PortRange?.From ?? 0;
+  const to = rule.PortRange?.To ?? 65535;
+  return port >= from && port <= to;
+}
+function naclRuleMatchesWorldCidr(rule) {
+  return rule.CidrBlock === "0.0.0.0/0" || rule.Ipv6CidrBlock === "::/0";
+}
+var NetworkReachabilityScanner = class {
+  moduleName = "network_reachability";
+  async scan(ctx) {
+    const { region, partition, accountId } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    try {
+      const client = createClient(EC2Client5, region);
+      const eipMap = /* @__PURE__ */ new Map();
+      try {
+        const eipResp = await client.send(new DescribeAddressesCommand({}));
+        for (const addr of eipResp.Addresses ?? []) {
+          if (addr.InstanceId && addr.PublicIp) {
+            eipMap.set(addr.InstanceId, addr.PublicIp);
+          }
+        }
+      } catch (e) {
+        warnings.push(`Could not list Elastic IPs: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      const instances = [];
+      let nextToken;
+      do {
+        const resp = await client.send(
+          new DescribeInstancesCommand4({ NextToken: nextToken })
+        );
+        for (const res of resp.Reservations ?? []) {
+          if (res.Instances) instances.push(...res.Instances);
+        }
+        nextToken = resp.NextToken;
+      } while (nextToken);
+      const publicInstances = instances.filter((inst) => {
+        const instId = inst.InstanceId ?? "";
+        return inst.PublicIpAddress || eipMap.has(instId);
+      });
+      const sgIds = /* @__PURE__ */ new Set();
+      const subnetIds = /* @__PURE__ */ new Set();
+      for (const inst of publicInstances) {
+        for (const sg of inst.SecurityGroups ?? []) {
+          if (sg.GroupId) sgIds.add(sg.GroupId);
+        }
+        if (inst.SubnetId) subnetIds.add(inst.SubnetId);
+      }
+      const sgMap = /* @__PURE__ */ new Map();
+      if (sgIds.size > 0) {
+        const sgResp = await client.send(
+          new DescribeSecurityGroupsCommand3({
+            GroupIds: [...sgIds]
+          })
+        );
+        for (const sg of sgResp.SecurityGroups ?? []) {
+          if (sg.GroupId) sgMap.set(sg.GroupId, sg);
+        }
+      }
+      const subnetNaclMap = /* @__PURE__ */ new Map();
+      if (subnetIds.size > 0) {
+        let naclToken;
+        const allNacls = [];
+        do {
+          const naclResp = await client.send(
+            new DescribeNetworkAclsCommand({
+              Filters: [{ Name: "association.subnet-id", Values: [...subnetIds] }],
+              NextToken: naclToken
+            })
+          );
+          if (naclResp.NetworkAcls) allNacls.push(...naclResp.NetworkAcls);
+          naclToken = naclResp.NextToken;
+        } while (naclToken);
+        for (const nacl of allNacls) {
+          for (const assoc of nacl.Associations ?? []) {
+            if (assoc.SubnetId) {
+              subnetNaclMap.set(assoc.SubnetId, nacl);
+            }
+          }
+        }
+      }
+      for (const inst of publicInstances) {
+        const instId = inst.InstanceId ?? "unknown";
+        const instArn = `arn:${partition}:ec2:${region}:${accountId}:instance/${instId}`;
+        const publicIp = inst.PublicIpAddress ?? eipMap.get(instId) ?? "unknown";
+        const subnetId = inst.SubnetId ?? "";
+        const instSgs = [];
+        for (const sg of inst.SecurityGroups ?? []) {
+          if (sg.GroupId) {
+            const fullSg = sgMap.get(sg.GroupId);
+            if (fullSg) instSgs.push(fullSg);
+          }
+        }
+        const nacl = subnetNaclMap.get(subnetId);
+        for (const [portStr, portName] of Object.entries(HIGH_RISK_PORTS2)) {
+          const port = Number(portStr);
+          const sgAllows = sgAllowsPort(instSgs, port);
+          const naclAllows = nacl ? naclAllowsPort(nacl, port) : true;
+          if (sgAllows && naclAllows) {
+            findings.push(
+              makeFinding16({
+                riskScore: 9.5,
+                title: `EC2 ${instId} (${publicIp}): ${portName} (${port}) reachable from internet`,
+                resourceType: "AWS::EC2::Instance",
+                resourceId: instId,
+                resourceArn: instArn,
+                region,
+                description: `EC2 instance "${instId}" has public IP ${publicIp} and both its security group(s) and subnet NACL allow inbound ${portName} (port ${port}) from the internet.`,
+                impact: `${portName} is directly reachable from the internet, enabling brute-force, exploitation, or unauthorized access.`,
+                remediationSteps: [
+                  `Restrict security group inbound rules for port ${port} to specific IPs.`,
+                  "Use Systems Manager Session Manager or a bastion host instead of direct access.",
+                  "Add NACL deny rules for high-risk ports as an additional layer.",
+                  "Enable VPC Flow Logs to monitor connection attempts."
+                ]
+              })
+            );
+          } else if (sgAllows && !naclAllows) {
+            findings.push(
+              makeFinding16({
+                riskScore: 2,
+                title: `EC2 ${instId}: ${portName} (${port}) allowed by SG but blocked by NACL`,
+                resourceType: "AWS::EC2::Instance",
+                resourceId: instId,
+                resourceArn: instArn,
+                region,
+                description: `EC2 instance "${instId}" (${publicIp}) has security group rules allowing ${portName} (port ${port}) from the internet, but the subnet NACL blocks it.`,
+                impact: "Currently protected by NACL, but the SG is overly permissive. NACL changes could expose the port.",
+                remediationSteps: [
+                  `Tighten the security group rules for port ${port} to match the intended access.`,
+                  "Do not rely solely on NACLs for access control."
+                ]
+              })
+            );
+          }
+        }
+        if (sgAllowsAllPorts(instSgs)) {
+          const naclOpen = nacl ? naclAllowsPort(nacl, 80) : true;
+          if (naclOpen) {
+            findings.push(
+              makeFinding16({
+                riskScore: 8,
+                title: `EC2 ${instId} (${publicIp}): all ports reachable from internet`,
+                resourceType: "AWS::EC2::Instance",
+                resourceId: instId,
+                resourceArn: instArn,
+                region,
+                description: `EC2 instance "${instId}" has public IP ${publicIp} and its security group allows all ports from the internet with no NACL restriction.`,
+                impact: "All services on this instance are exposed to the internet, creating a large attack surface.",
+                remediationSteps: [
+                  "Replace the all-ports SG rule with specific port rules.",
+                  "Implement NACL rules to restrict inbound traffic as defense in depth.",
+                  "Audit all services running on the instance."
+                ]
+              })
+            );
+          }
+        }
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: publicInstances.length,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: 0,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+
+// src/scanners/iam-privilege-escalation.ts
+import {
+  IAMClient as IAMClient4,
+  ListUsersCommand as ListUsersCommand3,
+  ListAttachedUserPoliciesCommand as ListAttachedUserPoliciesCommand2,
+  GetPolicyCommand,
+  GetPolicyVersionCommand,
+  ListUserPoliciesCommand,
+  GetUserPolicyCommand
+} from "@aws-sdk/client-iam";
+function makeFinding17(opts) {
+  const severity = severityFromScore(opts.riskScore);
+  return { ...opts, severity, priority: priorityFromSeverity(severity) };
+}
+function extractActions(doc) {
+  const actions = [];
+  if (!doc || typeof doc !== "object") return actions;
+  const policy = doc;
+  const stmts = Array.isArray(policy.Statement) ? policy.Statement : policy.Statement ? [policy.Statement] : [];
+  for (const stmt of stmts) {
+    if (stmt.Effect !== "Allow") continue;
+    const acts = Array.isArray(stmt.Action) ? stmt.Action : stmt.Action ? [stmt.Action] : [];
+    actions.push(...acts);
+  }
+  return actions.map((a) => a.toLowerCase());
+}
+function hasAction(actions, pattern) {
+  const pat = pattern.toLowerCase();
+  return actions.some((a) => {
+    if (a === "*") return true;
+    if (a === pat) return true;
+    if (a.endsWith("*")) {
+      const prefix = a.slice(0, -1);
+      if (pat.startsWith(prefix)) return true;
+    }
+    return false;
+  });
+}
+var IamPrivilegeEscalationScanner = class {
+  moduleName = "iam_privilege_escalation";
+  async scan(ctx) {
+    const { region, partition, accountId } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    const iamRegion = getIamRegion(region);
+    warnings.push(
+      "Note: This scanner currently checks IAM users only. Role and group policy analysis will be added in a future version."
+    );
+    try {
+      const client = createClient(IAMClient4, iamRegion);
+      const users = [];
+      let marker;
+      do {
+        const resp = await client.send(
+          new ListUsersCommand3({ Marker: marker })
+        );
+        if (resp.Users) users.push(...resp.Users);
+        marker = resp.IsTruncated ? resp.Marker : void 0;
+      } while (marker);
+      for (const user of users) {
+        const userName = user.UserName ?? "unknown";
+        const userArn = user.Arn ?? `arn:${partition}:iam::${accountId}:user/${userName}`;
+        const allActions = [];
+        try {
+          const attachedResp = await client.send(
+            new ListAttachedUserPoliciesCommand2({ UserName: userName })
+          );
+          for (const policy of attachedResp.AttachedPolicies ?? []) {
+            const policyArn = policy.PolicyArn;
+            if (!policyArn) continue;
+            try {
+              const policyResp = await client.send(
+                new GetPolicyCommand({ PolicyArn: policyArn })
+              );
+              const versionId = policyResp.Policy?.DefaultVersionId ?? "v1";
+              const versionResp = await client.send(
+                new GetPolicyVersionCommand({
+                  PolicyArn: policyArn,
+                  VersionId: versionId
+                })
+              );
+              const doc = versionResp.PolicyVersion?.Document;
+              if (doc) {
+                const parsed = JSON.parse(decodeURIComponent(doc));
+                allActions.push(...extractActions(parsed));
+              }
+            } catch (e) {
+              const msg = e instanceof Error ? e.message : String(e);
+              warnings.push(
+                `Could not read policy ${policyArn} for user ${userName}: ${msg}`
+              );
+            }
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          warnings.push(
+            `Could not list attached policies for user ${userName}: ${msg}`
+          );
+        }
+        try {
+          const inlineResp = await client.send(
+            new ListUserPoliciesCommand({ UserName: userName })
+          );
+          for (const policyName of inlineResp.PolicyNames ?? []) {
+            try {
+              const inlinePolicyResp = await client.send(
+                new GetUserPolicyCommand({
+                  UserName: userName,
+                  PolicyName: policyName
+                })
+              );
+              const doc = inlinePolicyResp.PolicyDocument;
+              if (doc) {
+                const parsed = JSON.parse(decodeURIComponent(doc));
+                allActions.push(...extractActions(parsed));
+              }
+            } catch (e) {
+              const msg = e instanceof Error ? e.message : String(e);
+              warnings.push(
+                `Could not read inline policy ${policyName} for user ${userName}: ${msg}`
+              );
+            }
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          warnings.push(
+            `Could not list inline policies for user ${userName}: ${msg}`
+          );
+        }
+        if (allActions.length === 0) continue;
+        if (hasAction(allActions, "iam:*") || allActions.includes("*")) {
+          findings.push(
+            makeFinding17({
+              riskScore: 9,
+              title: `IAM user ${userName} has iam:* wildcard permissions`,
+              resourceType: "AWS::IAM::User",
+              resourceId: userName,
+              resourceArn: userArn,
+              region: "global",
+              description: `User "${userName}" has wildcard IAM permissions (iam:* or *), granting full control over identity and access management.`,
+              impact: "The user can create, modify, or delete any IAM resource including creating admin users, modifying policies, and escalating privileges without restriction.",
+              remediationSteps: [
+                `Remove wildcard IAM permissions from user "${userName}".`,
+                "Replace with specific, least-privilege IAM permissions.",
+                "Use IAM Access Analyzer to identify actually used permissions."
+              ]
+            })
+          );
+          continue;
+        }
+        if (hasAction(allActions, "iam:putuserpolicy") || hasAction(allActions, "iam:attachuserpolicy")) {
+          findings.push(
+            makeFinding17({
+              riskScore: 9.5,
+              title: `IAM user ${userName} can self-grant admin via policy attachment`,
+              resourceType: "AWS::IAM::User",
+              resourceId: userName,
+              resourceArn: userArn,
+              region: "global",
+              description: `User "${userName}" has iam:PutUserPolicy or iam:AttachUserPolicy, allowing them to attach AdministratorAccess or any policy to themselves.`,
+              impact: "The user can escalate to full administrator access by attaching an admin policy to their own account.",
+              remediationSteps: [
+                `Remove iam:PutUserPolicy and iam:AttachUserPolicy from user "${userName}".`,
+                "Use permission boundaries to restrict policy attachment scope.",
+                "Require MFA for sensitive IAM operations via condition keys."
+              ]
+            })
+          );
+        }
+        if (hasAction(allActions, "iam:createrole") && hasAction(allActions, "iam:attachrolepolicy")) {
+          findings.push(
+            makeFinding17({
+              riskScore: 8,
+              title: `IAM user ${userName} can create admin roles`,
+              resourceType: "AWS::IAM::User",
+              resourceId: userName,
+              resourceArn: userArn,
+              region: "global",
+              description: `User "${userName}" has both iam:CreateRole and iam:AttachRolePolicy, allowing creation of new roles with admin policies.`,
+              impact: "The user can create a new IAM role with AdministratorAccess and assume it to gain full account access.",
+              remediationSteps: [
+                `Restrict iam:CreateRole and iam:AttachRolePolicy with resource conditions for user "${userName}".`,
+                "Use permission boundaries on all created roles.",
+                "Monitor IAM role creation via CloudTrail alerts."
+              ]
+            })
+          );
+        }
+        if (hasAction(allActions, "iam:passrole") && hasAction(allActions, "lambda:createfunction")) {
+          findings.push(
+            makeFinding17({
+              riskScore: 7.5,
+              title: `IAM user ${userName} can escalate via Lambda role passing`,
+              resourceType: "AWS::IAM::User",
+              resourceId: userName,
+              resourceArn: userArn,
+              region: "global",
+              description: `User "${userName}" has iam:PassRole and lambda:CreateFunction, allowing them to create a Lambda function with an admin role.`,
+              impact: "The user can pass a high-privilege role to a Lambda function and invoke it to execute actions beyond their own permissions.",
+              remediationSteps: [
+                `Restrict iam:PassRole to specific role ARNs for user "${userName}".`,
+                "Use condition keys to limit which roles can be passed to Lambda.",
+                "Implement SCP guardrails for privilege escalation paths."
+              ]
+            })
+          );
+        }
+        if (hasAction(allActions, "iam:createaccesskey")) {
+          findings.push(
+            makeFinding17({
+              riskScore: 8,
+              title: `IAM user ${userName} can create access keys for other users`,
+              resourceType: "AWS::IAM::User",
+              resourceId: userName,
+              resourceArn: userArn,
+              region: "global",
+              description: `User "${userName}" has iam:CreateAccessKey, which allows creating access keys for any IAM user unless restricted by resource conditions.`,
+              impact: "The user can impersonate other IAM users (including admins) by generating access keys on their behalf.",
+              remediationSteps: [
+                `Restrict iam:CreateAccessKey to the user's own ARN using a resource condition.`,
+                "Implement SCP to prevent cross-user key creation.",
+                "Monitor CreateAccessKey events in CloudTrail."
+              ]
+            })
+          );
+        }
+        if (hasAction(allActions, "sts:assumerole")) {
+          findings.push(
+            makeFinding17({
+              riskScore: 8,
+              title: `IAM user ${userName} can assume roles (potential admin escalation)`,
+              resourceType: "AWS::IAM::User",
+              resourceId: userName,
+              resourceArn: userArn,
+              region: "global",
+              description: `User "${userName}" has sts:AssumeRole, which may allow assuming high-privilege or admin roles if not restricted by resource ARN.`,
+              impact: "The user can escalate privileges by assuming roles with higher permissions than their own.",
+              remediationSteps: [
+                `Restrict sts:AssumeRole to specific role ARNs for user "${userName}".`,
+                "Require MFA for assuming sensitive roles via role trust policy conditions.",
+                "Audit which roles this user can assume and their permission levels."
+              ]
+            })
+          );
+        }
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: users.length,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: 0,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+
+// src/scanners/public-access-verify.ts
+import {
+  S3Client as S3Client4,
+  ListBucketsCommand as ListBucketsCommand2,
+  GetPublicAccessBlockCommand as GetPublicAccessBlockCommand3,
+  GetBucketAclCommand as GetBucketAclCommand2,
+  GetBucketPolicyStatusCommand as GetBucketPolicyStatusCommand2,
+  GetBucketLocationCommand as GetBucketLocationCommand3
+} from "@aws-sdk/client-s3";
+import {
+  RDSClient as RDSClient2,
+  DescribeDBInstancesCommand as DescribeDBInstancesCommand2
+} from "@aws-sdk/client-rds";
+import dns2 from "dns";
+function makeFinding18(opts) {
+  const severity = severityFromScore(opts.riskScore);
+  return { ...opts, severity, priority: priorityFromSeverity(severity) };
+}
+function s3Endpoint(bucket, region) {
+  const suffix = region.startsWith("cn-") ? "amazonaws.com.cn" : "amazonaws.com";
+  return `https://${bucket}.s3.${region}.${suffix}/`;
+}
+async function getBucketRegion3(client, bucketName, defaultRegion, warnings) {
+  try {
+    const resp = await client.send(
+      new GetBucketLocationCommand3({ Bucket: bucketName })
+    );
+    const loc = String(resp.LocationConstraint ?? "") || "us-east-1";
+    return loc;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    warnings.push(`Failed to detect region for bucket ${bucketName}, using ${defaultRegion}: ${msg}`);
+    return defaultRegion;
+  }
+}
+async function isBucketMarkedPublic(client, bucketName, warnings) {
+  let bpaBlocks = false;
+  try {
+    const bpa = await client.send(
+      new GetPublicAccessBlockCommand3({ Bucket: bucketName })
+    );
+    const cfg = bpa.PublicAccessBlockConfiguration;
+    bpaBlocks = !!(cfg?.BlockPublicAcls && cfg?.IgnorePublicAcls && cfg?.BlockPublicPolicy && cfg?.RestrictPublicBuckets);
+  } catch (e) {
+    if (e instanceof Error && e.name === "NoSuchPublicAccessBlockConfiguration") {
+      bpaBlocks = false;
+    } else {
+      const msg = e instanceof Error ? e.message : String(e);
+      warnings.push(`Could not check public access for bucket ${bucketName}: ${msg}`);
+      return "skip";
+    }
+  }
+  if (bpaBlocks) return false;
+  try {
+    const acl = await client.send(
+      new GetBucketAclCommand2({ Bucket: bucketName })
+    );
+    for (const grant of acl.Grants ?? []) {
+      const uri = grant.Grantee?.URI ?? "";
+      if (uri.includes("AllUsers") || uri.includes("AuthenticatedUsers")) {
+        return true;
+      }
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    warnings.push(`Could not check ACL for bucket ${bucketName}: ${msg}`);
+  }
+  try {
+    const policyStatus = await client.send(
+      new GetBucketPolicyStatusCommand2({ Bucket: bucketName })
+    );
+    if (policyStatus.PolicyStatus?.IsPublic) return true;
+  } catch (e) {
+    if (e instanceof Error && !e.name.includes("NoSuchBucketPolicy")) {
+      const msg = e instanceof Error ? e.message : String(e);
+      warnings.push(`Could not check policy status for bucket ${bucketName}: ${msg}`);
+    }
+  }
+  return false;
+}
+function isPrivateIp(ip) {
+  if (ip.startsWith("10.")) return true;
+  if (ip.startsWith("192.168.")) return true;
+  if (ip.startsWith("172.")) {
+    const second = parseInt(ip.split(".")[1], 10);
+    return second >= 16 && second <= 31;
+  }
+  if (ip.startsWith("127.")) return true;
+  return false;
+}
+var PublicAccessVerifyScanner = class {
+  moduleName = "public_access_verify";
+  async scan(ctx) {
+    const { region, partition, accountId } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    let resourcesScanned = 0;
+    try {
+      try {
+        const s3Client = createClient(S3Client4, region);
+        const listResp = await s3Client.send(new ListBucketsCommand2({}));
+        const buckets = listResp.Buckets ?? [];
+        for (const bucket of buckets) {
+          const name = bucket.Name ?? "unknown";
+          const arn = `arn:${partition}:s3:::${name}`;
+          const bucketRegion = await getBucketRegion3(s3Client, name, region, warnings);
+          const bucketClient = bucketRegion === region ? s3Client : createClient(S3Client4, bucketRegion);
+          const markedPublic = await isBucketMarkedPublic(bucketClient, name, warnings);
+          if (markedPublic === "skip" || !markedPublic) continue;
+          resourcesScanned++;
+          const url2 = s3Endpoint(name, bucketRegion);
+          try {
+            const resp = await fetch(url2, {
+              method: "HEAD",
+              signal: AbortSignal.timeout(5e3)
+            });
+            if (resp.ok || resp.status === 200) {
+              findings.push(
+                makeFinding18({
+                  riskScore: 9.5,
+                  title: `S3 bucket ${name} is publicly readable (verified)`,
+                  resourceType: "AWS::S3::Bucket",
+                  resourceId: name,
+                  resourceArn: arn,
+                  region: bucketRegion,
+                  description: `HTTP HEAD to ${url2} returned status ${resp.status}. The bucket is confirmed publicly accessible from the internet.`,
+                  impact: "Anyone on the internet can read objects from this bucket, potentially exposing sensitive data.",
+                  remediationSteps: [
+                    "Enable Block Public Access on the bucket immediately.",
+                    "Review and remove public ACL grants and public bucket policies.",
+                    "Audit bucket contents for sensitive data exposure."
+                  ]
+                })
+              );
+            } else if (resp.status === 403) {
+              findings.push(
+                makeFinding18({
+                  riskScore: 2,
+                  title: `S3 bucket ${name} is marked public but returns 403 (blocked)`,
+                  resourceType: "AWS::S3::Bucket",
+                  resourceId: name,
+                  resourceArn: arn,
+                  region: bucketRegion,
+                  description: `Bucket "${name}" has public ACL/policy configuration but HTTP access returns 403 Forbidden, likely blocked by other controls.`,
+                  impact: "Currently not accessible, but the public configuration is a risk if blocking controls are removed.",
+                  remediationSteps: [
+                    "Clean up the public ACL or policy to match the intended access model.",
+                    "Enable Block Public Access to formalize the restriction."
+                  ]
+                })
+              );
+            }
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            warnings.push(`HTTP check for bucket ${name} failed: ${msg}`);
+          }
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        warnings.push(`S3 public access verification failed: ${msg}`);
+      }
+      try {
+        const rdsClient = createClient(RDSClient2, region);
+        const instances = [];
+        let marker;
+        do {
+          const resp = await rdsClient.send(
+            new DescribeDBInstancesCommand2({ Marker: marker })
+          );
+          if (resp.DBInstances) instances.push(...resp.DBInstances);
+          marker = resp.Marker;
+        } while (marker);
+        for (const db of instances) {
+          if (!db.PubliclyAccessible) continue;
+          const dbId = db.DBInstanceIdentifier ?? "unknown";
+          const dbArn = db.DBInstanceArn ?? `arn:${partition}:rds:${region}:${accountId}:db/${dbId}`;
+          const endpoint = db.Endpoint?.Address;
+          if (!endpoint) continue;
+          resourcesScanned++;
+          try {
+            const addresses = await dns2.promises.resolve4(endpoint);
+            const hasPublicIp = addresses.some((ip) => !isPrivateIp(ip));
+            if (hasPublicIp) {
+              findings.push(
+                makeFinding18({
+                  riskScore: 8,
+                  title: `RDS instance ${dbId} endpoint resolves to public IP (verified)`,
+                  resourceType: "AWS::RDS::DBInstance",
+                  resourceId: dbId,
+                  resourceArn: dbArn,
+                  region,
+                  description: `RDS endpoint ${endpoint} resolves to public IP(s): ${addresses.join(", ")}. The database is network-reachable from the internet.`,
+                  impact: "The database can be reached from the public internet, making it vulnerable to brute-force, credential stuffing, and exploitation of database vulnerabilities.",
+                  remediationSteps: [
+                    "Set PubliclyAccessible to false on the RDS instance.",
+                    "Move the instance to a private subnet.",
+                    "Use VPN or bastion host for database access.",
+                    "Restrict security group inbound rules to known IPs."
+                  ]
+                })
+              );
+            }
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            warnings.push(`DNS resolution for RDS ${dbId} (${endpoint}) failed: ${msg}`);
+          }
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        warnings.push(`RDS public access verification failed: ${msg}`);
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: 0,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+
+// src/scanners/log-integrity.ts
+import {
+  CloudTrailClient as CloudTrailClient4,
+  DescribeTrailsCommand as DescribeTrailsCommand4,
+  GetTrailStatusCommand
+} from "@aws-sdk/client-cloudtrail";
+import {
+  EC2Client as EC2Client6,
+  DescribeFlowLogsCommand as DescribeFlowLogsCommand2,
+  DescribeVpcsCommand as DescribeVpcsCommand2
+} from "@aws-sdk/client-ec2";
+import {
+  S3Client as S3Client5,
+  ListBucketsCommand as ListBucketsCommand3,
+  GetBucketLoggingCommand,
+  GetBucketLocationCommand as GetBucketLocationCommand4
+} from "@aws-sdk/client-s3";
+import {
+  ElasticLoadBalancingV2Client as ElasticLoadBalancingV2Client2,
+  DescribeLoadBalancersCommand as DescribeLoadBalancersCommand2,
+  DescribeLoadBalancerAttributesCommand
+} from "@aws-sdk/client-elastic-load-balancing-v2";
+function makeFinding19(opts) {
+  const severity = severityFromScore(opts.riskScore);
+  return { ...opts, severity, priority: priorityFromSeverity(severity) };
+}
+var LogIntegrityScanner = class {
+  moduleName = "log_integrity_audit";
+  async scan(ctx) {
+    const { region, partition, accountId } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    let resourcesScanned = 0;
+    try {
+      try {
+        const ctClient = createClient(CloudTrailClient4, region);
+        const trailsResp = await ctClient.send(new DescribeTrailsCommand4({}));
+        const trails = trailsResp.trailList ?? [];
+        resourcesScanned += trails.length;
+        const hasMultiRegionTrail = trails.some(
+          (t) => t.IsMultiRegionTrail && t.HomeRegion === region
+        );
+        if (!hasMultiRegionTrail) {
+          findings.push(
+            makeFinding19({
+              riskScore: 7.5,
+              title: "No multi-region CloudTrail trail configured",
+              resourceType: "AWS::CloudTrail::Trail",
+              resourceId: "cloudtrail-multi-region",
+              resourceArn: `arn:${partition}:cloudtrail:${region}:${accountId}:trail/*`,
+              region,
+              description: "No CloudTrail trail is configured to log events across all AWS regions.",
+              impact: "API activity in other regions will not be logged, creating blind spots for security monitoring and incident investigation.",
+              remediationSteps: [
+                "Create a CloudTrail trail with IsMultiRegionTrail enabled.",
+                "Ensure the trail logs management events at minimum.",
+                "Configure the trail to deliver logs to a centralized S3 bucket."
+              ]
+            })
+          );
+        }
+        for (const trail of trails) {
+          if (trail.HomeRegion && trail.HomeRegion !== region) continue;
+          const trailName = trail.Name ?? "unknown";
+          const trailArn = trail.TrailARN ?? `arn:${partition}:cloudtrail:${region}:${accountId}:trail/${trailName}`;
+          if (!trail.LogFileValidationEnabled) {
+            findings.push(
+              makeFinding19({
+                riskScore: 6,
+                title: `CloudTrail trail ${trailName} has no log file validation`,
+                resourceType: "AWS::CloudTrail::Trail",
+                resourceId: trailName,
+                resourceArn: trailArn,
+                region,
+                description: `Trail "${trailName}" does not have log file validation enabled, making it impossible to verify log integrity.`,
+                impact: "Log files could be tampered with or deleted without detection, undermining forensic investigations.",
+                remediationSteps: [
+                  "Enable log file validation on the trail.",
+                  "Use AWS CLI `cloudtrail validate-logs` to verify existing logs."
+                ]
+              })
+            );
+          }
+          if (!trail.CloudWatchLogsLogGroupArn) {
+            findings.push(
+              makeFinding19({
+                riskScore: 5.5,
+                title: `CloudTrail trail ${trailName} is not integrated with CloudWatch Logs`,
+                resourceType: "AWS::CloudTrail::Trail",
+                resourceId: trailName,
+                resourceArn: trailArn,
+                region,
+                description: `Trail "${trailName}" does not deliver logs to CloudWatch Logs for real-time monitoring and alerting.`,
+                impact: "No real-time alerting on suspicious API activity. Security events can only be detected via delayed S3 log analysis.",
+                remediationSteps: [
+                  "Configure CloudWatch Logs integration for the trail.",
+                  "Create metric filters and alarms for critical API calls (e.g., unauthorized access, root login)."
+                ]
+              })
+            );
+          }
+          try {
+            const statusResp = await ctClient.send(
+              new GetTrailStatusCommand({ Name: trailArn })
+            );
+            if (!statusResp.IsLogging) {
+              findings.push(
+                makeFinding19({
+                  riskScore: 8,
+                  title: `CloudTrail trail ${trailName} is not actively logging`,
+                  resourceType: "AWS::CloudTrail::Trail",
+                  resourceId: trailName,
+                  resourceArn: trailArn,
+                  region,
+                  description: `Trail "${trailName}" exists but is not currently logging API activity.`,
+                  impact: "No API activity is being recorded, leaving the account without audit trail coverage.",
+                  remediationSteps: [
+                    "Start logging on the trail immediately.",
+                    "Investigate why logging was stopped (potential attacker action).",
+                    "Set up CloudWatch alarms for StopLogging events."
+                  ]
+                })
+              );
+            }
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            warnings.push(`Could not get trail status for ${trailName}: ${msg}`);
+          }
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        warnings.push(`CloudTrail audit failed: ${msg}`);
+      }
+      try {
+        const ec2Client = createClient(EC2Client6, region);
+        const vpcs = [];
+        let nextToken;
+        do {
+          const resp = await ec2Client.send(
+            new DescribeVpcsCommand2({ NextToken: nextToken })
+          );
+          if (resp.Vpcs) vpcs.push(...resp.Vpcs);
+          nextToken = resp.NextToken;
+        } while (nextToken);
+        resourcesScanned += vpcs.length;
+        const flowLogsResp = await ec2Client.send(
+          new DescribeFlowLogsCommand2({
+            Filter: [{ Name: "resource-type", Values: ["VPC"] }]
+          })
+        );
+        const flowLogVpcIds = new Set(
+          (flowLogsResp.FlowLogs ?? []).map((fl) => fl.ResourceId)
+        );
+        for (const vpc of vpcs) {
+          const vpcId = vpc.VpcId ?? "unknown";
+          if (!flowLogVpcIds.has(vpcId)) {
+            const vpcArn = `arn:${partition}:ec2:${region}:${accountId}:vpc/${vpcId}`;
+            findings.push(
+              makeFinding19({
+                riskScore: 7,
+                title: `VPC ${vpcId} has no Flow Logs enabled`,
+                resourceType: "AWS::EC2::VPC",
+                resourceId: vpcId,
+                resourceArn: vpcArn,
+                region,
+                description: `VPC "${vpcId}" does not have VPC Flow Logs configured, leaving network traffic unmonitored.`,
+                impact: "No visibility into accepted/rejected network traffic, making it difficult to detect lateral movement, data exfiltration, or unauthorized access.",
+                remediationSteps: [
+                  "Enable VPC Flow Logs for this VPC (at minimum REJECT traffic).",
+                  "Deliver logs to CloudWatch Logs or S3 for analysis.",
+                  "Consider enabling flow logs at the VPC level rather than individual ENIs."
+                ]
+              })
+            );
+          }
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        warnings.push(`VPC Flow Logs audit failed: ${msg}`);
+      }
+      try {
+        const s3Client = createClient(S3Client5, region);
+        const listResp = await s3Client.send(new ListBucketsCommand3({}));
+        const buckets = listResp.Buckets ?? [];
+        for (const bucket of buckets) {
+          const name = bucket.Name ?? "unknown";
+          const arn = `arn:${partition}:s3:::${name}`;
+          let bucketRegion = region;
+          try {
+            const locResp = await s3Client.send(
+              new GetBucketLocationCommand4({ Bucket: name })
+            );
+            bucketRegion = String(locResp.LocationConstraint ?? "") || "us-east-1";
+          } catch {
+          }
+          const bucketClient = bucketRegion === region ? s3Client : createClient(S3Client5, bucketRegion);
+          resourcesScanned++;
+          try {
+            const loggingResp = await bucketClient.send(
+              new GetBucketLoggingCommand({ Bucket: name })
+            );
+            if (!loggingResp.LoggingEnabled) {
+              findings.push(
+                makeFinding19({
+                  riskScore: 5,
+                  title: `S3 bucket ${name} has no access logging`,
+                  resourceType: "AWS::S3::Bucket",
+                  resourceId: name,
+                  resourceArn: arn,
+                  region: bucketRegion,
+                  description: `Bucket "${name}" does not have server access logging enabled.`,
+                  impact: "No visibility into who is accessing the bucket, making it difficult to detect unauthorized data access or exfiltration.",
+                  remediationSteps: [
+                    "Enable server access logging on the bucket.",
+                    "Direct logs to a dedicated logging bucket.",
+                    "Consider using CloudTrail S3 data events for more detailed logging."
+                  ]
+                })
+              );
+            }
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            warnings.push(`S3 access logging check for ${name} failed: ${msg}`);
+          }
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        warnings.push(`S3 access logging audit failed: ${msg}`);
+      }
+      try {
+        const elbClient = createClient(
+          ElasticLoadBalancingV2Client2,
+          region
+        );
+        const loadBalancers = [];
+        let lbMarker;
+        do {
+          const resp = await elbClient.send(
+            new DescribeLoadBalancersCommand2({ Marker: lbMarker })
+          );
+          if (resp.LoadBalancers) loadBalancers.push(...resp.LoadBalancers);
+          lbMarker = resp.NextMarker;
+        } while (lbMarker);
+        resourcesScanned += loadBalancers.length;
+        for (const lb of loadBalancers) {
+          const lbName = lb.LoadBalancerName ?? "unknown";
+          const lbArn = lb.LoadBalancerArn ?? "unknown";
+          try {
+            const attrsResp = await elbClient.send(
+              new DescribeLoadBalancerAttributesCommand({
+                LoadBalancerArn: lbArn
+              })
+            );
+            const accessLogEnabled = (attrsResp.Attributes ?? []).find(
+              (a) => a.Key === "access_logs.s3.enabled"
+            );
+            if (!accessLogEnabled || accessLogEnabled.Value !== "true") {
+              findings.push(
+                makeFinding19({
+                  riskScore: 5.5,
+                  title: `ELB ${lbName} has no access logging enabled`,
+                  resourceType: "AWS::ElasticLoadBalancingV2::LoadBalancer",
+                  resourceId: lbName,
+                  resourceArn: lbArn,
+                  region,
+                  description: `Load balancer "${lbName}" does not have access logging enabled.`,
+                  impact: "No visibility into request patterns, client IPs, or error rates \u2014 limits incident investigation and abuse detection.",
+                  remediationSteps: [
+                    "Enable access logging on the load balancer.",
+                    "Configure an S3 bucket for log delivery.",
+                    "Ensure the S3 bucket policy allows ELB to write logs."
+                  ]
+                })
+              );
+            }
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            warnings.push(
+              `ELB access logging check for ${lbName} failed: ${msg}`
+            );
+          }
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        warnings.push(`ELB access logging audit failed: ${msg}`);
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: 0,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+
+// src/scanners/tag-compliance.ts
+import {
+  EC2Client as EC2Client7,
+  DescribeInstancesCommand as DescribeInstancesCommand5
+} from "@aws-sdk/client-ec2";
+import {
+  RDSClient as RDSClient3,
+  DescribeDBInstancesCommand as DescribeDBInstancesCommand3
+} from "@aws-sdk/client-rds";
+import {
+  S3Client as S3Client6,
+  ListBucketsCommand as ListBucketsCommand4,
+  GetBucketTaggingCommand
+} from "@aws-sdk/client-s3";
+var DEFAULT_REQUIRED_TAGS = ["Environment", "Project", "Owner"];
+function makeFinding20(opts) {
+  const severity = severityFromScore(opts.riskScore);
+  return { ...opts, severity, priority: priorityFromSeverity(severity) };
+}
+function getMissingTags(tags, requiredTags) {
+  const tagKeys = new Set(tags.map((t) => t.Key ?? ""));
+  return requiredTags.filter((rt) => !tagKeys.has(rt));
+}
+var TagComplianceScanner = class {
+  moduleName = "tag_compliance";
+  async scan(ctx) {
+    const { region, partition, accountId } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    let resourcesScanned = 0;
+    const requiredTags = DEFAULT_REQUIRED_TAGS;
+    try {
+      try {
+        const ec2Client = createClient(EC2Client7, region);
+        const instances = [];
+        let nextToken;
+        do {
+          const resp = await ec2Client.send(
+            new DescribeInstancesCommand5({ NextToken: nextToken })
+          );
+          for (const res of resp.Reservations ?? []) {
+            if (res.Instances) instances.push(...res.Instances);
+          }
+          nextToken = resp.NextToken;
+        } while (nextToken);
+        resourcesScanned += instances.length;
+        for (const instance of instances) {
+          const id = instance.InstanceId ?? "unknown";
+          const arn = `arn:${partition}:ec2:${region}:${accountId}:instance/${id}`;
+          const tags = instance.Tags ?? [];
+          const missing = getMissingTags(tags, requiredTags);
+          if (missing.length > 0) {
+            findings.push(
+              makeFinding20({
+                riskScore: 4,
+                title: `EC2 instance ${id} missing required tags: ${missing.join(", ")}`,
+                resourceType: "AWS::EC2::Instance",
+                resourceId: id,
+                resourceArn: arn,
+                region,
+                description: `EC2 instance "${id}" is missing the following required tags: ${missing.join(", ")}.`,
+                impact: "Resources without proper tags cannot be tracked for cost allocation, ownership, or compliance purposes.",
+                remediationSteps: [
+                  `Add the missing tags (${missing.join(", ")}) to instance ${id}.`,
+                  "Implement AWS Config rules or Tag Policies to enforce tagging.",
+                  "Use AWS Tag Editor for bulk tagging operations."
+                ]
+              })
+            );
+          }
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        warnings.push(`EC2 tag compliance check failed: ${msg}`);
+      }
+      try {
+        const rdsClient = createClient(RDSClient3, region);
+        const dbInstances = [];
+        let marker;
+        do {
+          const resp = await rdsClient.send(
+            new DescribeDBInstancesCommand3({ Marker: marker })
+          );
+          if (resp.DBInstances) dbInstances.push(...resp.DBInstances);
+          marker = resp.Marker;
+        } while (marker);
+        resourcesScanned += dbInstances.length;
+        for (const db of dbInstances) {
+          const dbId = db.DBInstanceIdentifier ?? "unknown";
+          const dbArn = db.DBInstanceArn ?? `arn:${partition}:rds:${region}:${accountId}:db/${dbId}`;
+          const tags = (db.TagList ?? []).map((t) => ({
+            Key: t.Key,
+            Value: t.Value
+          }));
+          const missing = getMissingTags(tags, requiredTags);
+          if (missing.length > 0) {
+            findings.push(
+              makeFinding20({
+                riskScore: 4,
+                title: `RDS instance ${dbId} missing required tags: ${missing.join(", ")}`,
+                resourceType: "AWS::RDS::DBInstance",
+                resourceId: dbId,
+                resourceArn: dbArn,
+                region,
+                description: `RDS instance "${dbId}" is missing the following required tags: ${missing.join(", ")}.`,
+                impact: "Resources without proper tags cannot be tracked for cost allocation, ownership, or compliance purposes.",
+                remediationSteps: [
+                  `Add the missing tags (${missing.join(", ")}) to RDS instance ${dbId}.`,
+                  "Implement AWS Config rules or Tag Policies to enforce tagging.",
+                  "Use AWS Tag Editor for bulk tagging operations."
+                ]
+              })
+            );
+          }
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        warnings.push(`RDS tag compliance check failed: ${msg}`);
+      }
+      try {
+        const s3Client = createClient(S3Client6, region);
+        const listResp = await s3Client.send(new ListBucketsCommand4({}));
+        const buckets = listResp.Buckets ?? [];
+        resourcesScanned += buckets.length;
+        for (const bucket of buckets) {
+          const name = bucket.Name ?? "unknown";
+          const arn = `arn:${partition}:s3:::${name}`;
+          try {
+            const taggingResp = await s3Client.send(
+              new GetBucketTaggingCommand({ Bucket: name })
+            );
+            const tags = (taggingResp.TagSet ?? []).map((t) => ({
+              Key: t.Key,
+              Value: t.Value
+            }));
+            const missing = getMissingTags(tags, requiredTags);
+            if (missing.length > 0) {
+              findings.push(
+                makeFinding20({
+                  riskScore: 4,
+                  title: `S3 bucket ${name} missing required tags: ${missing.join(", ")}`,
+                  resourceType: "AWS::S3::Bucket",
+                  resourceId: name,
+                  resourceArn: arn,
+                  region: "global",
+                  description: `S3 bucket "${name}" is missing the following required tags: ${missing.join(", ")}.`,
+                  impact: "Resources without proper tags cannot be tracked for cost allocation, ownership, or compliance purposes.",
+                  remediationSteps: [
+                    `Add the missing tags (${missing.join(", ")}) to bucket ${name}.`,
+                    "Implement AWS Config rules or Tag Policies to enforce tagging.",
+                    "Use AWS Tag Editor for bulk tagging operations."
+                  ]
+                })
+              );
+            }
+          } catch (e) {
+            if (e instanceof Error && e.name === "NoSuchTagSet") {
+              findings.push(
+                makeFinding20({
+                  riskScore: 4,
+                  title: `S3 bucket ${name} missing required tags: ${requiredTags.join(", ")}`,
+                  resourceType: "AWS::S3::Bucket",
+                  resourceId: name,
+                  resourceArn: arn,
+                  region: "global",
+                  description: `S3 bucket "${name}" has no tags configured. Missing all required tags: ${requiredTags.join(", ")}.`,
+                  impact: "Resources without proper tags cannot be tracked for cost allocation, ownership, or compliance purposes.",
+                  remediationSteps: [
+                    `Add the required tags (${requiredTags.join(", ")}) to bucket ${name}.`,
+                    "Implement AWS Config rules or Tag Policies to enforce tagging.",
+                    "Use AWS Tag Editor for bulk tagging operations."
+                  ]
+                })
+              );
+            } else {
+              const msg = e instanceof Error ? e.message : String(e);
+              warnings.push(`S3 tag check for ${name} failed: ${msg}`);
+            }
+          }
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        warnings.push(`S3 tag compliance check failed: ${msg}`);
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: 0,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+
+// src/scanners/idle-resources.ts
+import {
+  EC2Client as EC2Client8,
+  DescribeVolumesCommand as DescribeVolumesCommand2,
+  DescribeAddressesCommand as DescribeAddressesCommand2,
+  DescribeInstancesCommand as DescribeInstancesCommand6,
+  DescribeNetworkInterfacesCommand,
+  DescribeSecurityGroupsCommand as DescribeSecurityGroupsCommand4
+} from "@aws-sdk/client-ec2";
+var THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1e3;
+function makeFinding21(opts) {
+  const severity = severityFromScore(opts.riskScore);
+  return { ...opts, severity, priority: priorityFromSeverity(severity) };
+}
+var IdleResourcesScanner = class {
+  moduleName = "idle_resources";
+  async scan(ctx) {
+    const { region, partition, accountId } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    try {
+      const client = createClient(EC2Client8, region);
+      let resourcesScanned = 0;
+      const volumes = [];
+      let volToken;
+      do {
+        const resp = await client.send(
+          new DescribeVolumesCommand2({ NextToken: volToken })
+        );
+        if (resp.Volumes) volumes.push(...resp.Volumes);
+        volToken = resp.NextToken;
+      } while (volToken);
+      resourcesScanned += volumes.length;
+      for (const vol of volumes) {
+        if (vol.State === "available") {
+          const volId = vol.VolumeId ?? "unknown";
+          findings.push(
+            makeFinding21({
+              riskScore: 3,
+              title: `EBS volume ${volId} is unattached`,
+              resourceType: "AWS::EC2::Volume",
+              resourceId: volId,
+              resourceArn: `arn:${partition}:ec2:${region}:${accountId}:volume/${volId}`,
+              region,
+              description: `EBS volume "${volId}" (${vol.Size ?? "?"}GB, ${vol.VolumeType ?? "unknown"}) is in "available" state with no attachments.`,
+              impact: "Unattached volumes incur storage costs and may contain sensitive data that is no longer actively managed.",
+              remediationSteps: [
+                "Determine if the volume is still needed.",
+                "If not needed, create a snapshot for archival and delete the volume.",
+                "If needed, attach it to the appropriate instance."
+              ]
+            })
+          );
+        }
+      }
+      let addresses = [];
+      try {
+        const addrResp = await client.send(new DescribeAddressesCommand2({}));
+        addresses = addrResp.Addresses ?? [];
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        warnings.push(`Elastic IP check failed: ${msg}`);
+      }
+      resourcesScanned += addresses.length;
+      for (const addr of addresses) {
+        if (!addr.AssociationId) {
+          const allocId = addr.AllocationId ?? "unknown";
+          const publicIp = addr.PublicIp ?? "unknown";
+          findings.push(
+            makeFinding21({
+              riskScore: 2,
+              title: `Elastic IP ${publicIp} is not associated`,
+              resourceType: "AWS::EC2::EIP",
+              resourceId: allocId,
+              resourceArn: `arn:${partition}:ec2:${region}:${accountId}:elastic-ip/${allocId}`,
+              region,
+              description: `Elastic IP ${publicIp} (${allocId}) is allocated but not associated with any instance or network interface.`,
+              impact: "Unused Elastic IPs cost ~$3.60/month each and represent unnecessary spend.",
+              remediationSteps: [
+                "Associate the EIP with an instance or network interface if needed.",
+                "Release the EIP if it is no longer required."
+              ]
+            })
+          );
+        }
+      }
+      const instances = [];
+      let instToken;
+      do {
+        const instResp = await client.send(
+          new DescribeInstancesCommand6({ NextToken: instToken })
+        );
+        for (const res of instResp.Reservations ?? []) {
+          if (res.Instances) instances.push(...res.Instances);
+        }
+        instToken = instResp.NextToken;
+      } while (instToken);
+      resourcesScanned += instances.length;
+      const now = Date.now();
+      for (const inst of instances) {
+        if (inst.State?.Name === "stopped") {
+          const instId = inst.InstanceId ?? "unknown";
+          const reason = inst.StateTransitionReason ?? "";
+          const stoppedTime = reason ? parseStopTime(reason) : null;
+          if (!stoppedTime) {
+            warnings.push(
+              `Could not determine stop date for instance ${instId}. StateTransitionReason: ${reason}`
+            );
+            continue;
+          }
+          const stoppedDays = Math.round(
+            (now - stoppedTime) / (24 * 60 * 60 * 1e3)
+          );
+          if (stoppedDays > 30) {
+            findings.push(
+              makeFinding21({
+                riskScore: 3,
+                title: `EC2 instance ${instId} has been stopped for ${stoppedDays} days`,
+                resourceType: "AWS::EC2::Instance",
+                resourceId: instId,
+                resourceArn: `arn:${partition}:ec2:${region}:${accountId}:instance/${instId}`,
+                region,
+                description: `EC2 instance "${instId}" (${inst.InstanceType ?? "unknown"}) is in stopped state for ${stoppedDays} days. Attached EBS volumes continue to incur charges.`,
+                impact: "Stopped instances still incur EBS storage costs and may contain stale configurations or unpatched AMIs.",
+                remediationSteps: [
+                  "Determine if the instance is still needed.",
+                  "If not needed, create an AMI for archival and terminate the instance.",
+                  "If needed temporarily, consider using a launch template for on-demand recreation."
+                ]
+              })
+            );
+          }
+        }
+      }
+      const securityGroups = [];
+      let sgToken;
+      do {
+        const sgResp = await client.send(
+          new DescribeSecurityGroupsCommand4({ NextToken: sgToken })
+        );
+        if (sgResp.SecurityGroups) securityGroups.push(...sgResp.SecurityGroups);
+        sgToken = sgResp.NextToken;
+      } while (sgToken);
+      const usedSgIds = /* @__PURE__ */ new Set();
+      let eniToken;
+      do {
+        const eniResp = await client.send(
+          new DescribeNetworkInterfacesCommand({ NextToken: eniToken })
+        );
+        for (const eni of eniResp.NetworkInterfaces ?? []) {
+          for (const group of eni.Groups ?? []) {
+            if (group.GroupId) usedSgIds.add(group.GroupId);
+          }
+        }
+        eniToken = eniResp.NextToken;
+      } while (eniToken);
+      resourcesScanned += securityGroups.length;
+      for (const sg of securityGroups) {
+        const sgId = sg.GroupId ?? "unknown";
+        if (sg.GroupName === "default") continue;
+        if (!usedSgIds.has(sgId)) {
+          findings.push(
+            makeFinding21({
+              riskScore: 2,
+              title: `Security group ${sgId} is not attached to any resource`,
+              resourceType: "AWS::EC2::SecurityGroup",
+              resourceId: sgId,
+              resourceArn: `arn:${partition}:ec2:${region}:${sg.OwnerId ?? accountId}:security-group/${sgId}`,
+              region,
+              description: `Security group "${sg.GroupName}" (${sgId}) is not associated with any network interface.`,
+              impact: "Unused security groups add clutter and may cause confusion during security reviews.",
+              remediationSteps: [
+                "Verify the security group is not referenced by other resources (e.g., launch templates).",
+                "Delete the security group if it is no longer needed."
+              ]
+            })
+          );
+        }
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: 0,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+function parseStopTime(reason) {
+  const match = reason.match(/\((\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\s\w+)\)/);
+  if (!match) return null;
+  const parsed = Date.parse(match[1]);
+  return isNaN(parsed) ? null : parsed;
+}
+
+// src/scanners/disaster-recovery.ts
+import {
+  RDSClient as RDSClient4,
+  DescribeDBInstancesCommand as DescribeDBInstancesCommand4
+} from "@aws-sdk/client-rds";
+import {
+  EC2Client as EC2Client9,
+  DescribeVolumesCommand as DescribeVolumesCommand3,
+  DescribeSnapshotsCommand as DescribeSnapshotsCommand2
+} from "@aws-sdk/client-ec2";
+import {
+  S3Client as S3Client7,
+  ListBucketsCommand as ListBucketsCommand5,
+  GetBucketVersioningCommand as GetBucketVersioningCommand3,
+  GetBucketReplicationCommand
+} from "@aws-sdk/client-s3";
+var SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1e3;
+function makeFinding22(opts) {
+  const severity = severityFromScore(opts.riskScore);
+  return { ...opts, severity, priority: priorityFromSeverity(severity) };
+}
+var DisasterRecoveryScanner = class {
+  moduleName = "disaster_recovery";
+  async scan(ctx) {
+    const { region, partition, accountId } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    try {
+      let resourcesScanned = 0;
+      const rdsClient = createClient(RDSClient4, region);
+      const instances = [];
+      let marker;
+      do {
+        const resp = await rdsClient.send(
+          new DescribeDBInstancesCommand4({ Marker: marker })
+        );
+        if (resp.DBInstances) instances.push(...resp.DBInstances);
+        marker = resp.Marker;
+      } while (marker);
+      resourcesScanned += instances.length;
+      for (const db of instances) {
+        const dbId = db.DBInstanceIdentifier ?? "unknown";
+        const dbArn = db.DBInstanceArn ?? `arn:${partition}:rds:${region}:${accountId}:db/${dbId}`;
+        const engine = db.Engine ?? "unknown";
+        if (!db.MultiAZ) {
+          findings.push(
+            makeFinding22({
+              riskScore: 6,
+              title: `RDS instance ${dbId} is not Multi-AZ`,
+              resourceType: "AWS::RDS::DBInstance",
+              resourceId: dbId,
+              resourceArn: dbArn,
+              region,
+              description: `RDS instance "${dbId}" (${engine}) does not have Multi-AZ deployment enabled.`,
+              impact: "Single-AZ deployments have no automatic failover. An AZ outage will cause downtime and potential data loss.",
+              remediationSteps: [
+                "Enable Multi-AZ deployment for the RDS instance.",
+                "This provides automatic failover to a standby in a different AZ."
+              ]
+            })
+          );
+        }
+        const retention = db.BackupRetentionPeriod ?? 0;
+        if (retention === 0) {
+          findings.push(
+            makeFinding22({
+              riskScore: 5.5,
+              title: `RDS instance ${dbId} has automated backups disabled`,
+              resourceType: "AWS::RDS::DBInstance",
+              resourceId: dbId,
+              resourceArn: dbArn,
+              region,
+              description: `RDS instance "${dbId}" (${engine}) has backup retention period set to 0 (disabled).`,
+              impact: "No automated backups or point-in-time recovery. Data loss from failures or corruption is unrecoverable.",
+              remediationSteps: [
+                "Set the backup retention period to at least 7 days.",
+                "Consider cross-region backup replication for critical databases."
+              ]
+            })
+          );
+        } else if (retention < 7) {
+          findings.push(
+            makeFinding22({
+              riskScore: 5.5,
+              title: `RDS instance ${dbId} backup retention is only ${retention} day(s)`,
+              resourceType: "AWS::RDS::DBInstance",
+              resourceId: dbId,
+              resourceArn: dbArn,
+              region,
+              description: `RDS instance "${dbId}" (${engine}) has backup retention period of ${retention} day(s), below the recommended 7 days.`,
+              impact: "Short retention windows limit point-in-time recovery options and may not meet compliance requirements.",
+              remediationSteps: [
+                "Increase the backup retention period to at least 7 days.",
+                "For production databases, consider 14-35 days retention."
+              ]
+            })
+          );
+        }
+      }
+      const ec2Client = createClient(EC2Client9, region);
+      const volumes = [];
+      let volToken;
+      do {
+        const resp = await ec2Client.send(
+          new DescribeVolumesCommand3({ NextToken: volToken })
+        );
+        if (resp.Volumes) volumes.push(...resp.Volumes);
+        volToken = resp.NextToken;
+      } while (volToken);
+      const snapshots = [];
+      let snapToken;
+      do {
+        const resp = await ec2Client.send(
+          new DescribeSnapshotsCommand2({
+            OwnerIds: ["self"],
+            NextToken: snapToken
+          })
+        );
+        if (resp.Snapshots) snapshots.push(...resp.Snapshots);
+        snapToken = resp.NextToken;
+      } while (snapToken);
+      const latestSnapshotByVolume = /* @__PURE__ */ new Map();
+      for (const snap of snapshots) {
+        if (!snap.VolumeId || snap.State !== "completed") continue;
+        const snapTime = snap.StartTime?.getTime() ?? 0;
+        const existing = latestSnapshotByVolume.get(snap.VolumeId) ?? 0;
+        if (snapTime > existing) {
+          latestSnapshotByVolume.set(snap.VolumeId, snapTime);
+        }
+      }
+      const inUseVolumes = volumes.filter((v) => v.State === "in-use");
+      resourcesScanned += inUseVolumes.length;
+      const now = Date.now();
+      for (const vol of inUseVolumes) {
+        const volId = vol.VolumeId ?? "unknown";
+        const volArn = `arn:${partition}:ec2:${region}:${accountId}:volume/${volId}`;
+        const latestSnap = latestSnapshotByVolume.get(volId);
+        if (latestSnap === void 0) {
+          findings.push(
+            makeFinding22({
+              riskScore: 7,
+              title: `EBS volume ${volId} has no snapshots`,
+              resourceType: "AWS::EC2::Volume",
+              resourceId: volId,
+              resourceArn: volArn,
+              region,
+              description: `EBS volume "${volId}" (${vol.Size ?? "?"}GB, ${vol.VolumeType ?? "unknown"}) has no snapshots. Data cannot be recovered if the volume fails.`,
+              impact: "Complete data loss if the volume becomes unavailable. No backup exists for disaster recovery.",
+              remediationSteps: [
+                "Create a snapshot of the volume immediately.",
+                "Set up automated snapshots using AWS Backup or Amazon Data Lifecycle Manager."
+              ]
+            })
+          );
+        } else if (now - latestSnap > SEVEN_DAYS_MS) {
+          const daysSince = Math.round((now - latestSnap) / (24 * 60 * 60 * 1e3));
+          findings.push(
+            makeFinding22({
+              riskScore: 5,
+              title: `EBS volume ${volId} has no recent snapshot (${daysSince} days old)`,
+              resourceType: "AWS::EC2::Volume",
+              resourceId: volId,
+              resourceArn: volArn,
+              region,
+              description: `EBS volume "${volId}" (${vol.Size ?? "?"}GB) most recent snapshot is ${daysSince} days old, exceeding the 7-day threshold.`,
+              impact: "Recovery from the latest snapshot would lose up to ${daysSince} days of data.",
+              remediationSteps: [
+                "Create a fresh snapshot of the volume.",
+                "Configure automated snapshot schedules using AWS Backup or Data Lifecycle Manager."
+              ]
+            })
+          );
+        }
+      }
+      const s3Client = createClient(S3Client7, region);
+      let bucketNames = [];
+      try {
+        const listResp = await s3Client.send(new ListBucketsCommand5({}));
+        bucketNames = (listResp.Buckets ?? []).map((b) => b.Name).filter((n) => !!n);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        warnings.push(`S3 bucket list failed: ${msg}`);
+      }
+      resourcesScanned += bucketNames.length;
+      for (const name of bucketNames) {
+        const arn = `arn:${partition}:s3:::${name}`;
+        try {
+          const ver = await s3Client.send(
+            new GetBucketVersioningCommand3({ Bucket: name })
+          );
+          if (ver.Status !== "Enabled") {
+            findings.push(
+              makeFinding22({
+                riskScore: 3,
+                title: `S3 bucket ${name} does not have versioning enabled`,
+                resourceType: "AWS::S3::Bucket",
+                resourceId: name,
+                resourceArn: arn,
+                region,
+                description: `Bucket "${name}" versioning is ${ver.Status ?? "not set"}. Object deletion or overwrite is irreversible.`,
+                impact: "Accidental deletion or corruption of objects cannot be recovered without versioning.",
+                remediationSteps: [
+                  "Enable versioning on the bucket.",
+                  "Consider adding lifecycle rules to manage version storage costs."
+                ]
+              })
+            );
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          warnings.push(`Bucket ${name} versioning check failed: ${msg}`);
+        }
+        try {
+          await s3Client.send(
+            new GetBucketReplicationCommand({ Bucket: name })
+          );
+        } catch (e) {
+          if (e instanceof Error && e.name === "ReplicationConfigurationNotFoundError") {
+            findings.push(
+              makeFinding22({
+                riskScore: 3.5,
+                title: `S3 bucket ${name} has no cross-region replication`,
+                resourceType: "AWS::S3::Bucket",
+                resourceId: name,
+                resourceArn: arn,
+                region,
+                description: `Bucket "${name}" does not have cross-region replication configured.`,
+                impact: "Data is stored in a single region. A regional outage could make the data unavailable.",
+                remediationSteps: [
+                  "Enable cross-region replication to a bucket in another region.",
+                  "Ensure versioning is enabled (required for CRR).",
+                  "Consider S3 Replication Time Control for critical data."
+                ]
+              })
+            );
+          } else {
+            const msg = e instanceof Error ? e.message : String(e);
+            warnings.push(`Bucket ${name} replication check failed: ${msg}`);
+          }
+        }
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: 0,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+
 // src/tools/report-tool.ts
 var SEVERITY_ICON = {
   CRITICAL: "\u{1F534}",
@@ -15788,6 +18709,263 @@ function generateMarkdownReport(scanResults) {
   return lines.join("\n");
 }
 
+// src/tools/mlps-report.ts
+var MLPS_CHECKS = [
+  // 一、身份鉴别
+  {
+    id: "8.1.4.1a",
+    category: "\u8EAB\u4EFD\u9274\u522B",
+    name: "\u5BC6\u7801\u7B56\u7565",
+    modules: ["iam_password_policy"],
+    findingPatterns: ["password policy", "password length", "complexity", "password expiry", "reuse prevention"]
+  },
+  {
+    id: "8.1.4.1a",
+    category: "\u8EAB\u4EFD\u9274\u522B",
+    name: "\u5BC6\u94A5\u8F6E\u6362",
+    modules: ["iam"],
+    findingPatterns: ["access key older"]
+  },
+  {
+    id: "8.1.4.1d",
+    category: "\u8EAB\u4EFD\u9274\u522B",
+    name: "\u53CC\u56E0\u7D20\u8BA4\u8BC1",
+    modules: ["iam_mfa_audit", "iam"],
+    findingPatterns: ["MFA"]
+  },
+  // 二、访问控制
+  {
+    id: "8.1.4.2c",
+    category: "\u8BBF\u95EE\u63A7\u5236",
+    name: "\u6700\u5C0F\u6743\u9650",
+    modules: ["iam", "iam_privilege_escalation"],
+    findingPatterns: [
+      "AdministratorAccess",
+      "PowerUserAccess",
+      "IAMFullAccess",
+      "over-permissive",
+      "privilege escalation",
+      "self-grant",
+      "iam:*",
+      "create admin",
+      "Lambda role passing",
+      "CreateAccessKey",
+      "AssumeRole"
+    ]
+  },
+  {
+    id: "8.1.4.2",
+    category: "\u8BBF\u95EE\u63A7\u5236",
+    name: "\u5B89\u5168\u7EC4",
+    modules: ["security_group", "network_reachability"],
+    findingPatterns: ["allows all ports", "allows SSH", "allows RDP", "MySQL", "PostgreSQL", "MongoDB", "Redis", "high-risk port"]
+  },
+  // 三、安全审计
+  {
+    id: "8.1.4.3a",
+    category: "\u5B89\u5168\u5BA1\u8BA1",
+    name: "\u5BA1\u8BA1\u529F\u80FD",
+    modules: ["cloudtrail"],
+    findingPatterns: ["CloudTrail", "not enabled", "multi-region", "not logging"]
+  },
+  {
+    id: "8.1.4.3b",
+    category: "\u5B89\u5168\u5BA1\u8BA1",
+    name: "\u5BA1\u8BA1\u5B8C\u6574\u6027",
+    modules: ["cloudtrail", "log_integrity_audit"],
+    findingPatterns: ["log file validation", "log integrity", "log validation"]
+  },
+  {
+    id: "8.1.4.3c",
+    category: "\u5B89\u5168\u5BA1\u8BA1",
+    name: "\u5BA1\u8BA1\u4FDD\u62A4",
+    modules: ["cloudtrail_protection"],
+    findingPatterns: ["CloudTrail", "S3 bucket", "encryption", "versioning", "Block Public Access"]
+  },
+  // 四、入侵防范
+  {
+    id: "8.1.4.4a",
+    category: "\u5165\u4FB5\u9632\u8303",
+    name: "GuardDuty \u5A01\u80C1\u68C0\u6D4B",
+    modules: ["service_detection"],
+    findingPatterns: ["GuardDuty"]
+  },
+  {
+    id: "8.1.4.4a",
+    category: "\u5165\u4FB5\u9632\u8303",
+    name: "Inspector \u6F0F\u6D1E\u626B\u63CF",
+    modules: ["service_detection"],
+    findingPatterns: ["Inspector"]
+  },
+  // 五、数据安全
+  {
+    id: "8.1.4.5a",
+    category: "\u6570\u636E\u5B89\u5168",
+    name: "\u4F20\u8F93\u52A0\u5BC6",
+    modules: ["elb_https", "ssl_certificate"],
+    findingPatterns: ["HTTPS", "TLS", "HTTP listener", "certificate"]
+  },
+  {
+    id: "8.1.4.5b",
+    category: "\u6570\u636E\u5B89\u5168",
+    name: "S3 \u5B58\u50A8\u52A0\u5BC6",
+    modules: ["s3"],
+    findingPatterns: ["no default encryption", "not encrypted"]
+  },
+  {
+    id: "8.1.4.5b",
+    category: "\u6570\u636E\u5B89\u5168",
+    name: "EBS \u9ED8\u8BA4\u52A0\u5BC6",
+    modules: ["ebs"],
+    findingPatterns: ["EBS default encryption"]
+  },
+  {
+    id: "8.1.4.5b",
+    category: "\u6570\u636E\u5B89\u5168",
+    name: "RDS \u5B58\u50A8\u52A0\u5BC6",
+    modules: ["rds"],
+    findingPatterns: ["storage is not encrypted"]
+  },
+  // 六、网络安全
+  {
+    id: "8.1.3.1a",
+    category: "\u7F51\u7EDC\u5B89\u5168",
+    name: "\u7F51\u7EDC\u67B6\u6784",
+    modules: ["vpc"],
+    findingPatterns: ["default VPC"]
+  },
+  {
+    id: "8.1.3.2a",
+    category: "\u7F51\u7EDC\u5B89\u5168",
+    name: "\u8FB9\u754C\u9632\u62A4",
+    modules: ["security_group"],
+    findingPatterns: ["allows all ports", "allows SSH", "allows RDP"]
+  }
+];
+var CATEGORY_ORDER = [
+  "\u8EAB\u4EFD\u9274\u522B",
+  "\u8BBF\u95EE\u63A7\u5236",
+  "\u5B89\u5168\u5BA1\u8BA1",
+  "\u5165\u4FB5\u9632\u8303",
+  "\u6570\u636E\u5B89\u5168",
+  "\u7F51\u7EDC\u5B89\u5168"
+];
+var CATEGORY_SECTION = {
+  "\u8EAB\u4EFD\u9274\u522B": "\u4E00\u3001\u8EAB\u4EFD\u9274\u522B",
+  "\u8BBF\u95EE\u63A7\u5236": "\u4E8C\u3001\u8BBF\u95EE\u63A7\u5236",
+  "\u5B89\u5168\u5BA1\u8BA1": "\u4E09\u3001\u5B89\u5168\u5BA1\u8BA1",
+  "\u5165\u4FB5\u9632\u8303": "\u56DB\u3001\u5165\u4FB5\u9632\u8303",
+  "\u6570\u636E\u5B89\u5168": "\u4E94\u3001\u6570\u636E\u5B89\u5168",
+  "\u7F51\u7EDC\u5B89\u5168": "\u516D\u3001\u7F51\u7EDC\u5B89\u5168"
+};
+function evaluateCheck(check2, allFindings, scanModules) {
+  const allModulesPresent = check2.modules.every(
+    (mod) => scanModules.some((m) => m.module === mod && m.status === "success")
+  );
+  if (!allModulesPresent) {
+    return { check: check2, status: "unknown", relatedFindings: [] };
+  }
+  const relatedFindings = allFindings.filter((f) => {
+    const moduleMatch = check2.modules.some((mod) => f.module === mod);
+    if (!moduleMatch) return false;
+    const text = `${f.title} ${f.description}`.toLowerCase();
+    return check2.findingPatterns.some(
+      (pattern) => text.includes(pattern.toLowerCase())
+    );
+  });
+  return {
+    check: check2,
+    status: relatedFindings.length === 0 ? "pass" : "fail",
+    relatedFindings
+  };
+}
+function generateMlps3Report(scanResults) {
+  const { accountId, region, scanStart } = scanResults;
+  const scanTime = scanStart.replace("T", " ").replace(/\.\d+Z$/, " UTC");
+  const allFindings = scanResults.modules.flatMap(
+    (m) => m.findings.map((f) => ({ ...f, module: f.module ?? m.module }))
+  );
+  const scanModules = scanResults.modules.map((m) => ({
+    module: m.module,
+    status: m.status
+  }));
+  const results = MLPS_CHECKS.map(
+    (check2) => evaluateCheck(check2, allFindings, scanModules)
+  );
+  const passCount = results.filter((r) => r.status === "pass").length;
+  const failCount = results.filter((r) => r.status === "fail").length;
+  const unknownCount = results.filter((r) => r.status === "unknown").length;
+  const checkedTotal = passCount + failCount;
+  const total = results.length;
+  const percent = checkedTotal > 0 ? Math.round(passCount / checkedTotal * 100) : 0;
+  const lines = [];
+  lines.push("# \u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0\u62A5\u544A");
+  lines.push("> **\u672C\u62A5\u544A\u4E3A\u7B49\u4FDD\u9884\u68C0\u53C2\u8003\uFF0C\u4EC5\u8986\u76D6 AWS \u4E91\u5E73\u53F0\u914D\u7F6E\u68C0\u67E5\u3002\u5B8C\u6574\u7B49\u4FDD\u6D4B\u8BC4\u9700\u7531\u6301\u8BC1\u6D4B\u8BC4\u673A\u6784\u6267\u884C\u3002**");
+  lines.push("");
+  lines.push("## \u8D26\u6237\u4FE1\u606F");
+  lines.push(`- Account: ${accountId} | Region: ${region} | \u626B\u63CF\u65F6\u95F4: ${scanTime}`);
+  lines.push("");
+  lines.push("## \u9884\u68C0\u603B\u89C8");
+  lines.push(`- \u68C0\u67E5\u9879: ${total} | \u901A\u8FC7: ${passCount} | \u4E0D\u901A\u8FC7: ${failCount}${unknownCount > 0 ? ` | \u672A\u68C0\u67E5: ${unknownCount}` : ""}`);
+  lines.push(`- \u901A\u8FC7\u7387: ${percent}%${unknownCount > 0 ? "\uFF08\u672A\u68C0\u67E5\u9879\u4E0D\u8BA1\u5165\u901A\u8FC7\u7387\uFF09" : ""}`);
+  lines.push("");
+  for (const category of CATEGORY_ORDER) {
+    const sectionTitle = CATEGORY_SECTION[category];
+    const categoryResults = results.filter((r) => r.check.category === category);
+    if (categoryResults.length === 0) continue;
+    lines.push(`## ${sectionTitle}`);
+    lines.push("");
+    const byId = /* @__PURE__ */ new Map();
+    for (const r of categoryResults) {
+      const existing = byId.get(r.check.id) ?? [];
+      existing.push(r);
+      byId.set(r.check.id, existing);
+    }
+    for (const [checkId, checkResults] of byId) {
+      lines.push(`### ${checkId} ${checkResults[0].check.name}`);
+      for (const r of checkResults) {
+        const icon = r.status === "pass" ? "\u2705" : r.status === "fail" ? "\u274C" : "\u26A0\uFE0F";
+        const label = r.status === "unknown" ? " \u672A\u68C0\u67E5" : "";
+        lines.push(`- [${icon}] ${r.check.name}${label}`);
+        if (r.status === "fail" && r.relatedFindings.length > 0) {
+          for (const f of r.relatedFindings.slice(0, 3)) {
+            lines.push(`  - ${f.severity}: ${f.title}`);
+          }
+          if (r.relatedFindings.length > 3) {
+            lines.push(`  - ... \u53CA\u5176\u4ED6 ${r.relatedFindings.length - 3} \u9879`);
+          }
+        }
+      }
+      lines.push("");
+    }
+  }
+  const failedResults = results.filter((r) => r.status === "fail");
+  if (failedResults.length > 0) {
+    lines.push("## \u5EFA\u8BAE\u6574\u6539\u9879\uFF08\u6309\u4F18\u5148\u7EA7\uFF09");
+    lines.push("");
+    const allFailedFindings = /* @__PURE__ */ new Map();
+    for (const r of failedResults) {
+      for (const f of r.relatedFindings) {
+        const key = `${f.resourceId}:${f.title}`;
+        if (!allFailedFindings.has(key)) {
+          allFailedFindings.set(key, f);
+        }
+      }
+    }
+    const sorted = [...allFailedFindings.values()].sort(
+      (a, b) => b.riskScore - a.riskScore
+    );
+    for (let i = 0; i < sorted.length; i++) {
+      const f = sorted[i];
+      const priority = f.riskScore >= 9 ? "P0" : f.riskScore >= 7 ? "P1" : f.riskScore >= 4 ? "P2" : "P3";
+      const remediation = f.remediationSteps[0] ?? "Review and remediate.";
+      lines.push(`${i + 1}. [${priority}] ${f.title} \u2014 ${remediation}`);
+    }
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
 // src/tools/save-results.ts
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
@@ -15856,6 +19034,71 @@ function saveResults(scanResults, outputDir) {
   writeFileSync(dataPath, JSON.stringify(dashboardData, null, 2));
   return dataPath;
 }
+
+// src/tools/scan-groups.ts
+var SCAN_GROUPS = {
+  mlps3_precheck: {
+    name: "\u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0",
+    description: "GB/T 22239-2019 \u7B49\u4FDD\u4E09\u7EA7 AWS \u4E91\u79DF\u6237\u5C42\u914D\u7F6E\u68C0\u67E5",
+    modules: ["security_group", "s3", "iam", "cloudtrail", "rds", "ebs", "vpc", "service_detection", "iam_password_policy", "iam_mfa_audit", "cloudtrail_protection", "elb_https", "secret_exposure", "ssl_certificate", "dns_dangling", "network_reachability", "iam_privilege_escalation", "log_integrity_audit", "tag_compliance", "disaster_recovery"],
+    reportType: "mlps3"
+  },
+  hw_defense: {
+    name: "\u62A4\u7F51\u84DD\u961F\u52A0\u56FA",
+    description: "\u62A4\u7F51\u524D\u5B89\u5168\u81EA\u67E5 \u2014 \u653B\u51FB\u9762+\u5F31\u70B9\u8BC4\u4F30",
+    modules: ["security_group", "s3", "iam", "ebs", "vpc", "service_detection", "secret_exposure", "network_reachability", "iam_privilege_escalation"]
+  },
+  exposure: {
+    name: "\u516C\u7F51\u66B4\u9732\u9762\u8BC4\u4F30",
+    description: "\u8BC4\u4F30\u516C\u7F51\u53EF\u8FBE\u7684\u8D44\u6E90\u548C\u7AEF\u53E3",
+    modules: ["security_group", "vpc", "s3", "rds", "elb_https", "network_reachability", "dns_dangling", "public_access_verify"]
+  },
+  pre_launch: {
+    name: "\u751F\u4EA7\u4E0A\u7EBF\u524D\u68C0\u67E5",
+    description: "\u4E0A\u7EBF\u524D\u5168\u9762\u5B89\u5168\u8BC4\u4F30",
+    modules: ["ALL"]
+  },
+  data_encryption: {
+    name: "\u6570\u636E\u52A0\u5BC6\u5BA1\u8BA1",
+    description: "\u5168\u9762\u68C0\u67E5\u5B58\u50A8\u548C\u4F20\u8F93\u52A0\u5BC6\u72B6\u6001",
+    modules: ["s3", "ebs", "rds", "elb_https", "ssl_certificate"]
+  },
+  least_privilege: {
+    name: "\u6700\u5C0F\u6743\u9650\u5BA1\u8BA1",
+    description: "IAM \u6743\u9650\u6700\u5C0F\u5316\u8BC4\u4F30",
+    modules: ["iam", "iam_password_policy", "iam_mfa_audit", "iam_privilege_escalation"]
+  },
+  log_integrity: {
+    name: "\u65E5\u5FD7\u5B8C\u6574\u6027\u5BA1\u8BA1",
+    description: "\u5BA1\u8BA1\u65E5\u5FD7\u5B8C\u6574\u6027\u548C\u4FDD\u62A4",
+    modules: ["cloudtrail", "cloudtrail_protection", "vpc", "service_detection", "log_integrity_audit"]
+  },
+  disaster_recovery: {
+    name: "\u707E\u5907\u8BC4\u4F30",
+    description: "\u5907\u4EFD\u548C\u707E\u5907\u80FD\u529B\u8BC4\u4F30",
+    modules: ["rds", "ebs", "s3", "disaster_recovery"]
+  },
+  idle_resources: {
+    name: "\u95F2\u7F6E\u8D44\u6E90\u6E05\u7406",
+    description: "\u53D1\u73B0\u672A\u4F7F\u7528\u7684\u8D44\u6E90",
+    modules: ["iam", "ebs", "security_group", "idle_resources"]
+  },
+  tag_compliance: {
+    name: "\u8D44\u6E90\u6807\u7B7E\u5408\u89C4",
+    description: "\u68C0\u67E5\u5FC5\u9700\u6807\u7B7E",
+    modules: ["tag_compliance"]
+  },
+  public_access_verify: {
+    name: "\u516C\u7F51\u53EF\u8FBE\u6027\u9A8C\u8BC1",
+    description: "\u9A8C\u8BC1\u6807\u8BB0\u4E3A\u516C\u5F00\u7684\u8D44\u6E90\u662F\u5426\u771F\u6B63\u53EF\u4ECE\u4E92\u8054\u7F51\u8BBF\u95EE",
+    modules: ["public_access_verify"]
+  },
+  new_account_baseline: {
+    name: "\u65B0\u8D26\u6237\u57FA\u7EBF\u68C0\u67E5",
+    description: "\u65B0 AWS \u8D26\u6237\u5B89\u5168\u57FA\u7EBF",
+    modules: ["iam", "iam_password_policy", "iam_mfa_audit", "cloudtrail", "service_detection", "vpc", "security_group", "secret_exposure"]
+  }
+};
 
 // src/resources/index.ts
 var SECURITY_RULES_CONTENT = `# AWS Security Scan Modules & Rules
@@ -15980,7 +19223,21 @@ var MODULE_DESCRIPTIONS = {
   rds: "Scans RDS instances for public accessibility, encryption, backups, and deletion protection.",
   ebs: "Checks EBS volumes and snapshots for encryption and public sharing.",
   vpc: "Reviews VPC configuration including default VPC usage, flow logs, and default security groups.",
-  service_detection: "Detects which AWS security services (Security Hub, GuardDuty, Inspector, Config, Macie) are enabled and assesses security maturity."
+  service_detection: "Detects which AWS security services (Security Hub, GuardDuty, Inspector, Config, Macie) are enabled and assesses security maturity.",
+  iam_password_policy: "Checks IAM account password policy against MLPS requirements (length, complexity, expiry, reuse prevention).",
+  iam_mfa_audit: "Audits MFA status for all IAM users with console access and calculates MFA adoption rate.",
+  cloudtrail_protection: "Checks CloudTrail log S3 bucket protection (encryption, versioning, Block Public Access).",
+  elb_https: "Checks ELB/ALB/NLB listeners for HTTPS/TLS configuration.",
+  secret_exposure: "Checks Lambda env vars and EC2 userData for exposed secrets (AWS keys, private keys, passwords).",
+  ssl_certificate: "Checks ACM certificates for expiry, failed status, and upcoming renewals.",
+  dns_dangling: "Checks Route53 CNAME records for dangling DNS (subdomain takeover risk).",
+  network_reachability: "Analyzes true network reachability by combining Security Group + NACL rules for public EC2 instances.",
+  iam_privilege_escalation: "Detects IAM privilege escalation paths \u2014 users/roles that can escalate to admin via policy manipulation, role creation, or service abuse.",
+  public_access_verify: "Verifies actual public accessibility of resources marked as public (S3 HTTP check, RDS DNS resolution).",
+  log_integrity_audit: "Comprehensive logging integrity audit \u2014 CloudTrail, VPC Flow Logs, S3 access logging, ELB access logging.",
+  tag_compliance: "Checks EC2, RDS, and S3 resources for required tags (Environment, Project, Owner).",
+  idle_resources: "Finds unused/idle AWS resources (unattached EBS volumes, unused EIPs, stopped instances, unused security groups) that waste money and increase attack surface.",
+  disaster_recovery: "Assesses disaster recovery readiness \u2014 RDS Multi-AZ & backups, EBS snapshot coverage, S3 versioning & cross-region replication."
 };
 function summarizeResult(result) {
   const { summary } = result;
@@ -16023,7 +19280,21 @@ function createServer(defaultRegion) {
     new RdsScanner(),
     new EbsScanner(),
     new VpcScanner(),
-    new ServiceDetectionScanner()
+    new ServiceDetectionScanner(),
+    new IamPasswordPolicyScanner(),
+    new IamMfaAuditScanner(),
+    new CloudTrailProtectionScanner(),
+    new ElbHttpsScanner(),
+    new SecretExposureScanner(),
+    new SslCertificateScanner(),
+    new DnsDanglingScanner(),
+    new NetworkReachabilityScanner(),
+    new IamPrivilegeEscalationScanner(),
+    new PublicAccessVerifyScanner(),
+    new LogIntegrityScanner(),
+    new TagComplianceScanner(),
+    new IdleResourcesScanner(),
+    new DisasterRecoveryScanner()
   ];
   const scannerMap = /* @__PURE__ */ new Map();
   for (const s of allScanners) {
@@ -16031,7 +19302,7 @@ function createServer(defaultRegion) {
   }
   server.tool(
     "scan_all",
-    "Run all 8 security scanners in parallel (including service detection). Read-only. Does not modify any AWS resources.",
+    "Run all security scanners in parallel (including service detection). Read-only. Does not modify any AWS resources.",
     { region: external_exports.string().optional().describe("AWS region to scan (default: server region)") },
     async ({ region }) => {
       try {
@@ -16056,7 +19327,21 @@ function createServer(defaultRegion) {
     { toolName: "scan_rds", moduleName: "rds", label: "RDS" },
     { toolName: "scan_ebs", moduleName: "ebs", label: "EBS" },
     { toolName: "scan_vpc", moduleName: "vpc", label: "VPC" },
-    { toolName: "detect_services", moduleName: "service_detection", label: "Security Service Detection" }
+    { toolName: "detect_services", moduleName: "service_detection", label: "Security Service Detection" },
+    { toolName: "scan_iam_password_policy", moduleName: "iam_password_policy", label: "IAM Password Policy" },
+    { toolName: "scan_iam_mfa_audit", moduleName: "iam_mfa_audit", label: "IAM MFA Audit" },
+    { toolName: "scan_cloudtrail_protection", moduleName: "cloudtrail_protection", label: "CloudTrail Protection" },
+    { toolName: "scan_elb_https", moduleName: "elb_https", label: "ELB HTTPS" },
+    { toolName: "scan_secret_exposure", moduleName: "secret_exposure", label: "Secret Exposure" },
+    { toolName: "scan_ssl_certificate", moduleName: "ssl_certificate", label: "SSL Certificate" },
+    { toolName: "scan_dns_dangling", moduleName: "dns_dangling", label: "Dangling DNS" },
+    { toolName: "scan_network_reachability", moduleName: "network_reachability", label: "Network Reachability" },
+    { toolName: "scan_iam_privilege_escalation", moduleName: "iam_privilege_escalation", label: "IAM Privilege Escalation" },
+    { toolName: "scan_public_access_verify", moduleName: "public_access_verify", label: "Public Access Verify" },
+    { toolName: "scan_log_integrity", moduleName: "log_integrity_audit", label: "Log Integrity Audit" },
+    { toolName: "scan_tag_compliance", moduleName: "tag_compliance", label: "Tag Compliance" },
+    { toolName: "scan_idle_resources", moduleName: "idle_resources", label: "Idle Resources" },
+    { toolName: "scan_disaster_recovery", moduleName: "disaster_recovery", label: "Disaster Recovery" }
   ];
   for (const { toolName, moduleName, label } of individualScanners) {
     server.tool(
@@ -16082,6 +19367,85 @@ function createServer(defaultRegion) {
     );
   }
   server.tool(
+    "scan_group",
+    "Run a predefined group of security scanners for a specific scenario (e.g., MLPS compliance, network defense). Read-only.",
+    {
+      group: external_exports.string().describe("Scan group ID: mlps3_precheck, hw_defense, exposure, pre_launch, data_encryption, least_privilege, log_integrity, disaster_recovery, idle_resources, tag_compliance, new_account_baseline, public_access_verify"),
+      region: external_exports.string().optional().describe("AWS region to scan (default: server region)")
+    },
+    async ({ group, region }) => {
+      try {
+        const groupDef = SCAN_GROUPS[group];
+        if (!groupDef) {
+          const available = Object.keys(SCAN_GROUPS).join(", ");
+          return {
+            content: [{ type: "text", text: `Error: Unknown scan group "${group}". Available groups: ${available}` }],
+            isError: true
+          };
+        }
+        const r = region ?? defaultRegion;
+        let selectedScanners;
+        const missingModules = [];
+        if (groupDef.modules.includes("ALL")) {
+          selectedScanners = allScanners;
+        } else {
+          selectedScanners = [];
+          for (const mod of groupDef.modules) {
+            const scanner = scannerMap.get(mod);
+            if (scanner) {
+              selectedScanners.push(scanner);
+            } else {
+              missingModules.push(mod);
+            }
+          }
+        }
+        if (selectedScanners.length === 0) {
+          return {
+            content: [{ type: "text", text: `Error: No available scanners for group "${group}". Requested modules: ${groupDef.modules.join(", ")}` }],
+            isError: true
+          };
+        }
+        const result = await runAllScanners(selectedScanners, r);
+        const lines = [
+          `Scan group: ${groupDef.name} (${group})`,
+          groupDef.description,
+          "",
+          summarizeResult(result)
+        ];
+        if (missingModules.length > 0) {
+          lines.push("");
+          lines.push(`Warning: ${missingModules.length} requested module(s) not available: ${missingModules.join(", ")}`);
+        }
+        return {
+          content: [
+            { type: "text", text: lines.join("\n") },
+            { type: "text", text: JSON.stringify(result, null, 2) }
+          ]
+        };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    }
+  );
+  server.tool(
+    "list_groups",
+    "List available scan groups with descriptions. Read-only.",
+    async () => {
+      try {
+        const groups = Object.entries(SCAN_GROUPS).map(([id, def]) => ({
+          id,
+          name: def.name,
+          description: def.description,
+          modules: def.modules,
+          reportType: def.reportType
+        }));
+        return { content: [{ type: "text", text: JSON.stringify(groups, null, 2) }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    }
+  );
+  server.tool(
     "generate_report",
     "Generate a Markdown security report from scan results. Read-only. Does not modify any AWS resources.",
     { scan_results: external_exports.string().describe("JSON string of FullScanResult from scan_all") },
@@ -16089,6 +19453,20 @@ function createServer(defaultRegion) {
       try {
         const parsed = JSON.parse(scan_results);
         const report = generateMarkdownReport(parsed);
+        return { content: [{ type: "text", text: report }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    }
+  );
+  server.tool(
+    "generate_mlps3_report",
+    "Generate a GB/T 22239-2019 \u7B49\u4FDD\u4E09\u7EA7 compliance pre-check report from scan results. Best used with scan_group mlps3_precheck results. Read-only.",
+    { scan_results: external_exports.string().describe("JSON string of FullScanResult from scan_group mlps3_precheck or scan_all") },
+    async ({ scan_results }) => {
+      try {
+        const parsed = JSON.parse(scan_results);
+        const report = generateMlps3Report(parsed);
         return { content: [{ type: "text", text: report }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };

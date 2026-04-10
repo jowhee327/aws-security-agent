@@ -1,16 +1,16 @@
 {
   "lastScan": {
-    "scanStart": "2026-04-10T11:34:36.304Z",
-    "scanEnd": "2026-04-10T11:35:00.159Z",
+    "scanStart": "2026-04-10T15:35:01.552Z",
+    "scanEnd": "2026-04-10T15:35:25.816Z",
     "region": "cn-north-1",
     "accountId": "468254682119",
     "summary": {
-      "totalFindings": 50,
-      "critical": 2,
+      "totalFindings": 48,
+      "critical": 0,
       "high": 3,
       "medium": 13,
       "low": 32,
-      "modulesSuccess": 7,
+      "modulesSuccess": 8,
       "modulesError": 0
     },
     "modules": [
@@ -26,7 +26,7 @@
       },
       {
         "module": "iam",
-        "findingsCount": 3,
+        "findingsCount": 1,
         "status": "success"
       },
       {
@@ -46,6 +46,11 @@
       },
       {
         "module": "vpc",
+        "findingsCount": 0,
+        "status": "success"
+      },
+      {
+        "module": "service_detection",
         "findingsCount": 0,
         "status": "success"
       }
@@ -612,48 +617,13 @@
         "module": "s3"
       },
       {
-        "riskScore": 10,
-        "title": "Root account does not have MFA enabled",
-        "resourceType": "AWS::IAM::Root",
-        "resourceId": "root",
-        "resourceArn": "arn:aws-cn:iam::468254682119:root",
-        "region": "global",
-        "description": "The AWS root account does not have multi-factor authentication enabled.",
-        "impact": "Compromised root credentials would grant unrestricted access to all AWS resources with no second factor of authentication.",
-        "remediationSteps": [
-          "Enable MFA on the root account immediately using a hardware or virtual MFA device.",
-          "Store the MFA device in a secure location.",
-          "Avoid using the root account for daily operations."
-        ],
-        "severity": "CRITICAL",
-        "priority": "P0",
-        "module": "iam"
-      },
-      {
-        "riskScore": 9.5,
-        "title": "Root account has active access keys",
-        "resourceType": "AWS::IAM::Root",
-        "resourceId": "root",
-        "resourceArn": "arn:aws-cn:iam::468254682119:root",
-        "region": "global",
-        "description": "The root account has one or more active access keys.",
-        "impact": "Access keys for the root account provide unrestricted API access. If leaked, the entire account is compromised.",
-        "remediationSteps": [
-          "Delete all root account access keys.",
-          "Use IAM users or roles with least-privilege policies instead."
-        ],
-        "severity": "CRITICAL",
-        "priority": "P0",
-        "module": "iam"
-      },
-      {
         "riskScore": 7.5,
         "title": "IAM user hzhaoam has access key older than 90 days",
         "resourceType": "AWS::IAM::AccessKey",
         "resourceId": "AKIAW2BRHNQD6OGWH6VQ",
         "resourceArn": "arn:aws-cn:iam::468254682119:user/hzhaoam",
         "region": "global",
-        "description": "Access key AKIAW2BRHNQD6OGWH6VQ for user \"hzhaoam\" is 1799 days old.",
+        "description": "Access key AKIAW2BRHNQD6OGWH6VQ for user \"hzhaoam\" is 1800 days old.",
         "impact": "Old access keys are more likely to have been exposed or leaked over time.",
         "remediationSteps": [
           "Rotate the access key by creating a new key and deleting the old one.",
@@ -910,16 +880,16 @@
   "history": [
     {
       "date": "2026-04-10",
-      "score": 13,
-      "critical": 2,
+      "score": 43,
+      "critical": 0,
       "high": 3,
       "medium": 13,
       "low": 32,
-      "totalFindings": 50
+      "totalFindings": 48
     }
   ],
   "meta": {
-    "generatedAt": "2026-04-10T11:35:00.161Z",
+    "generatedAt": "2026-04-10T15:35:25.822Z",
     "version": "1.0.0",
     "dataRetentionDays": 30
   }
