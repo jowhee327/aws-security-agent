@@ -29,6 +29,7 @@ import { IdleResourcesScanner } from "./scanners/idle-resources.js";
 import { DisasterRecoveryScanner } from "./scanners/disaster-recovery.js";
 import { generateMarkdownReport } from "./tools/report-tool.js";
 import { generateMlps3Report } from "./tools/mlps-report.js";
+import { generateHtmlReport, generateMlps3HtmlReport } from "./tools/html-report.js";
 import { saveResults } from "./tools/save-results.js";
 import { SCAN_GROUPS } from "./tools/scan-groups.js";
 import {
@@ -41,6 +42,7 @@ import type { FullScanResult, ScanResult, ScanContext } from "./types.js";
 export { type Scanner } from "./scanners/base.js";
 export { runAllScanners } from "./scanners/runner.js";
 export { generateMarkdownReport } from "./tools/report-tool.js";
+export { generateHtmlReport, generateMlps3HtmlReport } from "./tools/html-report.js";
 export { saveResults, calculateScore } from "./tools/save-results.js";
 export type {
   Finding,
@@ -352,6 +354,38 @@ export function createServer(defaultRegion: string): McpServer {
       try {
         const parsed: FullScanResult = JSON.parse(scan_results);
         const report = generateMlps3Report(parsed);
+        return { content: [{ type: "text", text: report }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    },
+  );
+
+  // generate_html_report
+  server.tool(
+    "generate_html_report",
+    "Generate a professional HTML security report. Save the output as an .html file.",
+    { scan_results: z.string().describe("JSON string of FullScanResult from scan_all") },
+    async ({ scan_results }) => {
+      try {
+        const parsed: FullScanResult = JSON.parse(scan_results);
+        const report = generateHtmlReport(parsed);
+        return { content: [{ type: "text", text: report }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    },
+  );
+
+  // generate_mlps3_html_report
+  server.tool(
+    "generate_mlps3_html_report",
+    "Generate a professional HTML MLPS Level 3 compliance report (等保三级). Save as .html file.",
+    { scan_results: z.string().describe("JSON string of FullScanResult from scan_group mlps3_precheck or scan_all") },
+    async ({ scan_results }) => {
+      try {
+        const parsed: FullScanResult = JSON.parse(scan_results);
+        const report = generateMlps3HtmlReport(parsed);
         return { content: [{ type: "text", text: report }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };

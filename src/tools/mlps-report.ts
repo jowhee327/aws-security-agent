@@ -1,6 +1,6 @@
 import type { FullScanResult, Finding } from "../types.js";
 
-interface MlpsCheck {
+export interface MlpsCheck {
   id: string;
   category: string;
   name: string;
@@ -8,7 +8,7 @@ interface MlpsCheck {
   findingPatterns: string[];
 }
 
-const MLPS_CHECKS: MlpsCheck[] = [
+export const MLPS_CHECKS: MlpsCheck[] = [
   // 一、身份鉴别
   {
     id: "8.1.4.1a",
@@ -134,7 +134,7 @@ const MLPS_CHECKS: MlpsCheck[] = [
   },
 ];
 
-const CATEGORY_ORDER = [
+export const CATEGORY_ORDER = [
   "身份鉴别",
   "访问控制",
   "安全审计",
@@ -143,7 +143,7 @@ const CATEGORY_ORDER = [
   "网络安全",
 ];
 
-const CATEGORY_SECTION: Record<string, string> = {
+export const CATEGORY_SECTION: Record<string, string> = {
   "身份鉴别": "一、身份鉴别",
   "访问控制": "二、访问控制",
   "安全审计": "三、安全审计",
@@ -152,13 +152,13 @@ const CATEGORY_SECTION: Record<string, string> = {
   "网络安全": "六、网络安全",
 };
 
-interface CheckResult {
+export interface CheckResult {
   check: MlpsCheck;
   status: "pass" | "fail" | "unknown";
   relatedFindings: Finding[];
 }
 
-function evaluateCheck(
+export function evaluateCheck(
   check: MlpsCheck,
   allFindings: Finding[],
   scanModules: Array<{ module: string; status: string }>,

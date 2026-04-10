@@ -1,0 +1,355 @@
+import { describe, it, expect } from "vitest";
+import { generateHtmlReport, generateMlps3HtmlReport } from "../../src/tools/html-report.js";
+import type { FullScanResult } from "../../src/types.js";
+
+function makeResult(modules: Array<{
+  module: string;
+  findings: Array<{
+    severity: string;
+    title: string;
+    description: string;
+    riskScore: number;
+    resourceId: string;
+    resourceArn: string;
+    region: string;
+    resourceType: string;
+    impact: string;
+    remediationSteps: string[];
+    priority: string;
+    module?: string;
+  }>;
+}>): FullScanResult {
+  const allFindings = modules.flatMap((m) => m.findings);
+  return {
+    scanStart: "2026-04-10T10:00:00.000Z",
+    scanEnd: "2026-04-10T10:01:00.000Z",
+    region: "us-east-1",
+    accountId: "123456789012",
+    modules: modules.map((m) => ({
+      module: m.module,
+      status: "success" as const,
+      resourcesScanned: 3,
+      findingsCount: m.findings.length,
+      scanTimeMs: 100,
+      findings: m.findings.map((f) => ({
+        ...f,
+        severity: f.severity as "CRITICAL" | "HIGH" | "MEDIUM" | "LOW",
+        priority: f.priority as "P0" | "P1" | "P2" | "P3",
+      })),
+    })),
+    summary: {
+      totalFindings: allFindings.length,
+      critical: allFindings.filter((f) => f.severity === "CRITICAL").length,
+      high: allFindings.filter((f) => f.severity === "HIGH").length,
+      medium: allFindings.filter((f) => f.severity === "MEDIUM").length,
+      low: allFindings.filter((f) => f.severity === "LOW").length,
+      modulesSuccess: modules.length,
+      modulesError: 0,
+    },
+  };
+}
+
+const sampleFinding = {
+  severity: "CRITICAL",
+  title: "Security group sg-123 allows SSH (22) from 0.0.0.0/0",
+  description: "Open SSH access to the world",
+  riskScore: 9.0,
+  resourceId: "sg-123",
+  resourceArn: "arn:aws:ec2:us-east-1:123456789012:security-group/sg-123",
+  region: "us-east-1",
+  resourceType: "AWS::EC2::SecurityGroup",
+  impact: "SSH exposed to the internet",
+  remediationSteps: ["Restrict port 22 to known IPs"],
+  priority: "P0",
+  module: "security_group",
+};
+
+describe("generateHtmlReport", () => {
+  it("produces valid HTML with expected structure", () => {
+    const result = makeResult([
+      { module: "security_group", findings: [sampleFinding] },
+    ]);
+    const html = generateHtmlReport(result);
+
+    expect(html).toContain("<!DOCTYPE html>");
+    expect(html).toContain("<html lang=\"en\">");
+    expect(html).toContain("AWS Security Scan Report");
+    expect(html).toContain("123456789012");
+    expect(html).toContain("us-east-1");
+    expect(html).toContain("Security Score");
+  });
+
+  it("includes finding details and severity badge", () => {
+    const result = makeResult([
+      { module: "security_group", findings: [sampleFinding] },
+    ]);
+    const html = generateHtmlReport(result);
+
+    expect(html).toContain("sg-123 allows SSH");
+    expect(html).toContain("CRITICAL");
+    expect(html).toContain("Restrict port 22");
+    expect(html).toContain("sev-critical");
+    expect(html).toContain("badge-critical");
+  });
+
+  it("includes SVG donut chart with arcs", () => {
+    const result = makeResult([
+      { module: "security_group", findings: [sampleFinding] },
+    ]);
+    const html = generateHtmlReport(result);
+
+    expect(html).toContain("<svg");
+    expect(html).toContain("viewBox");
+    expect(html).toContain("stroke-dasharray");
+    expect(html).toContain("#ef4444"); // critical color
+  });
+
+  it("includes bar chart with module name", () => {
+    const result = makeResult([
+      { module: "security_group", findings: [sampleFinding] },
+    ]);
+    const html = generateHtmlReport(result);
+
+    expect(html).toContain("security_group");
+    expect(html).toContain("<rect");
+  });
+
+  it("includes scan statistics table", () => {
+    const result = makeResult([
+      { module: "security_group", findings: [sampleFinding] },
+    ]);
+    const html = generateHtmlReport(result);
+
+    expect(html).toContain("<table>");
+    expect(html).toContain("<th>Module</th>");
+    expect(html).toContain("<th>Resources</th>");
+  });
+
+  it("includes recommendations section", () => {
+    const result = makeResult([
+      { module: "security_group", findings: [sampleFinding] },
+    ]);
+    const html = generateHtmlReport(result);
+
+    expect(html).toContain("Recommendations (Priority Order)");
+    expect(html).toContain("[P0]");
+  });
+
+  it("shows clean state when no findings", () => {
+    const result = makeResult([
+      { module: "s3", findings: [] },
+    ]);
+    const html = generateHtmlReport(result);
+
+    expect(html).toContain("No security issues found.");
+    expect(html).not.toContain("Recommendations");
+    // Donut chart should show 0
+    expect(html).toContain(">0</text>");
+    // Bar chart should show all clean
+    expect(html).toContain("All modules clean");
+  });
+
+  it("includes print styles", () => {
+    const result = makeResult([{ module: "s3", findings: [] }]);
+    const html = generateHtmlReport(result);
+
+    expect(html).toContain("@media print");
+  });
+
+  it("calculates security score correctly", () => {
+    // 1 critical = 100 - 15 = 85
+    const result = makeResult([
+      { module: "security_group", findings: [sampleFinding] },
+    ]);
+    const html = generateHtmlReport(result);
+
+    expect(html).toContain(">85</div>");
+  });
+
+  it("includes footer with version", () => {
+    const result = makeResult([{ module: "s3", findings: [] }]);
+    const html = generateHtmlReport(result);
+
+    expect(html).toContain("AWS Security MCP Server v0.3.0");
+    expect(html).toContain("informational purposes only");
+  });
+
+  it("escapes HTML in finding titles", () => {
+    const result = makeResult([
+      {
+        module: "s3",
+        findings: [{
+          ...sampleFinding,
+          title: 'Test <script>alert("xss")</script>',
+        }],
+      },
+    ]);
+    const html = generateHtmlReport(result);
+
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
+
+  it("handles multiple severity levels", () => {
+    const result = makeResult([
+      {
+        module: "security_group",
+        findings: [
+          sampleFinding,
+          { ...sampleFinding, severity: "HIGH", riskScore: 7.5, priority: "P1", title: "High finding" },
+          { ...sampleFinding, severity: "MEDIUM", riskScore: 5.0, priority: "P2", title: "Medium finding" },
+          { ...sampleFinding, severity: "LOW", riskScore: 2.0, priority: "P3", title: "Low finding" },
+        ],
+      },
+    ]);
+    const html = generateHtmlReport(result);
+
+    expect(html).toContain("badge-critical");
+    expect(html).toContain("badge-high");
+    expect(html).toContain("badge-medium");
+    expect(html).toContain("badge-low");
+  });
+});
+
+describe("generateMlps3HtmlReport", () => {
+  it("produces valid HTML with Chinese headers", () => {
+    const result = makeResult([
+      { module: "iam_password_policy", findings: [] },
+      { module: "cloudtrail", findings: [] },
+    ]);
+    // Override region to cn-north-1
+    result.region = "cn-north-1";
+    const html = generateMlps3HtmlReport(result);
+
+    expect(html).toContain("<!DOCTYPE html>");
+    expect(html).toContain('<html lang="zh-CN">');
+    expect(html).toContain("等保三级预检报告");
+    expect(html).toContain("cn-north-1");
+  });
+
+  it("shows pass/fail indicators for checks", () => {
+    const result = makeResult([
+      {
+        module: "iam_password_policy",
+        findings: [{
+          severity: "MEDIUM",
+          title: "IAM password policy minimum length is too short",
+          description: "The IAM password policy requires only 6 characters.",
+          riskScore: 5.0,
+          resourceId: "password-policy",
+          resourceArn: "arn:aws:iam::123456789012:account-password-policy",
+          region: "global",
+          resourceType: "AWS::IAM::AccountPasswordPolicy",
+          impact: "Weak passwords.",
+          remediationSteps: ["Set minimum password length to at least 8 characters."],
+          priority: "P2",
+          module: "iam_password_policy",
+        }],
+      },
+      { module: "cloudtrail", findings: [] },
+    ]);
+    const html = generateMlps3HtmlReport(result);
+
+    // Failed check should have check-fail class
+    expect(html).toContain("check-fail");
+    // Passed check should have check-pass class
+    expect(html).toContain("check-pass");
+  });
+
+  it("displays pass rate", () => {
+    const result = makeResult([
+      { module: "iam_password_policy", findings: [] },
+      { module: "iam", findings: [] },
+      { module: "iam_mfa_audit", findings: [] },
+      { module: "iam_privilege_escalation", findings: [] },
+      { module: "cloudtrail", findings: [] },
+      { module: "cloudtrail_protection", findings: [] },
+      { module: "log_integrity_audit", findings: [] },
+      { module: "security_group", findings: [] },
+      { module: "network_reachability", findings: [] },
+      { module: "s3", findings: [] },
+      { module: "ebs", findings: [] },
+      { module: "rds", findings: [] },
+      { module: "vpc", findings: [] },
+      { module: "service_detection", findings: [] },
+      { module: "elb_https", findings: [] },
+      { module: "ssl_certificate", findings: [] },
+    ]);
+    const html = generateMlps3HtmlReport(result);
+
+    expect(html).toContain("100%");
+    expect(html).toContain("通过率");
+    // All pass — no remediation section
+    expect(html).not.toContain("建议整改项");
+  });
+
+  it("shows unknown checks when modules are missing", () => {
+    const result = makeResult([
+      { module: "iam_password_policy", findings: [] },
+    ]);
+    const html = generateMlps3HtmlReport(result);
+
+    expect(html).toContain("check-unknown");
+    expect(html).toContain("未检查");
+  });
+
+  it("includes Chinese disclaimer", () => {
+    const result = makeResult([{ module: "s3", findings: [] }]);
+    const html = generateMlps3HtmlReport(result);
+
+    expect(html).toContain("本报告为等保预检参考");
+    expect(html).toContain("持证测评机构执行");
+  });
+
+  it("includes MLPS category sections", () => {
+    const result = makeResult([
+      { module: "iam_password_policy", findings: [] },
+      { module: "cloudtrail", findings: [] },
+      { module: "security_group", findings: [] },
+      { module: "s3", findings: [] },
+      { module: "vpc", findings: [] },
+      { module: "service_detection", findings: [] },
+    ]);
+    const html = generateMlps3HtmlReport(result);
+
+    expect(html).toContain("身份鉴别");
+    expect(html).toContain("访问控制");
+    expect(html).toContain("安全审计");
+    expect(html).toContain("入侵防范");
+    expect(html).toContain("数据安全");
+    expect(html).toContain("网络安全");
+  });
+
+  it("includes remediation section for failed checks", () => {
+    const result = makeResult([
+      {
+        module: "iam_password_policy",
+        findings: [{
+          severity: "MEDIUM",
+          title: "IAM password policy minimum length is too short",
+          description: "The IAM password policy requires only 6 characters.",
+          riskScore: 5.0,
+          resourceId: "password-policy",
+          resourceArn: "arn:aws:iam::123456789012:account-password-policy",
+          region: "global",
+          resourceType: "AWS::IAM::AccountPasswordPolicy",
+          impact: "Weak passwords.",
+          remediationSteps: ["Set minimum password length to at least 8 characters."],
+          priority: "P2",
+          module: "iam_password_policy",
+        }],
+      },
+    ]);
+    const html = generateMlps3HtmlReport(result);
+
+    expect(html).toContain("建议整改项");
+    expect(html).toContain("[P2]");
+  });
+
+  it("includes print styles", () => {
+    const result = makeResult([{ module: "s3", findings: [] }]);
+    const html = generateMlps3HtmlReport(result);
+
+    expect(html).toContain("@media print");
+  });
+});
