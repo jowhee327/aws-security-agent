@@ -198,8 +198,13 @@ export function createServer(defaultRegion: string): McpServer {
         // Extract the serviceDetection data attached by the scanner
         const detection = (sdModule as ScanResult & { serviceDetection?: ServiceDetectionResult }).serviceDetection;
 
-        // Fallback: reconstruct from findings if the structured data was lost (e.g. JSON round-trip)
-        const serviceNames = ["CloudTrail", "Security Hub", "GuardDuty", "Inspector", "AWS Config", "Macie"];
+        if (!detection) {
+          return {
+            content: [{ type: "text", text: "Error: service detection data is missing (possible JSON round-trip loss). Run scan_all to get fresh results with complete service detection data." }],
+            isError: true,
+          };
+        }
+
         const serviceImpacts: Record<string, string> = {
           "CloudTrail": "API activity logging",
           "Security Hub": "+300 security checks",
@@ -215,31 +220,11 @@ export function createServer(defaultRegion: string): McpServer {
           "Macie": true,
         };
 
-        let services: Array<{ name: string; enabled: boolean; details?: string }>;
-        let coveragePercent: number;
-        let maturityLevel: string;
+        const services = detection.services;
+        const coveragePercent = detection.coveragePercent;
+        const maturityLevel = detection.maturityLevel;
 
-        if (detection) {
-          services = detection.services;
-          coveragePercent = detection.coveragePercent;
-          maturityLevel = detection.maturityLevel;
-        } else {
-          // Reconstruct from findings: any service mentioned in a finding title is disabled
-          const disabledTitles = sdModule.findings.map((f) => f.title);
-          services = serviceNames.map((name) => {
-            const isDisabled = disabledTitles.some((t) => t.includes(name) || t.includes(name.replace("AWS ", "")));
-            return { name, enabled: !isDisabled };
-          });
-          const enabledCount = services.filter((s) => s.enabled).length;
-          const total = services.length;
-          coveragePercent = total > 0 ? Math.round((enabledCount / total) * 100) : 0;
-          if (enabledCount >= 6) maturityLevel = "comprehensive";
-          else if (enabledCount >= 4) maturityLevel = "advanced";
-          else if (enabledCount >= 2) maturityLevel = "intermediate";
-          else maturityLevel = "basic";
-        }
-
-        const enabledCount = services.filter((s) => s.enabled).length;
+        const enabledCount = services.filter((s) => s.enabled === true).length;
         const totalServices = services.length;
 
         // Build the report
@@ -256,13 +241,19 @@ export function createServer(defaultRegion: string): McpServer {
         lines.push("| Service | Status | Impact |");
         lines.push("|---------|--------|--------|");
         for (const svc of services) {
-          const status = svc.enabled ? "\u2705 Enabled" : "\u274c Not Enabled";
+          const status = svc.enabled === true ? "\u2705 Enabled" : svc.enabled === false ? "\u274c Not Enabled" : "\u26a0\ufe0f Unknown";
           const impact = serviceImpacts[svc.name] ?? "";
           lines.push(`| ${svc.name} | ${status} | ${impact} |`);
         }
 
+        const unknowns = services.filter((s) => s.enabled === null);
+        if (unknowns.length > 0) {
+          lines.push("");
+          lines.push(`> \u26a0\ufe0f ${unknowns.length} service(s) could not be checked (access denied or detection error). Re-run with appropriate permissions for accurate coverage.`);
+        }
+
         // Recommendations
-        const disabled = services.filter((s) => !s.enabled);
+        const disabled = services.filter((s) => s.enabled === false);
         if (disabled.length > 0) {
           lines.push("");
           lines.push("### Recommendations (Priority Order)");

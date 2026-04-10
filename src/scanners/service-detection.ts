@@ -29,7 +29,7 @@ import { severityFromScore, priorityFromSeverity } from "../utils/risk-scoring.j
 
 export interface ServiceStatus {
   name: string;
-  enabled: boolean;
+  enabled: boolean | null; // null = unknown (access denied or detection error)
   details?: string;
   recommendation?: string;
   freeTrialAvailable?: boolean;
@@ -73,9 +73,14 @@ function isAccessDenied(err: unknown): boolean {
   );
 }
 
-/** Macie is not available in China regions */
-function isMacieAvailable(region: string): boolean {
-  return !region.startsWith("cn-");
+function isNotEnabled(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  return (
+    err.name === "InvalidAccessException" ||  // Security Hub specific
+    err.name === "DisabledException" ||
+    err.message.includes("not enabled") ||
+    err.message.includes("not subscribed")
+  );
 }
 
 function computeMaturityLevel(
@@ -120,10 +125,10 @@ export class ServiceDetectionScanner implements Scanner {
     } catch (err) {
       if (isAccessDenied(err)) {
         warnings.push("CloudTrail: insufficient permissions to check status");
-        services.push({ name: "CloudTrail", enabled: false, details: "Access denied" });
+        services.push({ name: "CloudTrail", enabled: null, details: "Access denied" });
       } else {
         warnings.push(`CloudTrail detection failed: ${err instanceof Error ? err.message : String(err)}`);
-        services.push({ name: "CloudTrail", enabled: false, details: "Detection error" });
+        services.push({ name: "CloudTrail", enabled: null, details: "Detection error" });
       }
     }
 
@@ -139,8 +144,8 @@ export class ServiceDetectionScanner implements Scanner {
     } catch (err) {
       if (isAccessDenied(err)) {
         warnings.push("Security Hub: insufficient permissions to check status");
-        services.push({ name: "Security Hub", enabled: false, details: "Access denied" });
-      } else {
+        services.push({ name: "Security Hub", enabled: null, details: "Access denied" });
+      } else if (isNotEnabled(err)) {
         services.push({
           name: "Security Hub",
           enabled: false,
@@ -167,6 +172,9 @@ export class ServiceDetectionScanner implements Scanner {
             ],
           }),
         );
+      } else {
+        warnings.push(`Security Hub detection failed: ${err instanceof Error ? err.message : String(err)}`);
+        services.push({ name: "Security Hub", enabled: null, details: "Detection error" });
       }
     }
 
@@ -212,10 +220,10 @@ export class ServiceDetectionScanner implements Scanner {
     } catch (err) {
       if (isAccessDenied(err)) {
         warnings.push("GuardDuty: insufficient permissions to check status");
-        services.push({ name: "GuardDuty", enabled: false, details: "Access denied" });
+        services.push({ name: "GuardDuty", enabled: null, details: "Access denied" });
       } else {
         warnings.push(`GuardDuty detection failed: ${err instanceof Error ? err.message : String(err)}`);
-        services.push({ name: "GuardDuty", enabled: false, details: "Detection error" });
+        services.push({ name: "GuardDuty", enabled: null, details: "Detection error" });
       }
     }
 
@@ -266,10 +274,10 @@ export class ServiceDetectionScanner implements Scanner {
     } catch (err) {
       if (isAccessDenied(err)) {
         warnings.push("Inspector: insufficient permissions to check status");
-        services.push({ name: "Inspector", enabled: false, details: "Access denied" });
+        services.push({ name: "Inspector", enabled: null, details: "Access denied" });
       } else {
         warnings.push(`Inspector detection failed: ${err instanceof Error ? err.message : String(err)}`);
-        services.push({ name: "Inspector", enabled: false, details: "Detection error" });
+        services.push({ name: "Inspector", enabled: null, details: "Detection error" });
       }
     }
 
@@ -314,69 +322,63 @@ export class ServiceDetectionScanner implements Scanner {
     } catch (err) {
       if (isAccessDenied(err)) {
         warnings.push("AWS Config: insufficient permissions to check status");
-        services.push({ name: "AWS Config", enabled: false, details: "Access denied" });
+        services.push({ name: "AWS Config", enabled: null, details: "Access denied" });
       } else {
         warnings.push(`AWS Config detection failed: ${err instanceof Error ? err.message : String(err)}`);
-        services.push({ name: "AWS Config", enabled: false, details: "Detection error" });
+        services.push({ name: "AWS Config", enabled: null, details: "Detection error" });
       }
     }
 
     // --- Macie ---
-    if (isMacieAvailable(region)) {
-      try {
-        const mc = createClient(Macie2Client, region);
-        await mc.send(new GetMacieSessionCommand({}));
-        services.push({
-          name: "Macie",
-          enabled: true,
-          details: "Sensitive data detection active",
-        });
-      } catch (err) {
-        if (isAccessDenied(err)) {
-          warnings.push("Macie: insufficient permissions to check status");
-          services.push({ name: "Macie", enabled: false, details: "Access denied" });
-        } else {
-          services.push({
-            name: "Macie",
-            enabled: false,
-            recommendation: "Enable Macie to detect sensitive data in S3",
-            freeTrialAvailable: true,
-          });
-          findings.push(
-            makeFinding({
-              riskScore: 5.0,
-              title: "Amazon Macie is not enabled",
-              resourceType: "AWS::Macie::Session",
-              resourceId: "macie",
-              resourceArn: `arn:${partition}:macie2:${region}:${accountId}:session`,
-              region,
-              description:
-                "Amazon Macie is not enabled in this region. Macie uses machine learning to discover and protect sensitive data stored in S3.",
-              impact:
-                "Detects sensitive data (PII, credentials, financial data) in S3 buckets. Without it, sensitive data exposure may go unnoticed.",
-              remediationSteps: [
-                "Open the Amazon Macie console.",
-                "Click 'Get Started' and enable Macie.",
-                "Macie offers a 30-day free trial for sensitive data discovery.",
-                "Configure automated sensitive data discovery jobs.",
-              ],
-            }),
-          );
-        }
-      }
-    } else {
-      warnings.push("Macie: not available in China regions, skipping");
+    try {
+      const mc = createClient(Macie2Client, region);
+      await mc.send(new GetMacieSessionCommand({}));
       services.push({
         name: "Macie",
-        enabled: false,
-        details: "Not available in this region",
+        enabled: true,
+        details: "Sensitive data detection active",
       });
+    } catch (err) {
+      if (isAccessDenied(err)) {
+        warnings.push("Macie: insufficient permissions to check status");
+        services.push({ name: "Macie", enabled: null, details: "Access denied" });
+      } else if (isNotEnabled(err)) {
+        services.push({
+          name: "Macie",
+          enabled: false,
+          recommendation: "Enable Macie to detect sensitive data in S3",
+          freeTrialAvailable: true,
+        });
+        findings.push(
+          makeFinding({
+            riskScore: 5.0,
+            title: "Amazon Macie is not enabled",
+            resourceType: "AWS::Macie::Session",
+            resourceId: "macie",
+            resourceArn: `arn:${partition}:macie2:${region}:${accountId}:session`,
+            region,
+            description:
+              "Amazon Macie is not enabled in this region. Macie uses machine learning to discover and protect sensitive data stored in S3.",
+            impact:
+              "Detects sensitive data (PII, credentials, financial data) in S3 buckets. Without it, sensitive data exposure may go unnoticed.",
+            remediationSteps: [
+              "Open the Amazon Macie console.",
+              "Click 'Get Started' and enable Macie.",
+              "Macie offers a 30-day free trial for sensitive data discovery.",
+              "Configure automated sensitive data discovery jobs.",
+            ],
+          }),
+        );
+      } else {
+        warnings.push(`Macie detection failed: ${err instanceof Error ? err.message : String(err)}`);
+        services.push({ name: "Macie", enabled: null, details: "Detection error" });
+      }
     }
 
-    // Compute coverage and maturity
-    const totalServices = services.length;
-    const enabledCount = services.filter((s) => s.enabled).length;
-    const coveragePercent = totalServices > 0 ? Math.round((enabledCount / totalServices) * 100) : 0;
+    // Compute coverage and maturity (exclude unknown services from coverage denominator)
+    const knownServices = services.filter((s) => s.enabled !== null);
+    const enabledCount = services.filter((s) => s.enabled === true).length;
+    const coveragePercent = knownServices.length > 0 ? Math.round((enabledCount / knownServices.length) * 100) : 0;
     const maturityLevel = computeMaturityLevel(enabledCount);
 
     const detectionResult: ServiceDetectionResult = {
@@ -389,7 +391,7 @@ export class ServiceDetectionScanner implements Scanner {
       module: this.moduleName,
       status: "success",
       warnings: warnings.length > 0 ? warnings : undefined,
-      resourcesScanned: totalServices,
+      resourcesScanned: services.length,
       findingsCount: findings.length,
       scanTimeMs: Date.now() - startMs,
       findings,

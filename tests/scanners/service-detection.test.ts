@@ -160,7 +160,7 @@ describe("ServiceDetectionScanner", () => {
     expect(result.warnings!.some((w) => w.includes("Security Hub") && w.includes("insufficient permissions"))).toBe(true);
   });
 
-  it("skips Macie gracefully in China regions", async () => {
+  it("detects Macie normally in China regions", async () => {
     mockSend.mockImplementation((cmd: { constructor: { name: string } }) => {
       const name = cmd.constructor.name;
       switch (name) {
@@ -174,6 +174,8 @@ describe("ServiceDetectionScanner", () => {
           return { accounts: [{ state: { status: "ENABLED" } }] };
         case "DescribeConfigurationRecordersCommand":
           return { ConfigurationRecorders: [{ name: "default" }] };
+        case "GetMacieSessionCommand":
+          return { status: "ENABLED" };
         default:
           return {};
       }
@@ -182,16 +184,13 @@ describe("ServiceDetectionScanner", () => {
     const result = (await scanner.scan(ctxChina)) as ScanResultWithDetection;
 
     expect(result.status).toBe("success");
-    // No Macie API call should be made
-    expect(result.findings.every((f) => !f.title.includes("Macie"))).toBe(true);
-    // Should have warning about Macie unavailability
-    expect(result.warnings).toBeDefined();
-    expect(result.warnings!.some((w) => w.includes("Macie") && w.includes("China"))).toBe(true);
-    // Macie still appears in services list but marked as not available
+    expect(result.findings).toHaveLength(0);
+    // Macie should be detected and enabled in China regions
     const macieService = result.serviceDetection!.services.find((s) => s.name === "Macie");
     expect(macieService).toBeDefined();
-    expect(macieService!.enabled).toBe(false);
-    expect(macieService!.details).toContain("Not available");
+    expect(macieService!.enabled).toBe(true);
+    expect(result.serviceDetection!.coveragePercent).toBe(100);
+    expect(result.serviceDetection!.maturityLevel).toBe("comprehensive");
   });
 
   it("computes intermediate maturity for 2-3 enabled services", async () => {
