@@ -13,8 +13,13 @@ import { EbsScanner } from "./scanners/ebs.js";
 import { VpcScanner } from "./scanners/vpc.js";
 import { ServiceDetectionScanner } from "./scanners/service-detection.js";
 import type { ServiceDetectionResult } from "./scanners/service-detection.js";
+import { IamPasswordPolicyScanner } from "./scanners/iam-password-policy.js";
+import { IamMfaAuditScanner } from "./scanners/iam-mfa-audit.js";
+import { CloudTrailProtectionScanner } from "./scanners/cloudtrail-protection.js";
+import { ElbHttpsScanner } from "./scanners/elb-https.js";
 import { generateMarkdownReport } from "./tools/report-tool.js";
 import { saveResults } from "./tools/save-results.js";
+import { SCAN_GROUPS } from "./tools/scan-groups.js";
 import {
   SECURITY_RULES_CONTENT,
   RISK_SCORING_CONTENT,
@@ -49,6 +54,14 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
   vpc: "Reviews VPC configuration including default VPC usage, flow logs, and default security groups.",
   service_detection:
     "Detects which AWS security services (Security Hub, GuardDuty, Inspector, Config, Macie) are enabled and assesses security maturity.",
+  iam_password_policy:
+    "Checks IAM account password policy against MLPS requirements (length, complexity, expiry, reuse prevention).",
+  iam_mfa_audit:
+    "Audits MFA status for all IAM users with console access and calculates MFA adoption rate.",
+  cloudtrail_protection:
+    "Checks CloudTrail log S3 bucket protection (encryption, versioning, Block Public Access).",
+  elb_https:
+    "Checks ELB/ALB/NLB listeners for HTTPS/TLS configuration.",
 };
 
 function summarizeResult(result: FullScanResult): string {
@@ -97,6 +110,10 @@ export function createServer(defaultRegion: string): McpServer {
     new EbsScanner(),
     new VpcScanner(),
     new ServiceDetectionScanner(),
+    new IamPasswordPolicyScanner(),
+    new IamMfaAuditScanner(),
+    new CloudTrailProtectionScanner(),
+    new ElbHttpsScanner(),
   ];
 
   const scannerMap = new Map<string, Scanner>();
@@ -109,7 +126,7 @@ export function createServer(defaultRegion: string): McpServer {
   // 1. scan_all
   server.tool(
     "scan_all",
-    "Run all 8 security scanners in parallel (including service detection). Read-only. Does not modify any AWS resources.",
+    "Run all security scanners in parallel (including service detection). Read-only. Does not modify any AWS resources.",
     { region: z.string().optional().describe("AWS region to scan (default: server region)") },
     async ({ region }) => {
       try {
@@ -137,6 +154,10 @@ export function createServer(defaultRegion: string): McpServer {
     { toolName: "scan_ebs", moduleName: "ebs", label: "EBS" },
     { toolName: "scan_vpc", moduleName: "vpc", label: "VPC" },
     { toolName: "detect_services", moduleName: "service_detection", label: "Security Service Detection" },
+    { toolName: "scan_iam_password_policy", moduleName: "iam_password_policy", label: "IAM Password Policy" },
+    { toolName: "scan_iam_mfa_audit", moduleName: "iam_mfa_audit", label: "IAM MFA Audit" },
+    { toolName: "scan_cloudtrail_protection", moduleName: "cloudtrail_protection", label: "CloudTrail Protection" },
+    { toolName: "scan_elb_https", moduleName: "elb_https", label: "ELB HTTPS" },
   ];
 
   for (const { toolName, moduleName, label } of individualScanners) {
@@ -162,6 +183,98 @@ export function createServer(defaultRegion: string): McpServer {
       },
     );
   }
+
+  // scan_group
+  server.tool(
+    "scan_group",
+    "Run a predefined group of security scanners for a specific scenario (e.g., MLPS compliance, network defense). Read-only.",
+    {
+      group: z.string().describe("Scan group ID: mlps3_precheck, hw_defense, exposure, pre_launch, data_encryption, least_privilege, log_integrity, disaster_recovery, idle_resources, tag_compliance, new_account_baseline"),
+      region: z.string().optional().describe("AWS region to scan (default: server region)"),
+    },
+    async ({ group, region }) => {
+      try {
+        const groupDef = SCAN_GROUPS[group];
+        if (!groupDef) {
+          const available = Object.keys(SCAN_GROUPS).join(", ");
+          return {
+            content: [{ type: "text", text: `Error: Unknown scan group "${group}". Available groups: ${available}` }],
+            isError: true,
+          };
+        }
+
+        const r = region ?? defaultRegion;
+
+        // Resolve scanners: "ALL" means all registered scanners
+        let selectedScanners: Scanner[];
+        const missingModules: string[] = [];
+
+        if (groupDef.modules.includes("ALL")) {
+          selectedScanners = allScanners;
+        } else {
+          selectedScanners = [];
+          for (const mod of groupDef.modules) {
+            const scanner = scannerMap.get(mod);
+            if (scanner) {
+              selectedScanners.push(scanner);
+            } else {
+              missingModules.push(mod);
+            }
+          }
+        }
+
+        if (selectedScanners.length === 0) {
+          return {
+            content: [{ type: "text", text: `Error: No available scanners for group "${group}". Requested modules: ${groupDef.modules.join(", ")}` }],
+            isError: true,
+          };
+        }
+
+        const result = await runAllScanners(selectedScanners, r);
+
+        const lines: string[] = [
+          `Scan group: ${groupDef.name} (${group})`,
+          groupDef.description,
+          "",
+          summarizeResult(result),
+        ];
+
+        if (missingModules.length > 0) {
+          lines.push("");
+          lines.push(`Warning: ${missingModules.length} requested module(s) not available: ${missingModules.join(", ")}`);
+        }
+
+        return {
+          content: [
+            { type: "text", text: lines.join("\n") },
+            { type: "text", text: JSON.stringify(result, null, 2) },
+          ],
+        };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    },
+  );
+
+  // list_groups
+  server.tool(
+    "list_groups",
+    "List available scan groups with descriptions. Read-only.",
+    async () => {
+      try {
+        const groups = Object.entries(SCAN_GROUPS).map(([id, def]) => ({
+          id,
+          name: def.name,
+          description: def.description,
+          modules: def.modules,
+          reportType: def.reportType,
+        }));
+        return { content: [{ type: "text", text: JSON.stringify(groups, null, 2) }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    },
+  );
 
   // 9. generate_report
   server.tool(
