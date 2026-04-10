@@ -81,73 +81,80 @@ export class IamScanner implements Scanner {
       let resourcesScanned = 1; // account itself
 
       const rootArn = `arn:${partition}:iam::${accountId}:root`;
+      const isChinaRegion = region.startsWith("cn-");
 
-      // Root MFA check
-      if (summaryMap["AccountMFAEnabled"] === 0) {
-        findings.push(
-          makeFinding({
-            riskScore: 10.0,
-            title: "Root account does not have MFA enabled",
-            resourceType: "AWS::IAM::Root",
-            resourceId: "root",
-            resourceArn: rootArn,
-            region: "global",
-            description:
-              "The AWS root account does not have multi-factor authentication enabled.",
-            impact:
-              "Compromised root credentials would grant unrestricted access to all AWS resources with no second factor of authentication.",
-            remediationSteps: [
-              "Enable MFA on the root account immediately using a hardware or virtual MFA device.",
-              "Store the MFA device in a secure location.",
-              "Avoid using the root account for daily operations.",
-            ],
-          }),
-        );
+      // Root MFA check — skip in China (no root user)
+      if (!isChinaRegion) {
+        if (summaryMap["AccountMFAEnabled"] === 0) {
+          findings.push(
+            makeFinding({
+              riskScore: 10.0,
+              title: "Root account does not have MFA enabled",
+              resourceType: "AWS::IAM::Root",
+              resourceId: "root",
+              resourceArn: rootArn,
+              region: "global",
+              description:
+                "The AWS root account does not have multi-factor authentication enabled.",
+              impact:
+                "Compromised root credentials would grant unrestricted access to all AWS resources with no second factor of authentication.",
+              remediationSteps: [
+                "Enable MFA on the root account immediately using a hardware or virtual MFA device.",
+                "Store the MFA device in a secure location.",
+                "Avoid using the root account for daily operations.",
+              ],
+            }),
+          );
+        }
+      } else {
+        warnings.push("Root user checks skipped: AWS China regions use partner-managed accounts without root user.");
       }
 
-      // Root access key check — try credential report with polling
-      let rootHasAccessKey = false;
-      try {
-        const content = await waitForCredentialReport(client);
-        if (content) {
-          const csv = Buffer.from(content).toString("utf-8");
-          const lines = csv.split("\n");
-          const headers = lines[0]?.split(",") ?? [];
-          const ak1Idx = headers.indexOf("access_key_1_active");
-          const ak2Idx = headers.indexOf("access_key_2_active");
-          if (lines.length > 1) {
-            const rootRow = lines[1]?.split(",") ?? [];
-            if (
-              (ak1Idx >= 0 && rootRow[ak1Idx] === "true") ||
-              (ak2Idx >= 0 && rootRow[ak2Idx] === "true")
-            ) {
-              rootHasAccessKey = true;
+      // Root access key check — skip in China (no root user)
+      if (!isChinaRegion) {
+        let rootHasAccessKey = false;
+        try {
+          const content = await waitForCredentialReport(client);
+          if (content) {
+            const csv = Buffer.from(content).toString("utf-8");
+            const lines = csv.split("\n");
+            const headers = lines[0]?.split(",") ?? [];
+            const ak1Idx = headers.indexOf("access_key_1_active");
+            const ak2Idx = headers.indexOf("access_key_2_active");
+            if (lines.length > 1) {
+              const rootRow = lines[1]?.split(",") ?? [];
+              if (
+                (ak1Idx >= 0 && rootRow[ak1Idx] === "true") ||
+                (ak2Idx >= 0 && rootRow[ak2Idx] === "true")
+              ) {
+                rootHasAccessKey = true;
+              }
             }
           }
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          warnings.push(`Credential report check failed: ${msg}`);
         }
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        warnings.push(`Credential report check failed: ${msg}`);
-      }
 
-      if (rootHasAccessKey) {
-        findings.push(
-          makeFinding({
-            riskScore: 9.5,
-            title: "Root account has active access keys",
-            resourceType: "AWS::IAM::Root",
-            resourceId: "root",
-            resourceArn: rootArn,
-            region: "global",
-            description: "The root account has one or more active access keys.",
-            impact:
-              "Access keys for the root account provide unrestricted API access. If leaked, the entire account is compromised.",
-            remediationSteps: [
-              "Delete all root account access keys.",
-              "Use IAM users or roles with least-privilege policies instead.",
-            ],
-          }),
-        );
+        if (rootHasAccessKey) {
+          findings.push(
+            makeFinding({
+              riskScore: 9.5,
+              title: "Root account has active access keys",
+              resourceType: "AWS::IAM::Root",
+              resourceId: "root",
+              resourceArn: rootArn,
+              region: "global",
+              description: "The root account has one or more active access keys.",
+              impact:
+                "Access keys for the root account provide unrestricted API access. If leaked, the entire account is compromised.",
+              remediationSteps: [
+                "Delete all root account access keys.",
+                "Use IAM users or roles with least-privilege policies instead.",
+              ],
+            }),
+          );
+        }
       }
 
       // List all IAM users
