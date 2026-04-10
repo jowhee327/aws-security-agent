@@ -1,0 +1,109 @@
+name: aws-security-mcp
+description: >
+  AWS Security MCP Server - A Model Context Protocol server that provides
+  AI-powered security scanning for AWS infrastructure. Runs 7 read-only
+  security scanner modules (Security Groups, S3, IAM, CloudTrail, RDS, EBS, VPC)
+  with risk scoring, parallel execution, and a React dashboard.
+
+version: "0.1.0"
+license: MIT
+
+architecture:
+  type: mcp-server
+  transport: stdio
+  language: typescript
+  runtime: node >= 18
+  module_system: esm
+
+entry_points:
+  mcp_server: dist/index.js
+  cli: dist/bin/aws-security-mcp.js
+
+scanner_modules:
+  - name: security_group
+    file: src/scanners/sg.ts
+    description: Detects overly permissive security group rules (0.0.0.0/0, ::/0)
+  - name: s3
+    file: src/scanners/s3.ts
+    description: Checks S3 bucket encryption, public access, versioning, logging
+  - name: iam
+    file: src/scanners/iam.ts
+    description: Audits IAM users for MFA, access key rotation, unused credentials
+  - name: cloudtrail
+    file: src/scanners/cloudtrail.ts
+    description: Validates CloudTrail logging, multi-region, log file validation
+  - name: rds
+    file: src/scanners/rds.ts
+    description: Checks RDS encryption, public accessibility, backup configuration
+  - name: ebs
+    file: src/scanners/ebs.ts
+    description: Detects unencrypted EBS volumes and unused snapshots
+  - name: vpc
+    file: src/scanners/vpc.ts
+    description: Audits VPC flow logs, default VPC usage, network ACLs
+
+mcp_tools:
+  - scan_all
+  - scan_sg
+  - scan_s3
+  - scan_iam
+  - scan_cloudtrail
+  - scan_rds
+  - scan_ebs
+  - scan_vpc
+  - generate_report
+  - save_results
+  - list_modules
+
+mcp_resources:
+  - security-rules
+  - risk-scoring
+
+mcp_prompts:
+  - security-scan
+  - analyze-finding
+
+risk_scoring:
+  scale: 0-10
+  severity_map:
+    CRITICAL: 8-10
+    HIGH: 6-7
+    MEDIUM: 3-5
+    LOW: 0-2
+  priority_map:
+    P0: CRITICAL
+    P1: HIGH
+    P2: MEDIUM
+    P3: LOW
+
+aws:
+  mode: read-only
+  api_pattern: Describe/Get/List only
+  partitions:
+    - aws
+    - aws-cn
+  credential_sources:
+    - environment_variables
+    - iam_roles
+    - aws_profiles
+
+dashboard:
+  framework: react
+  styling: tailwind
+  charts: recharts
+  build: vite
+  deployment:
+    - local (port 3000)
+    - s3-static-hosting
+
+compatible_tools:
+  - kiro
+  - claude-code
+  - cursor
+
+ci_cd:
+  test: vitest
+  lint: tsc --noEmit
+  build: tsup
+  publish: npm (triggered by v* tags)
+  matrix: [node 18, node 20, node 22]
