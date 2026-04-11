@@ -91,11 +91,6 @@ export const SCAN_GROUPS: Record<string, {
       securityHubCategories: ["network", "public", "exposure", "port"],
     },
   },
-  pre_launch: {
-    name: "生产上线前检查",
-    description: "上线前全面安全评估",
-    modules: ["ALL"],
-  },
   data_encryption: {
     name: "数据加密审计",
     description: "全面检查存储和传输加密状态",
@@ -134,11 +129,6 @@ export const SCAN_GROUPS: Record<string, {
     name: "资源标签合规",
     description: "检查必需标签",
     modules: ["tag_compliance"],
-  },
-  public_access_verify: {
-    name: "公网可达性验证",
-    description: "验证标记为公开的资源是否真正可从互联网访问",
-    modules: ["public_access_verify"],
   },
   new_account_baseline: {
     name: "新账户基线检查",

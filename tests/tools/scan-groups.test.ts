@@ -34,9 +34,8 @@ describe("SCAN_GROUPS", () => {
     }
   });
 
-  it("pre_launch group uses ALL marker", () => {
-    const preLaunch = SCAN_GROUPS["pre_launch"];
-    expect(preLaunch).toBeDefined();
-    expect(preLaunch.modules).toContain("ALL");
+  it("removed groups no longer exist", () => {
+    expect(SCAN_GROUPS["pre_launch"]).toBeUndefined();
+    expect(SCAN_GROUPS["public_access_verify"]).toBeUndefined();
   });
 });

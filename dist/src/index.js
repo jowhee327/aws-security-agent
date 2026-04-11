@@ -18754,11 +18754,6 @@ var SCAN_GROUPS = {
       securityHubCategories: ["network", "public", "exposure", "port"]
     }
   },
-  pre_launch: {
-    name: "\u751F\u4EA7\u4E0A\u7EBF\u524D\u68C0\u67E5",
-    description: "\u4E0A\u7EBF\u524D\u5168\u9762\u5B89\u5168\u8BC4\u4F30",
-    modules: ["ALL"]
-  },
   data_encryption: {
     name: "\u6570\u636E\u52A0\u5BC6\u5BA1\u8BA1",
     description: "\u5168\u9762\u68C0\u67E5\u5B58\u50A8\u548C\u4F20\u8F93\u52A0\u5BC6\u72B6\u6001",
@@ -18797,11 +18792,6 @@ var SCAN_GROUPS = {
     name: "\u8D44\u6E90\u6807\u7B7E\u5408\u89C4",
     description: "\u68C0\u67E5\u5FC5\u9700\u6807\u7B7E",
     modules: ["tag_compliance"]
-  },
-  public_access_verify: {
-    name: "\u516C\u7F51\u53EF\u8FBE\u6027\u9A8C\u8BC1",
-    description: "\u9A8C\u8BC1\u6807\u8BB0\u4E3A\u516C\u5F00\u7684\u8D44\u6E90\u662F\u5426\u771F\u6B63\u53EF\u4ECE\u4E92\u8054\u7F51\u8BBF\u95EE",
-    modules: ["public_access_verify"]
   },
   new_account_baseline: {
     name: "\u65B0\u8D26\u6237\u57FA\u7EBF\u68C0\u67E5",
