@@ -121,7 +121,7 @@ export class NetworkReachabilityScanner implements Scanner {
     const warnings: string[] = [];
 
     try {
-      const client = createClient(EC2Client, region);
+      const client = createClient(EC2Client, region, ctx.credentials);
 
       // Get EIPs for lookup
       const eipMap = new Map<string, string>(); // instanceId -> EIP

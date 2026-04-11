@@ -85,7 +85,7 @@ export class IamPrivilegeEscalationScanner implements Scanner {
     );
 
     try {
-      const client = createClient(IAMClient, iamRegion);
+      const client = createClient(IAMClient, iamRegion, ctx.credentials);
 
       // List all IAM users
       const users: User[] = [];

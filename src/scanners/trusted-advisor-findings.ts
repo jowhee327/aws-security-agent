@@ -30,7 +30,9 @@ export class TrustedAdvisorFindingsScanner implements Scanner {
     try {
       // Trusted Advisor API endpoint: cn-north-1 for China, us-east-1 for standard
       const supportRegion = region.startsWith("cn-") ? "cn-north-1" : "us-east-1";
-      const client = new SupportClient({ region: supportRegion });
+      const clientConfig: any = { region: supportRegion };
+      if (ctx.credentials) clientConfig.credentials = ctx.credentials;
+      const client = new SupportClient(clientConfig);
 
       // Step 1: List security checks
       const checksResp = await client.send(
@@ -95,6 +97,7 @@ export class TrustedAdvisorFindingsScanner implements Scanner {
               ],
               priority: priorityFromSeverity(severity),
               module: this.moduleName,
+              accountId,
             });
             continue;
           }
@@ -133,6 +136,7 @@ export class TrustedAdvisorFindingsScanner implements Scanner {
               ],
               priority: priorityFromSeverity(severity),
               module: this.moduleName,
+              accountId,
             });
           }
         } catch (checkErr) {

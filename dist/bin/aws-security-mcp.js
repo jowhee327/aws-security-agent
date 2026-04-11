@@ -16,12 +16,12 @@ __export(dashboard_exports, {
 });
 import { createServer as createServer2 } from "http";
 import { readFile } from "fs/promises";
-import { join as join2, extname, resolve } from "path";
+import { join as join3, extname, resolve } from "path";
 import { existsSync as existsSync2, copyFileSync } from "fs";
-import { fileURLToPath } from "url";
+import { fileURLToPath as fileURLToPath2 } from "url";
 import { exec } from "child_process";
 function startDashboard(port = 3e3) {
-  const dashboardDir = join2(__dirname, "../../dashboard/dist");
+  const dashboardDir = join3(__dirname, "../../dashboard/dist");
   if (!existsSync2(dashboardDir)) {
     console.error(
       `Dashboard not built. Run "npm run build:dashboard" first.
@@ -29,11 +29,11 @@ Expected: ${dashboardDir}`
     );
     process.exit(1);
   }
-  const dataSource = join2(
+  const dataSource = join3(
     process.env.HOME || process.env.USERPROFILE || "~",
     ".aws-security/dashboard/data.json"
   );
-  const dataDest = join2(dashboardDir, "data.json");
+  const dataDest = join3(dashboardDir, "data.json");
   if (existsSync2(dataSource)) {
     copyFileSync(dataSource, dataDest);
     console.log(`Loaded scan data from ${dataSource}`);
@@ -46,7 +46,7 @@ Expected: ${dashboardDir}`
   const server = createServer2(async (req, res) => {
     const url2 = req.url?.split("?")[0] ?? "/";
     let filePath = resolve(
-      join2(dashboardDir, url2 === "/" ? "index.html" : url2)
+      join3(dashboardDir, url2 === "/" ? "index.html" : url2)
     );
     if (!filePath.startsWith(resolvedBase + "/") && filePath !== resolvedBase) {
       res.writeHead(403);
@@ -54,7 +54,7 @@ Expected: ${dashboardDir}`
       return;
     }
     if (!existsSync2(filePath)) {
-      filePath = join2(dashboardDir, "index.html");
+      filePath = join3(dashboardDir, "index.html");
     }
     try {
       const content = await readFile(filePath);
@@ -90,8 +90,8 @@ var __filename, __dirname, MIME_TYPES;
 var init_dashboard = __esm({
   "src/commands/dashboard.ts"() {
     "use strict";
-    __filename = fileURLToPath(import.meta.url);
-    __dirname = join2(__filename, "..");
+    __filename = fileURLToPath2(import.meta.url);
+    __dirname = join3(__filename, "..");
     MIME_TYPES = {
       ".html": "text/html",
       ".js": "text/javascript",
@@ -111,9 +111,9 @@ var deploy_dashboard_exports = {};
 __export(deploy_dashboard_exports, {
   deployDashboard: () => deployDashboard
 });
-import { readdirSync, readFileSync as readFileSync2, existsSync as existsSync3, copyFileSync as copyFileSync2 } from "fs";
-import { join as join3, extname as extname2, relative } from "path";
-import { fileURLToPath as fileURLToPath2 } from "url";
+import { readdirSync, readFileSync as readFileSync3, existsSync as existsSync3, copyFileSync as copyFileSync2 } from "fs";
+import { join as join4, extname as extname2, relative } from "path";
+import { fileURLToPath as fileURLToPath3 } from "url";
 import {
   S3Client as S3Client5,
   PutObjectCommand,
@@ -123,7 +123,7 @@ import {
 function collectFiles(dir) {
   const files = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = join3(dir, entry.name);
+    const full = join4(dir, entry.name);
     if (entry.isDirectory()) {
       files.push(...collectFiles(full));
     } else {
@@ -133,7 +133,7 @@ function collectFiles(dir) {
   return files;
 }
 async function deployDashboard(bucket, region) {
-  const dashboardDir = join3(__dirname2, "../../dashboard/dist");
+  const dashboardDir = join4(__dirname2, "../../dashboard/dist");
   if (!existsSync3(dashboardDir)) {
     console.error(
       `Dashboard not built. Run "npm run build:dashboard" first.
@@ -141,11 +141,11 @@ Expected: ${dashboardDir}`
     );
     process.exit(1);
   }
-  const dataSource = join3(
+  const dataSource = join4(
     process.env.HOME || process.env.USERPROFILE || "~",
     ".aws-security/dashboard/data.json"
   );
-  const dataDest = join3(dashboardDir, "data.json");
+  const dataDest = join4(dashboardDir, "data.json");
   if (existsSync3(dataSource)) {
     copyFileSync2(dataSource, dataDest);
     console.log(`Loaded scan data from ${dataSource}`);
@@ -191,7 +191,7 @@ Expected: ${dashboardDir}`
     const key = relative(dashboardDir, filePath);
     const ext = extname2(filePath);
     const contentType = CONTENT_TYPES[ext] || "application/octet-stream";
-    const body = readFileSync2(filePath);
+    const body = readFileSync3(filePath);
     await s3.send(
       new PutObjectCommand({
         Bucket: bucket,
@@ -214,8 +214,8 @@ var __filename2, __dirname2, CONTENT_TYPES;
 var init_deploy_dashboard = __esm({
   "src/commands/deploy-dashboard.ts"() {
     "use strict";
-    __filename2 = fileURLToPath2(import.meta.url);
-    __dirname2 = join3(__filename2, "..");
+    __filename2 = fileURLToPath3(import.meta.url);
+    __dirname2 = join4(__filename2, "..");
     CONTENT_TYPES = {
       ".html": "text/html",
       ".js": "text/javascript",
@@ -14022,37 +14022,62 @@ async function getAccountId(region) {
   cachedAccountId = response.Account ?? "unknown";
   return cachedAccountId;
 }
-function createClient(ClientClass, region) {
-  return new ClientClass({ region: region ?? "us-east-1" });
+function createClient(ClientClass, region, credentials) {
+  const config2 = { region: region ?? "us-east-1" };
+  if (credentials) config2.credentials = credentials;
+  return new ClientClass(config2);
+}
+
+// src/utils/assume-role.ts
+import { STSClient as STSClient2, AssumeRoleCommand, GetCallerIdentityCommand as GetCallerIdentityCommand2 } from "@aws-sdk/client-sts";
+async function assumeRole(roleArn, region, sessionName = "aws-security-mcp") {
+  const sts = new STSClient2({ region });
+  const result = await sts.send(new AssumeRoleCommand({
+    RoleArn: roleArn,
+    RoleSessionName: sessionName,
+    DurationSeconds: 3600
+  }));
+  return {
+    accessKeyId: result.Credentials.AccessKeyId,
+    secretAccessKey: result.Credentials.SecretAccessKey,
+    sessionToken: result.Credentials.SessionToken
+  };
+}
+function buildRoleArn(accountId, roleName, partition = "aws") {
+  return `arn:${partition}:iam::${accountId}:role/${roleName}`;
+}
+
+// src/utils/org-accounts.ts
+import { OrganizationsClient, ListAccountsCommand } from "@aws-sdk/client-organizations";
+async function listOrgAccounts(region) {
+  const orgRegion = region.startsWith("cn-") ? "cn-northwest-1" : "us-east-1";
+  const client = new OrganizationsClient({ region: orgRegion });
+  const accounts = [];
+  let nextToken;
+  do {
+    const result = await client.send(new ListAccountsCommand({ NextToken: nextToken }));
+    for (const acct of result.Accounts || []) {
+      if (acct.Status === "ACTIVE") {
+        accounts.push({
+          id: acct.Id,
+          name: acct.Name || "",
+          email: acct.Email || "",
+          status: acct.Status
+        });
+      }
+    }
+    nextToken = result.NextToken;
+  } while (nextToken);
+  return accounts;
 }
 
 // src/scanners/runner.ts
-async function runAllScanners(scanners, region) {
-  const scanStart = (/* @__PURE__ */ new Date()).toISOString();
-  let accountId;
-  try {
-    accountId = await getAccountId(region);
-  } catch {
-    accountId = "unknown";
-  }
-  const partition = getPartition(region);
-  const ctx = { region, partition, accountId };
-  const settled = await Promise.allSettled(scanners.map((s) => s.scan(ctx)));
-  const modules = settled.map((result, i) => {
-    if (result.status === "fulfilled") {
-      return result.value;
-    }
-    return {
-      module: scanners[i].moduleName,
-      status: "error",
-      error: result.reason instanceof Error ? result.reason.message : String(result.reason),
-      resourcesScanned: 0,
-      findingsCount: 0,
-      scanTimeMs: 0,
-      findings: []
-    };
-  });
-  const scanEnd = (/* @__PURE__ */ new Date()).toISOString();
+var AGGREGATION_MODULES = /* @__PURE__ */ new Set([
+  "security_hub_findings",
+  "guardduty_findings",
+  "inspector_findings"
+]);
+function buildSummary(modules) {
   let critical = 0;
   let high = 0;
   let medium = 0;
@@ -14083,20 +14108,124 @@ async function runAllScanners(scanners, region) {
     }
   }
   return {
+    totalFindings: critical + high + medium + low,
+    critical,
+    high,
+    medium,
+    low,
+    modulesSuccess,
+    modulesError
+  };
+}
+async function runScannersWithContext(scanners, ctx) {
+  const settled = await Promise.allSettled(scanners.map((s) => s.scan(ctx)));
+  return settled.map((result, i) => {
+    if (result.status === "fulfilled") {
+      for (const f of result.value.findings) {
+        if (!f.accountId) f.accountId = ctx.accountId;
+        if (!f.accountAlias && ctx.accountAlias) f.accountAlias = ctx.accountAlias;
+      }
+      return result.value;
+    }
+    return {
+      module: scanners[i].moduleName,
+      status: "error",
+      error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+      resourcesScanned: 0,
+      findingsCount: 0,
+      scanTimeMs: 0,
+      findings: []
+    };
+  });
+}
+async function runAllScanners(scanners, region) {
+  const scanStart = (/* @__PURE__ */ new Date()).toISOString();
+  let accountId;
+  try {
+    accountId = await getAccountId(region);
+  } catch {
+    accountId = "unknown";
+  }
+  const partition = getPartition(region);
+  const ctx = { region, partition, accountId };
+  const modules = await runScannersWithContext(scanners, ctx);
+  const scanEnd = (/* @__PURE__ */ new Date()).toISOString();
+  return {
     scanStart,
     scanEnd,
     region,
     accountId,
     modules,
-    summary: {
-      totalFindings: critical + high + medium + low,
-      critical,
-      high,
-      medium,
-      low,
-      modulesSuccess,
-      modulesError
+    summary: buildSummary(modules)
+  };
+}
+async function runMultiAccountScanners(scanners, region, opts) {
+  const scanStart = (/* @__PURE__ */ new Date()).toISOString();
+  const partition = getPartition(region);
+  let adminAccountId;
+  try {
+    adminAccountId = await getAccountId(region);
+  } catch {
+    adminAccountId = "unknown";
+  }
+  let accounts;
+  try {
+    accounts = await listOrgAccounts(region);
+  } catch (err) {
+    const result = await runAllScanners(scanners, region);
+    result.modules[0]?.warnings;
+    return result;
+  }
+  if (opts.accountIds?.length) {
+    const idSet = new Set(opts.accountIds);
+    accounts = accounts.filter((a) => idSet.has(a.id));
+  }
+  const aggregationScanners = scanners.filter((s) => AGGREGATION_MODULES.has(s.moduleName));
+  const perAccountScanners = scanners.filter((s) => !AGGREGATION_MODULES.has(s.moduleName));
+  const allModules = [];
+  if (aggregationScanners.length > 0) {
+    const adminCtx = { region, partition, accountId: adminAccountId };
+    const aggResults = await runScannersWithContext(aggregationScanners, adminCtx);
+    allModules.push(...aggResults);
+  }
+  for (const account of accounts) {
+    let credentials;
+    let accountAlias = account.name;
+    if (account.id !== adminAccountId) {
+      try {
+        const roleArn = buildRoleArn(account.id, opts.roleName, partition);
+        credentials = await assumeRole(roleArn, region);
+      } catch (err) {
+        allModules.push({
+          module: `assume_role_${account.id}`,
+          status: "error",
+          error: `Failed to assume role in account ${account.id} (${account.name}): ${err instanceof Error ? err.message : String(err)}`,
+          resourcesScanned: 0,
+          findingsCount: 0,
+          scanTimeMs: 0,
+          findings: []
+        });
+        continue;
+      }
     }
+    const ctx = {
+      region,
+      partition,
+      accountId: account.id,
+      accountAlias,
+      credentials
+    };
+    const accountResults = await runScannersWithContext(perAccountScanners, ctx);
+    allModules.push(...accountResults);
+  }
+  const scanEnd = (/* @__PURE__ */ new Date()).toISOString();
+  return {
+    scanStart,
+    scanEnd,
+    region,
+    accountId: adminAccountId,
+    modules: allModules,
+    summary: buildSummary(allModules)
   };
 }
 
@@ -14178,7 +14307,7 @@ var ServiceDetectionScanner = class {
     const warnings = [];
     const services = [];
     try {
-      const ct = createClient(CloudTrailClient, region);
+      const ct = createClient(CloudTrailClient, region, ctx.credentials);
       const resp = await ct.send(new DescribeTrailsCommand({}));
       const trails = resp.trailList ?? [];
       if (trails.length > 0) {
@@ -14210,7 +14339,7 @@ var ServiceDetectionScanner = class {
       }
     }
     try {
-      const sh = createClient(SecurityHubClient, region);
+      const sh = createClient(SecurityHubClient, region, ctx.credentials);
       await sh.send(new DescribeHubCommand({}));
       services.push({
         name: "Security Hub",
@@ -14252,7 +14381,7 @@ var ServiceDetectionScanner = class {
       }
     }
     try {
-      const gd = createClient(GuardDutyClient, region);
+      const gd = createClient(GuardDutyClient, region, ctx.credentials);
       const resp = await gd.send(new ListDetectorsCommand({}));
       const detectors = resp.DetectorIds ?? [];
       if (detectors.length > 0) {
@@ -14322,7 +14451,7 @@ var ServiceDetectionScanner = class {
       }
     }
     try {
-      const insp = createClient(Inspector2Client, region);
+      const insp = createClient(Inspector2Client, region, ctx.credentials);
       const resp = await insp.send(new BatchGetAccountStatusCommand({ accountIds: [accountId] }));
       const accounts = resp.accounts ?? [];
       const active = accounts.some(
@@ -14395,7 +14524,7 @@ var ServiceDetectionScanner = class {
       }
     }
     try {
-      const cfg = createClient(ConfigServiceClient, region);
+      const cfg = createClient(ConfigServiceClient, region, ctx.credentials);
       const resp = await cfg.send(new DescribeConfigurationRecordersCommand({}));
       const recorders = resp.ConfigurationRecorders ?? [];
       if (recorders.length > 0) {
@@ -14467,7 +14596,7 @@ var ServiceDetectionScanner = class {
       warnings.push("Macie is not available in AWS China regions.");
     } else {
       try {
-        const mc = createClient(Macie2Client, region);
+        const mc = createClient(Macie2Client, region, ctx.credentials);
         await mc.send(new GetMacieSessionCommand({}));
         services.push({
           name: "Macie",
@@ -14561,7 +14690,7 @@ var SecretExposureScanner = class {
     let resourcesScanned = 0;
     try {
       try {
-        const lambda = createClient(LambdaClient, region);
+        const lambda = createClient(LambdaClient, region, ctx.credentials);
         const functions = [];
         let marker;
         do {
@@ -14628,7 +14757,7 @@ var SecretExposureScanner = class {
         warnings.push(`Lambda scan error: ${e instanceof Error ? e.message : String(e)}`);
       }
       try {
-        const ec2 = createClient(EC2Client, region);
+        const ec2 = createClient(EC2Client, region, ctx.credentials);
         const instances = [];
         let nextToken;
         do {
@@ -14731,7 +14860,7 @@ var SslCertificateScanner = class {
     const findings = [];
     const warnings = [];
     try {
-      const client = createClient(ACMClient, region);
+      const client = createClient(ACMClient, region, ctx.credentials);
       const certs = [];
       let nextToken;
       do {
@@ -14911,7 +15040,7 @@ var DnsDanglingScanner = class {
     const warnings = [];
     let resourcesScanned = 0;
     try {
-      const route53 = createClient(Route53Client, region);
+      const route53 = createClient(Route53Client, region, ctx.credentials);
       const zones = [];
       let marker;
       do {
@@ -14959,7 +15088,7 @@ var DnsDanglingScanner = class {
             if (bucketName) {
               let bucketExists = false;
               try {
-                const s3 = createClient(S3Client, region);
+                const s3 = createClient(S3Client, region, ctx.credentials);
                 await s3.send(new HeadBucketCommand({ Bucket: bucketName }));
                 bucketExists = true;
               } catch (e) {
@@ -15161,7 +15290,7 @@ var NetworkReachabilityScanner = class {
     const findings = [];
     const warnings = [];
     try {
-      const client = createClient(EC2Client2, region);
+      const client = createClient(EC2Client2, region, ctx.credentials);
       const eipMap = /* @__PURE__ */ new Map();
       try {
         const eipResp = await client.send(new DescribeAddressesCommand({}));
@@ -15381,7 +15510,7 @@ var IamPrivilegeEscalationScanner = class {
       "Note: This scanner currently checks IAM users only. Role and group policy analysis will be added in a future version."
     );
     try {
-      const client = createClient(IAMClient, iamRegion);
+      const client = createClient(IAMClient, iamRegion, ctx.credentials);
       const users = [];
       let marker;
       do {
@@ -15702,14 +15831,14 @@ var PublicAccessVerifyScanner = class {
     let resourcesScanned = 0;
     try {
       try {
-        const s3Client = createClient(S3Client2, region);
+        const s3Client = createClient(S3Client2, region, ctx.credentials);
         const listResp = await s3Client.send(new ListBucketsCommand({}));
         const buckets = listResp.Buckets ?? [];
         for (const bucket of buckets) {
           const name = bucket.Name ?? "unknown";
           const arn = `arn:${partition}:s3:::${name}`;
           const bucketRegion = await getBucketRegion(s3Client, name, region, warnings);
-          const bucketClient = bucketRegion === region ? s3Client : createClient(S3Client2, bucketRegion);
+          const bucketClient = bucketRegion === region ? s3Client : createClient(S3Client2, bucketRegion, ctx.credentials);
           const markedPublic = await isBucketMarkedPublic(bucketClient, name, warnings);
           if (markedPublic === "skip" || !markedPublic) continue;
           resourcesScanned++;
@@ -15765,7 +15894,7 @@ var PublicAccessVerifyScanner = class {
         warnings.push(`S3 public access verification failed: ${msg}`);
       }
       try {
-        const rdsClient = createClient(RDSClient, region);
+        const rdsClient = createClient(RDSClient, region, ctx.credentials);
         const instances = [];
         let marker;
         do {
@@ -15872,7 +16001,7 @@ var TagComplianceScanner = class {
     const requiredTags = DEFAULT_REQUIRED_TAGS;
     try {
       try {
-        const ec2Client = createClient(EC2Client3, region);
+        const ec2Client = createClient(EC2Client3, region, ctx.credentials);
         const instances = [];
         let nextToken;
         do {
@@ -15915,7 +16044,7 @@ var TagComplianceScanner = class {
         warnings.push(`EC2 tag compliance check failed: ${msg}`);
       }
       try {
-        const rdsClient = createClient(RDSClient2, region);
+        const rdsClient = createClient(RDSClient2, region, ctx.credentials);
         const dbInstances = [];
         let marker;
         do {
@@ -15959,7 +16088,7 @@ var TagComplianceScanner = class {
         warnings.push(`RDS tag compliance check failed: ${msg}`);
       }
       try {
-        const s3Client = createClient(S3Client3, region);
+        const s3Client = createClient(S3Client3, region, ctx.credentials);
         const listResp = await s3Client.send(new ListBucketsCommand2({}));
         const buckets = listResp.Buckets ?? [];
         resourcesScanned += buckets.length;
@@ -16069,7 +16198,7 @@ var IdleResourcesScanner = class {
     const findings = [];
     const warnings = [];
     try {
-      const client = createClient(EC2Client4, region);
+      const client = createClient(EC2Client4, region, ctx.credentials);
       let resourcesScanned = 0;
       const volumes = [];
       let volToken;
@@ -16287,7 +16416,7 @@ var DisasterRecoveryScanner = class {
     const warnings = [];
     try {
       let resourcesScanned = 0;
-      const rdsClient = createClient(RDSClient3, region);
+      const rdsClient = createClient(RDSClient3, region, ctx.credentials);
       const instances = [];
       let marker;
       do {
@@ -16357,7 +16486,7 @@ var DisasterRecoveryScanner = class {
           );
         }
       }
-      const ec2Client = createClient(EC2Client5, region);
+      const ec2Client = createClient(EC2Client5, region, ctx.credentials);
       const volumes = [];
       let volToken;
       do {
@@ -16432,7 +16561,7 @@ var DisasterRecoveryScanner = class {
           );
         }
       }
-      const s3Client = createClient(S3Client4, region);
+      const s3Client = createClient(S3Client4, region, ctx.credentials);
       let bucketNames = [];
       try {
         const listResp = await s3Client.send(new ListBucketsCommand3({}));
@@ -16554,7 +16683,7 @@ var SecurityHubFindingsScanner = class {
     const warnings = [];
     let resourcesScanned = 0;
     try {
-      const client = createClient(SecurityHubClient2, region);
+      const client = createClient(SecurityHubClient2, region, ctx.credentials);
       let nextToken;
       do {
         const resp = await client.send(
@@ -16602,7 +16731,8 @@ var SecurityHubFindingsScanner = class {
             riskScore: score,
             remediationSteps,
             priority: priorityFromSeverity(severity),
-            module: this.moduleName
+            module: this.moduleName,
+            accountId: f.AwsAccountId ?? accountId
           });
         }
         nextToken = resp.NextToken;
@@ -16666,7 +16796,7 @@ var GuardDutyFindingsScanner = class {
     const warnings = [];
     let resourcesScanned = 0;
     try {
-      const client = createClient(GuardDutyClient2, region);
+      const client = createClient(GuardDutyClient2, region, ctx.credentials);
       const detectorsResp = await client.send(new ListDetectorsCommand2({}));
       const detectorIds = detectorsResp.DetectorIds ?? [];
       if (detectorIds.length === 0) {
@@ -16745,7 +16875,8 @@ var GuardDutyFindingsScanner = class {
               "Follow the recommended remediation in the GuardDuty documentation."
             ],
             priority: priorityFromSeverity(severity),
-            module: this.moduleName
+            module: this.moduleName,
+            accountId: gdf.AccountId ?? accountId
           });
         }
       }
@@ -16806,7 +16937,7 @@ var InspectorFindingsScanner = class {
     const warnings = [];
     let resourcesScanned = 0;
     try {
-      const client = createClient(Inspector2Client2, region);
+      const client = createClient(Inspector2Client2, region, ctx.credentials);
       let nextToken;
       const filterCriteria = {
         findingStatus: [{ comparison: "EQUALS", value: "ACTIVE" }]
@@ -16859,7 +16990,8 @@ var InspectorFindingsScanner = class {
             riskScore: score,
             remediationSteps,
             priority: priorityFromSeverity(severity),
-            module: this.moduleName
+            module: this.moduleName,
+            accountId: f.awsAccountId ?? accountId
           });
         }
         nextToken = resp.nextToken;
@@ -16949,7 +17081,9 @@ var TrustedAdvisorFindingsScanner = class {
     let resourcesScanned = 0;
     try {
       const supportRegion = region.startsWith("cn-") ? "cn-north-1" : "us-east-1";
-      const client = new SupportClient({ region: supportRegion });
+      const clientConfig = { region: supportRegion };
+      if (ctx.credentials) clientConfig.credentials = ctx.credentials;
+      const client = new SupportClient(clientConfig);
       const checksResp = await client.send(
         new DescribeTrustedAdvisorChecksCommand({ language: "en" })
       );
@@ -16999,7 +17133,8 @@ var TrustedAdvisorFindingsScanner = class {
                 "Follow the recommended actions to resolve the flagged issue."
               ],
               priority: priorityFromSeverity(severity),
-              module: this.moduleName
+              module: this.moduleName,
+              accountId
             });
             continue;
           }
@@ -17027,7 +17162,8 @@ var TrustedAdvisorFindingsScanner = class {
                 "Follow the recommended actions in the AWS Trusted Advisor console."
               ],
               priority: priorityFromSeverity(severity),
-              module: this.moduleName
+              module: this.moduleName,
+              accountId
             });
           }
         } catch (checkErr) {
@@ -18137,6 +18273,41 @@ function saveResults(scanResults, outputDir) {
 }
 
 // src/tools/scan-groups.ts
+var SEVERITY_ORDER3 = {
+  LOW: 0,
+  MEDIUM: 1,
+  HIGH: 2,
+  CRITICAL: 3
+};
+function applyFindingsFilter(moduleName, findings, filter) {
+  let result = findings;
+  if (filter.minSeverity) {
+    const minLevel = SEVERITY_ORDER3[filter.minSeverity.toUpperCase()] ?? 0;
+    result = result.filter((f) => (SEVERITY_ORDER3[f.severity] ?? 0) >= minLevel);
+  }
+  if (moduleName === "security_hub_findings" && filter.securityHubCategories?.length) {
+    const keywords = filter.securityHubCategories;
+    result = result.filter(
+      (f) => keywords.some((kw) => {
+        const lower = kw.toLowerCase();
+        return f.title.toLowerCase().includes(lower) || f.description.toLowerCase().includes(lower) || f.impact.toLowerCase().includes(lower);
+      })
+    );
+  }
+  if (moduleName === "guardduty_findings" && filter.guardDutyTypes?.length) {
+    const prefixes = filter.guardDutyTypes;
+    result = result.filter(
+      (f) => prefixes.some((prefix) => f.impact.includes(prefix))
+    );
+  }
+  if (moduleName === "inspector_findings" && filter.inspectorTypes?.length) {
+    const types = filter.inspectorTypes;
+    result = result.filter(
+      (f) => types.some((t) => f.impact.includes(t))
+    );
+  }
+  return result;
+}
 var SCAN_GROUPS = {
   mlps3_precheck: {
     name: "\u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0",
@@ -18147,12 +18318,19 @@ var SCAN_GROUPS = {
   hw_defense: {
     name: "\u62A4\u7F51\u84DD\u961F\u52A0\u56FA",
     description: "\u62A4\u7F51\u524D\u5B89\u5168\u81EA\u67E5 \u2014 \u653B\u51FB\u9762+\u5F31\u70B9\u8BC4\u4F30",
-    modules: ["service_detection", "secret_exposure", "network_reachability", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "inspector_findings"]
+    modules: ["service_detection", "secret_exposure", "network_reachability", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "inspector_findings"],
+    findingsFilter: {
+      guardDutyTypes: ["Backdoor", "Trojan", "PenTest", "CryptoCurrency"],
+      minSeverity: "MEDIUM"
+    }
   },
   exposure: {
     name: "\u516C\u7F51\u66B4\u9732\u9762\u8BC4\u4F30",
     description: "\u8BC4\u4F30\u516C\u7F51\u53EF\u8FBE\u7684\u8D44\u6E90\u548C\u7AEF\u53E3",
-    modules: ["network_reachability", "dns_dangling", "public_access_verify", "ssl_certificate", "security_hub_findings"]
+    modules: ["network_reachability", "dns_dangling", "public_access_verify", "ssl_certificate", "security_hub_findings"],
+    findingsFilter: {
+      securityHubCategories: ["network", "public", "exposure", "port"]
+    }
   },
   pre_launch: {
     name: "\u751F\u4EA7\u4E0A\u7EBF\u524D\u68C0\u67E5",
@@ -18162,17 +18340,26 @@ var SCAN_GROUPS = {
   data_encryption: {
     name: "\u6570\u636E\u52A0\u5BC6\u5BA1\u8BA1",
     description: "\u5168\u9762\u68C0\u67E5\u5B58\u50A8\u548C\u4F20\u8F93\u52A0\u5BC6\u72B6\u6001",
-    modules: ["ssl_certificate", "security_hub_findings"]
+    modules: ["ssl_certificate", "security_hub_findings"],
+    findingsFilter: {
+      securityHubCategories: ["encryption", "Encryption"]
+    }
   },
   least_privilege: {
     name: "\u6700\u5C0F\u6743\u9650\u5BA1\u8BA1",
     description: "IAM \u6743\u9650\u6700\u5C0F\u5316\u8BC4\u4F30",
-    modules: ["iam_privilege_escalation", "security_hub_findings"]
+    modules: ["iam_privilege_escalation", "security_hub_findings"],
+    findingsFilter: {
+      securityHubCategories: ["IAM", "iam", "access", "privilege"]
+    }
   },
   log_integrity: {
     name: "\u65E5\u5FD7\u5B8C\u6574\u6027\u5BA1\u8BA1",
     description: "\u5BA1\u8BA1\u65E5\u5FD7\u5B8C\u6574\u6027\u548C\u4FDD\u62A4",
-    modules: ["service_detection", "security_hub_findings"]
+    modules: ["service_detection", "security_hub_findings"],
+    findingsFilter: {
+      securityHubCategories: ["logging", "CloudTrail", "audit"]
+    }
   },
   disaster_recovery: {
     name: "\u707E\u5907\u8BC4\u4F30",
@@ -18320,6 +18507,9 @@ LOW      \u2192 P3 (Low)
 `;
 
 // src/index.ts
+import { readFileSync as readFileSync2 } from "fs";
+import { join as join2, dirname } from "path";
+import { fileURLToPath } from "url";
 var MODULE_DESCRIPTIONS = {
   service_detection: "Detects which AWS security services (Security Hub, GuardDuty, Inspector, Config, Macie) are enabled and assesses security maturity.",
   secret_exposure: "Checks Lambda env vars and EC2 userData for exposed secrets (AWS keys, private keys, passwords).",
@@ -18391,12 +18581,26 @@ function createServer(defaultRegion) {
   }
   server.tool(
     "scan_all",
-    "Run all security scanners in parallel (including service detection). Read-only. Does not modify any AWS resources.",
-    { region: external_exports.string().optional().describe("AWS region to scan (default: server region)") },
-    async ({ region }) => {
+    "Run all security scanners in parallel (including service detection). Read-only. Does not modify any AWS resources. Supports multi-account org scanning.",
+    {
+      region: external_exports.string().optional().describe("AWS region to scan (default: server region)"),
+      org_mode: external_exports.boolean().optional().describe("Enable multi-account scanning via AWS Organizations"),
+      role_name: external_exports.string().optional().describe("IAM role name to assume in child accounts (default: AWSSecurityMCPAudit)"),
+      account_ids: external_exports.array(external_exports.string()).optional().describe("Specific account IDs to scan (default: all org accounts)")
+    },
+    async ({ region, org_mode, role_name, account_ids }) => {
       try {
         const r = region ?? defaultRegion;
-        const result = await runAllScanners(allScanners, r);
+        let result;
+        if (org_mode) {
+          result = await runMultiAccountScanners(allScanners, r, {
+            orgMode: true,
+            roleName: role_name ?? "AWSSecurityMCPAudit",
+            accountIds: account_ids
+          });
+        } else {
+          result = await runAllScanners(allScanners, r);
+        }
         return {
           content: [
             { type: "text", text: summarizeResult(result) },
@@ -18449,12 +18653,15 @@ function createServer(defaultRegion) {
   }
   server.tool(
     "scan_group",
-    "Run a predefined group of security scanners for a specific scenario (e.g., MLPS compliance, network defense). Read-only.",
+    "Run a predefined group of security scanners for a specific scenario (e.g., MLPS compliance, network defense). Read-only. Supports multi-account org scanning.",
     {
       group: external_exports.string().describe("Scan group ID: mlps3_precheck, hw_defense, exposure, pre_launch, data_encryption, least_privilege, log_integrity, disaster_recovery, idle_resources, tag_compliance, new_account_baseline, public_access_verify, aggregation"),
-      region: external_exports.string().optional().describe("AWS region to scan (default: server region)")
+      region: external_exports.string().optional().describe("AWS region to scan (default: server region)"),
+      org_mode: external_exports.boolean().optional().describe("Enable multi-account scanning via AWS Organizations"),
+      role_name: external_exports.string().optional().describe("IAM role name to assume in child accounts (default: AWSSecurityMCPAudit)"),
+      account_ids: external_exports.array(external_exports.string()).optional().describe("Specific account IDs to scan (default: all org accounts)")
     },
-    async ({ group, region }) => {
+    async ({ group, region, org_mode, role_name, account_ids }) => {
       try {
         const groupDef = SCAN_GROUPS[group];
         if (!groupDef) {
@@ -18486,7 +18693,52 @@ function createServer(defaultRegion) {
             isError: true
           };
         }
-        const result = await runAllScanners(selectedScanners, r);
+        let result;
+        if (org_mode) {
+          result = await runMultiAccountScanners(selectedScanners, r, {
+            orgMode: true,
+            roleName: role_name ?? "AWSSecurityMCPAudit",
+            accountIds: account_ids
+          });
+        } else {
+          result = await runAllScanners(selectedScanners, r);
+        }
+        if (groupDef.findingsFilter) {
+          for (const mod of result.modules) {
+            const originalCount = mod.findings.length;
+            mod.findings = applyFindingsFilter(mod.module, mod.findings, groupDef.findingsFilter);
+            mod.findingsCount = mod.findings.length;
+            if (mod.findings.length < originalCount) {
+              const filtered = originalCount - mod.findings.length;
+              if (!mod.warnings) mod.warnings = [];
+              mod.warnings.push(`Post-filter removed ${filtered} finding(s) not matching group criteria.`);
+            }
+          }
+          let critical = 0, high = 0, medium = 0, low = 0;
+          for (const m of result.modules) {
+            for (const f of m.findings) {
+              switch (f.severity) {
+                case "CRITICAL":
+                  critical++;
+                  break;
+                case "HIGH":
+                  high++;
+                  break;
+                case "MEDIUM":
+                  medium++;
+                  break;
+                case "LOW":
+                  low++;
+                  break;
+              }
+            }
+          }
+          result.summary.totalFindings = critical + high + medium + low;
+          result.summary.critical = critical;
+          result.summary.high = high;
+          result.summary.medium = medium;
+          result.summary.low = low;
+        }
         const lines = [
           `Scan group: ${groupDef.name} (${group})`,
           groupDef.description,
@@ -18739,6 +18991,65 @@ function createServer(defaultRegion) {
           description: MODULE_DESCRIPTIONS[s.moduleName] ?? s.moduleName
         }));
         return { content: [{ type: "text", text: JSON.stringify(modules, null, 2) }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    }
+  );
+  server.tool(
+    "list_org_accounts",
+    "List all accounts in the AWS Organization. Useful for discovering accounts before multi-account scanning. Read-only.",
+    { region: external_exports.string().optional().describe("AWS region (default: server region)") },
+    async ({ region }) => {
+      try {
+        const r = region ?? defaultRegion;
+        const accounts = await listOrgAccounts(r);
+        return {
+          content: [
+            { type: "text", text: `Found ${accounts.length} active account(s) in the organization.` },
+            { type: "text", text: JSON.stringify(accounts, null, 2) }
+          ]
+        };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    }
+  );
+  server.tool(
+    "get_setup_template",
+    "Returns the CloudFormation StackSet template for deploying the cross-account security audit IAM role. Read-only.",
+    {
+      format: external_exports.enum(["yaml", "json"]).optional().describe("Template format: yaml or json (default: yaml)")
+    },
+    async ({ format }) => {
+      try {
+        const ext = format === "json" ? "json" : "yaml";
+        const templateFileName = `stackset-audit-role.${ext}`;
+        let templateContent;
+        try {
+          const currentDir = dirname(fileURLToPath(import.meta.url));
+          const templatePath = join2(currentDir, "..", "templates", templateFileName);
+          templateContent = readFileSync2(templatePath, "utf-8");
+        } catch {
+          try {
+            const currentDir = dirname(fileURLToPath(import.meta.url));
+            const templatePath = join2(currentDir, "..", "..", "templates", templateFileName);
+            templateContent = readFileSync2(templatePath, "utf-8");
+          } catch {
+            return {
+              content: [{ type: "text", text: `Error: Template file ${templateFileName} not found. Ensure the templates/ directory is included in the package.` }],
+              isError: true
+            };
+          }
+        }
+        return {
+          content: [
+            { type: "text", text: `CloudFormation StackSet template (${ext.toUpperCase()}) for cross-account audit role:
+
+Deploy this as a StackSet from your Management Account to all member accounts.` },
+            { type: "text", text: templateContent }
+          ]
+        };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
       }

@@ -51,7 +51,7 @@ export class DisasterRecoveryScanner implements Scanner {
       let resourcesScanned = 0;
 
       // --- RDS checks ---
-      const rdsClient = createClient(RDSClient, region);
+      const rdsClient = createClient(RDSClient, region, ctx.credentials);
       const instances: DBInstance[] = [];
       let marker: string | undefined;
       do {
@@ -134,7 +134,7 @@ export class DisasterRecoveryScanner implements Scanner {
       }
 
       // --- EBS snapshot checks ---
-      const ec2Client = createClient(EC2Client, region);
+      const ec2Client = createClient(EC2Client, region, ctx.credentials);
 
       const volumes: Volume[] = [];
       let volToken: string | undefined;
@@ -223,7 +223,7 @@ export class DisasterRecoveryScanner implements Scanner {
       }
 
       // --- S3 checks ---
-      const s3Client = createClient(S3Client, region);
+      const s3Client = createClient(S3Client, region, ctx.credentials);
 
       let bucketNames: string[] = [];
       try {

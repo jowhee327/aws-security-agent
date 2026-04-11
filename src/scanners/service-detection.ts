@@ -104,7 +104,7 @@ export class ServiceDetectionScanner implements Scanner {
 
     // --- CloudTrail ---
     try {
-      const ct = createClient(CloudTrailClient, region);
+      const ct = createClient(CloudTrailClient, region, ctx.credentials);
       const resp = await ct.send(new DescribeTrailsCommand({}));
       const trails = resp.trailList ?? [];
       if (trails.length > 0) {
@@ -141,7 +141,7 @@ export class ServiceDetectionScanner implements Scanner {
 
     // --- Security Hub ---
     try {
-      const sh = createClient(SecurityHubClient, region);
+      const sh = createClient(SecurityHubClient, region, ctx.credentials);
       await sh.send(new DescribeHubCommand({}));
       services.push({
         name: "Security Hub",
@@ -187,7 +187,7 @@ export class ServiceDetectionScanner implements Scanner {
 
     // --- GuardDuty ---
     try {
-      const gd = createClient(GuardDutyClient, region);
+      const gd = createClient(GuardDutyClient, region, ctx.credentials);
       const resp = await gd.send(new ListDetectorsCommand({}));
       const detectors = resp.DetectorIds ?? [];
       if (detectors.length > 0) {
@@ -263,7 +263,7 @@ export class ServiceDetectionScanner implements Scanner {
 
     // --- Inspector ---
     try {
-      const insp = createClient(Inspector2Client, region);
+      const insp = createClient(Inspector2Client, region, ctx.credentials);
       const resp = await insp.send(new BatchGetAccountStatusCommand({ accountIds: [accountId] }));
       const accounts = resp.accounts ?? [];
       const active = accounts.some(
@@ -344,7 +344,7 @@ export class ServiceDetectionScanner implements Scanner {
 
     // --- AWS Config ---
     try {
-      const cfg = createClient(ConfigServiceClient, region);
+      const cfg = createClient(ConfigServiceClient, region, ctx.credentials);
       const resp = await cfg.send(new DescribeConfigurationRecordersCommand({}));
       const recorders = resp.ConfigurationRecorders ?? [];
       if (recorders.length > 0) {
@@ -422,7 +422,7 @@ export class ServiceDetectionScanner implements Scanner {
       warnings.push("Macie is not available in AWS China regions.");
     } else {
       try {
-        const mc = createClient(Macie2Client, region);
+        const mc = createClient(Macie2Client, region, ctx.credentials);
         await mc.send(new GetMacieSessionCommand({}));
         services.push({
           name: "Macie",

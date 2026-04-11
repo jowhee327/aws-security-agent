@@ -10,6 +10,7 @@
   "files": [
     "dist",
     "dashboard/dist",
+    "templates",
     "README.md",
     "LICENSE"
   ],
@@ -31,6 +32,7 @@
     "@aws-sdk/client-inspector2": "^3.1028.0",
     "@aws-sdk/client-lambda": "^3.1028.0",
     "@aws-sdk/client-macie2": "^3.1028.0",
+    "@aws-sdk/client-organizations": "^3.1028.0",
     "@aws-sdk/client-rds": "^3.700.0",
     "@aws-sdk/client-route-53": "^3.1028.0",
     "@aws-sdk/client-s3": "^3.700.0",

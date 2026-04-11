@@ -42,7 +42,7 @@ export class IdleResourcesScanner implements Scanner {
     const warnings: string[] = [];
 
     try {
-      const client = createClient(EC2Client, region);
+      const client = createClient(EC2Client, region, ctx.credentials);
       let resourcesScanned = 0;
 
       // 1. Unattached EBS volumes (State = "available")

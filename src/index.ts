@@ -3,7 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 
 import type { Scanner } from "./scanners/base.js";
-import { runAllScanners } from "./scanners/runner.js";
+import { runAllScanners, runMultiAccountScanners } from "./scanners/runner.js";
 import { ServiceDetectionScanner } from "./scanners/service-detection.js";
 import type { ServiceDetectionResult } from "./scanners/service-detection.js";
 import { SecretExposureScanner } from "./scanners/secret-exposure.js";
@@ -23,16 +23,22 @@ import { generateMarkdownReport } from "./tools/report-tool.js";
 import { generateMlps3Report } from "./tools/mlps-report.js";
 import { generateHtmlReport, generateMlps3HtmlReport } from "./tools/html-report.js";
 import { saveResults } from "./tools/save-results.js";
-import { SCAN_GROUPS } from "./tools/scan-groups.js";
+import { SCAN_GROUPS, applyFindingsFilter } from "./tools/scan-groups.js";
 import {
   SECURITY_RULES_CONTENT,
   RISK_SCORING_CONTENT,
 } from "./resources/index.js";
 import { getPartition, getAccountId } from "./utils/aws-client.js";
+import { listOrgAccounts } from "./utils/org-accounts.js";
 import type { FullScanResult, ScanResult, ScanContext } from "./types.js";
+import { readFileSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 
 export { type Scanner } from "./scanners/base.js";
-export { runAllScanners } from "./scanners/runner.js";
+export { runAllScanners, runMultiAccountScanners } from "./scanners/runner.js";
+export { assumeRole, buildRoleArn, getCurrentAccountId } from "./utils/assume-role.js";
+export { listOrgAccounts, type OrgAccount } from "./utils/org-accounts.js";
 export { generateMarkdownReport } from "./tools/report-tool.js";
 export { generateHtmlReport, generateMlps3HtmlReport } from "./tools/html-report.js";
 export { saveResults, calculateScore } from "./tools/save-results.js";
@@ -142,12 +148,28 @@ export function createServer(defaultRegion: string): McpServer {
   // 1. scan_all
   server.tool(
     "scan_all",
-    "Run all security scanners in parallel (including service detection). Read-only. Does not modify any AWS resources.",
-    { region: z.string().optional().describe("AWS region to scan (default: server region)") },
-    async ({ region }) => {
+    "Run all security scanners in parallel (including service detection). Read-only. Does not modify any AWS resources. Supports multi-account org scanning.",
+    {
+      region: z.string().optional().describe("AWS region to scan (default: server region)"),
+      org_mode: z.boolean().optional().describe("Enable multi-account scanning via AWS Organizations"),
+      role_name: z.string().optional().describe("IAM role name to assume in child accounts (default: AWSSecurityMCPAudit)"),
+      account_ids: z.array(z.string()).optional().describe("Specific account IDs to scan (default: all org accounts)"),
+    },
+    async ({ region, org_mode, role_name, account_ids }) => {
       try {
         const r = region ?? defaultRegion;
-        const result = await runAllScanners(allScanners, r);
+        let result: FullScanResult;
+
+        if (org_mode) {
+          result = await runMultiAccountScanners(allScanners, r, {
+            orgMode: true,
+            roleName: role_name ?? "AWSSecurityMCPAudit",
+            accountIds: account_ids,
+          });
+        } else {
+          result = await runAllScanners(allScanners, r);
+        }
+
         return {
           content: [
             { type: "text", text: summarizeResult(result) },
@@ -205,12 +227,15 @@ export function createServer(defaultRegion: string): McpServer {
   // scan_group
   server.tool(
     "scan_group",
-    "Run a predefined group of security scanners for a specific scenario (e.g., MLPS compliance, network defense). Read-only.",
+    "Run a predefined group of security scanners for a specific scenario (e.g., MLPS compliance, network defense). Read-only. Supports multi-account org scanning.",
     {
       group: z.string().describe("Scan group ID: mlps3_precheck, hw_defense, exposure, pre_launch, data_encryption, least_privilege, log_integrity, disaster_recovery, idle_resources, tag_compliance, new_account_baseline, public_access_verify, aggregation"),
       region: z.string().optional().describe("AWS region to scan (default: server region)"),
+      org_mode: z.boolean().optional().describe("Enable multi-account scanning via AWS Organizations"),
+      role_name: z.string().optional().describe("IAM role name to assume in child accounts (default: AWSSecurityMCPAudit)"),
+      account_ids: z.array(z.string()).optional().describe("Specific account IDs to scan (default: all org accounts)"),
     },
-    async ({ group, region }) => {
+    async ({ group, region, org_mode, role_name, account_ids }) => {
       try {
         const groupDef = SCAN_GROUPS[group];
         if (!groupDef) {
@@ -248,7 +273,48 @@ export function createServer(defaultRegion: string): McpServer {
           };
         }
 
-        const result = await runAllScanners(selectedScanners, r);
+        let result: FullScanResult;
+
+        if (org_mode) {
+          result = await runMultiAccountScanners(selectedScanners, r, {
+            orgMode: true,
+            roleName: role_name ?? "AWSSecurityMCPAudit",
+            accountIds: account_ids,
+          });
+        } else {
+          result = await runAllScanners(selectedScanners, r);
+        }
+
+        // Apply post-filter if the group defines one
+        if (groupDef.findingsFilter) {
+          for (const mod of result.modules) {
+            const originalCount = mod.findings.length;
+            mod.findings = applyFindingsFilter(mod.module, mod.findings, groupDef.findingsFilter);
+            mod.findingsCount = mod.findings.length;
+            if (mod.findings.length < originalCount) {
+              const filtered = originalCount - mod.findings.length;
+              if (!mod.warnings) mod.warnings = [];
+              mod.warnings.push(`Post-filter removed ${filtered} finding(s) not matching group criteria.`);
+            }
+          }
+          // Recalculate summary after filtering
+          let critical = 0, high = 0, medium = 0, low = 0;
+          for (const m of result.modules) {
+            for (const f of m.findings) {
+              switch (f.severity) {
+                case "CRITICAL": critical++; break;
+                case "HIGH": high++; break;
+                case "MEDIUM": medium++; break;
+                case "LOW": low++; break;
+              }
+            }
+          }
+          result.summary.totalFindings = critical + high + medium + low;
+          result.summary.critical = critical;
+          result.summary.high = high;
+          result.summary.medium = medium;
+          result.summary.low = low;
+        }
 
         const lines: string[] = [
           `Scan group: ${groupDef.name} (${group})`,
@@ -538,6 +604,70 @@ export function createServer(defaultRegion: string): McpServer {
           description: MODULE_DESCRIPTIONS[s.moduleName] ?? s.moduleName,
         }));
         return { content: [{ type: "text", text: JSON.stringify(modules, null, 2) }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    },
+  );
+
+  // list_org_accounts
+  server.tool(
+    "list_org_accounts",
+    "List all accounts in the AWS Organization. Useful for discovering accounts before multi-account scanning. Read-only.",
+    { region: z.string().optional().describe("AWS region (default: server region)") },
+    async ({ region }) => {
+      try {
+        const r = region ?? defaultRegion;
+        const accounts = await listOrgAccounts(r);
+        return {
+          content: [
+            { type: "text", text: `Found ${accounts.length} active account(s) in the organization.` },
+            { type: "text", text: JSON.stringify(accounts, null, 2) },
+          ],
+        };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    },
+  );
+
+  // get_setup_template
+  server.tool(
+    "get_setup_template",
+    "Returns the CloudFormation StackSet template for deploying the cross-account security audit IAM role. Read-only.",
+    {
+      format: z.enum(["yaml", "json"]).optional().describe("Template format: yaml or json (default: yaml)"),
+    },
+    async ({ format }) => {
+      try {
+        const ext = format === "json" ? "json" : "yaml";
+        const templateFileName = `stackset-audit-role.${ext}`;
+        // Try multiple locations for the template
+        let templateContent: string;
+        try {
+          // When running from source
+          const currentDir = dirname(fileURLToPath(import.meta.url));
+          const templatePath = join(currentDir, "..", "templates", templateFileName);
+          templateContent = readFileSync(templatePath, "utf-8");
+        } catch {
+          try {
+            // When running from dist
+            const currentDir = dirname(fileURLToPath(import.meta.url));
+            const templatePath = join(currentDir, "..", "..", "templates", templateFileName);
+            templateContent = readFileSync(templatePath, "utf-8");
+          } catch {
+            return {
+              content: [{ type: "text", text: `Error: Template file ${templateFileName} not found. Ensure the templates/ directory is included in the package.` }],
+              isError: true,
+            };
+          }
+        }
+        return {
+          content: [
+            { type: "text", text: `CloudFormation StackSet template (${ext.toUpperCase()}) for cross-account audit role:\n\nDeploy this as a StackSet from your Management Account to all member accounts.` },
+            { type: "text", text: templateContent },
+          ],
+        };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
       }

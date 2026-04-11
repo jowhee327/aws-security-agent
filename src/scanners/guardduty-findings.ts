@@ -26,7 +26,7 @@ export class GuardDutyFindingsScanner implements Scanner {
     let resourcesScanned = 0;
 
     try {
-      const client = createClient(GuardDutyClient, region);
+      const client = createClient(GuardDutyClient, region, ctx.credentials);
 
       // Step 1: Get detector ID
       const detectorsResp = await client.send(new ListDetectorsCommand({}));
@@ -124,6 +124,7 @@ export class GuardDutyFindingsScanner implements Scanner {
             ],
             priority: priorityFromSeverity(severity),
             module: this.moduleName,
+            accountId: gdf.AccountId ?? accountId,
           });
         }
       }

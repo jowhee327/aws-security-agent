@@ -29,7 +29,7 @@ export class SecurityHubFindingsScanner implements Scanner {
     let resourcesScanned = 0;
 
     try {
-      const client = createClient(SecurityHubClient, region);
+      const client = createClient(SecurityHubClient, region, ctx.credentials);
       let nextToken: string | undefined;
 
       do {
@@ -86,6 +86,7 @@ export class SecurityHubFindingsScanner implements Scanner {
             remediationSteps,
             priority: priorityFromSeverity(severity),
             module: this.moduleName,
+            accountId: f.AwsAccountId ?? accountId,
           });
         }
 

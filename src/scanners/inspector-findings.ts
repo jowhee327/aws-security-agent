@@ -31,7 +31,7 @@ export class InspectorFindingsScanner implements Scanner {
     let resourcesScanned = 0;
 
     try {
-      const client = createClient(Inspector2Client, region);
+      const client = createClient(Inspector2Client, region, ctx.credentials);
       let nextToken: string | undefined;
 
       const filterCriteria: FilterCriteria = {
@@ -100,6 +100,7 @@ export class InspectorFindingsScanner implements Scanner {
             remediationSteps,
             priority: priorityFromSeverity(severity),
             module: this.moduleName,
+            accountId: f.awsAccountId ?? accountId,
           });
         }
 

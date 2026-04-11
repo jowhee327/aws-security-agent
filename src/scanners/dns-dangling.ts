@@ -67,7 +67,7 @@ export class DnsDanglingScanner implements Scanner {
     let resourcesScanned = 0;
 
     try {
-      const route53 = createClient(Route53Client, region);
+      const route53 = createClient(Route53Client, region, ctx.credentials);
 
       // List hosted zones
       const zones: HostedZone[] = [];
@@ -126,7 +126,7 @@ export class DnsDanglingScanner implements Scanner {
             if (bucketName) {
               let bucketExists = false;
               try {
-                const s3 = createClient(S3Client, region);
+                const s3 = createClient(S3Client, region, ctx.credentials);
                 await s3.send(new HeadBucketCommand({ Bucket: bucketName }));
                 bucketExists = true;
               } catch (e: unknown) {
