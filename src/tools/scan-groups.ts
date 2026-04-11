@@ -71,13 +71,13 @@ export const SCAN_GROUPS: Record<string, {
   mlps3_precheck: {
     name: "等保三级预检",
     description: "GB/T 22239-2019 等保三级 AWS 云租户层配置检查",
-    modules: ["service_detection", "secret_exposure", "ssl_certificate", "dns_dangling", "network_reachability", "iam_privilege_escalation", "tag_compliance", "disaster_recovery", "security_hub_findings", "guardduty_findings", "inspector_findings", "trusted_advisor_findings"],
+    modules: ["service_detection", "secret_exposure", "ssl_certificate", "dns_dangling", "network_reachability", "iam_privilege_escalation", "tag_compliance", "disaster_recovery", "security_hub_findings", "guardduty_findings", "inspector_findings", "trusted_advisor_findings", "config_rules_findings", "access_analyzer_findings", "patch_compliance_findings"],
     reportType: "mlps3",
   },
   hw_defense: {
     name: "护网蓝队加固",
     description: "护网前安全自查 — 攻击面+弱点评估",
-    modules: ["service_detection", "secret_exposure", "network_reachability", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "inspector_findings"],
+    modules: ["service_detection", "secret_exposure", "network_reachability", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "inspector_findings", "config_rules_findings", "access_analyzer_findings", "patch_compliance_findings"],
     findingsFilter: {
       guardDutyTypes: ["Backdoor", "Trojan", "PenTest", "CryptoCurrency"],
       minSeverity: "MEDIUM",
@@ -86,7 +86,7 @@ export const SCAN_GROUPS: Record<string, {
   exposure: {
     name: "公网暴露面评估",
     description: "评估公网可达的资源和端口",
-    modules: ["network_reachability", "dns_dangling", "public_access_verify", "ssl_certificate", "security_hub_findings"],
+    modules: ["network_reachability", "dns_dangling", "public_access_verify", "ssl_certificate", "security_hub_findings", "access_analyzer_findings"],
     findingsFilter: {
       securityHubCategories: ["network", "public", "exposure", "port"],
     },
@@ -107,7 +107,7 @@ export const SCAN_GROUPS: Record<string, {
   least_privilege: {
     name: "最小权限审计",
     description: "IAM 权限最小化评估",
-    modules: ["iam_privilege_escalation", "security_hub_findings"],
+    modules: ["iam_privilege_escalation", "security_hub_findings", "access_analyzer_findings"],
     findingsFilter: {
       securityHubCategories: ["IAM", "iam", "access", "privilege"],
     },
@@ -143,11 +143,11 @@ export const SCAN_GROUPS: Record<string, {
   new_account_baseline: {
     name: "新账户基线检查",
     description: "新 AWS 账户安全基线",
-    modules: ["service_detection", "secret_exposure", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings"],
+    modules: ["service_detection", "secret_exposure", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "access_analyzer_findings"],
   },
   aggregation: {
     name: "安全服务聚合",
     description: "从 Security Hub / GuardDuty / Inspector / Trusted Advisor 聚合所有安全发现",
-    modules: ["security_hub_findings", "guardduty_findings", "inspector_findings", "trusted_advisor_findings"],
+    modules: ["security_hub_findings", "guardduty_findings", "inspector_findings", "trusted_advisor_findings", "config_rules_findings", "access_analyzer_findings", "patch_compliance_findings"],
   },
 };

@@ -19,6 +19,9 @@ import { SecurityHubFindingsScanner } from "./scanners/security-hub-findings.js"
 import { GuardDutyFindingsScanner } from "./scanners/guardduty-findings.js";
 import { InspectorFindingsScanner } from "./scanners/inspector-findings.js";
 import { TrustedAdvisorFindingsScanner } from "./scanners/trusted-advisor-findings.js";
+import { ConfigRulesFindingsScanner } from "./scanners/config-rules-findings.js";
+import { AccessAnalyzerFindingsScanner } from "./scanners/access-analyzer-findings.js";
+import { PatchComplianceFindingsScanner } from "./scanners/patch-compliance-findings.js";
 import { generateMarkdownReport } from "./tools/report-tool.js";
 import { generateMlps3Report } from "./tools/mlps-report.js";
 import { generateHtmlReport, generateMlps3HtmlReport } from "./tools/html-report.js";
@@ -82,6 +85,12 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
     "Aggregates vulnerability findings from Amazon Inspector — CVEs in EC2, Lambda, and container images.",
   trusted_advisor_findings:
     "Aggregates security checks from AWS Trusted Advisor — requires Business or Enterprise Support plan.",
+  config_rules_findings:
+    "Pulls non-compliant AWS Config Rule evaluation results — configuration compliance violations across all resource types.",
+  access_analyzer_findings:
+    "Pulls active IAM Access Analyzer findings — resources accessible from outside the account (external principals, public access).",
+  patch_compliance_findings:
+    "Checks SSM Patch Manager compliance — managed instances with missing or failed security and system patches.",
 };
 
 function summarizeResult(result: FullScanResult): string {
@@ -136,6 +145,9 @@ export function createServer(defaultRegion: string): McpServer {
     new GuardDutyFindingsScanner(),
     new InspectorFindingsScanner(),
     new TrustedAdvisorFindingsScanner(),
+    new ConfigRulesFindingsScanner(),
+    new AccessAnalyzerFindingsScanner(),
+    new PatchComplianceFindingsScanner(),
   ];
 
   const scannerMap = new Map<string, Scanner>();
@@ -198,6 +210,9 @@ export function createServer(defaultRegion: string): McpServer {
     { toolName: "scan_guardduty_findings", moduleName: "guardduty_findings", label: "GuardDuty Findings" },
     { toolName: "scan_inspector_findings", moduleName: "inspector_findings", label: "Inspector Findings" },
     { toolName: "scan_trusted_advisor_findings", moduleName: "trusted_advisor_findings", label: "Trusted Advisor Findings" },
+    { toolName: "scan_config_rules_findings", moduleName: "config_rules_findings", label: "Config Rules Findings" },
+    { toolName: "scan_access_analyzer_findings", moduleName: "access_analyzer_findings", label: "Access Analyzer Findings" },
+    { toolName: "scan_patch_compliance_findings", moduleName: "patch_compliance_findings", label: "Patch Compliance Findings" },
   ];
 
   for (const { toolName, moduleName, label } of individualScanners) {
@@ -679,7 +694,7 @@ export function createServer(defaultRegion: string): McpServer {
   server.resource(
     "security-rules",
     "security://rules",
-    { description: "Describes all 14 scan modules and their check rules", mimeType: "text/markdown" },
+    { description: "Describes all 17 scan modules and their check rules", mimeType: "text/markdown" },
     async () => ({
       contents: [{ uri: "security://rules", text: SECURITY_RULES_CONTENT, mimeType: "text/markdown" }],
     }),
