@@ -8134,8 +8134,7 @@ ${mlpsRemaining.map(renderMlpsRec).join("\n")}
   <div class="meta">\u8D26\u6237: ${esc(accountId)} | \u533A\u57DF: ${esc(region)} | \u626B\u63CF\u65F6\u95F4: ${esc(scanTime)}</div>
 </header>
 
-<section class="summary">
-  <div style="text-align:center;margin-bottom:24px">
+<section class="summary" style="display:block;text-align:center">
   <div style="font-size:36px;font-weight:700;margin-bottom:12px">
     <span style="color:#22c55e">${autoClean}</span> <span style="color:#94a3b8;font-size:18px">\u672A\u53D1\u73B0\u95EE\u9898</span>
     <span style="color:#475569;margin:0 16px">/</span>
@@ -8147,7 +8146,6 @@ ${mlpsRemaining.map(renderMlpsRec).join("\n")}
     <div class="mlps-summary-card"><div class="stat-count" style="color:#eab308">${manualCount}</div><div class="stat-label">\u{1F4CB} \u9700\u4EBA\u5DE5\u8BC4\u4F30</div></div>
     ${naCount > 0 ? `<div class="mlps-summary-card"><div class="stat-count" style="color:#64748b">${naCount}</div><div class="stat-label">\u2796 \u4E0D\u9002\u7528</div></div>` : ""}
   </div>
-</div>
 </section>
 ${unknownNote}
 

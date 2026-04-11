@@ -1081,8 +1081,7 @@ export function generateMlps3HtmlReport(
   <div class="meta">\u8d26\u6237: ${esc(accountId)} | \u533a\u57df: ${esc(region)} | \u626b\u63cf\u65f6\u95f4: ${esc(scanTime)}</div>
 </header>
 
-<section class="summary">
-  <div style="text-align:center;margin-bottom:24px">
+<section class="summary" style="display:block;text-align:center">
   <div style="font-size:36px;font-weight:700;margin-bottom:12px">
     <span style="color:#22c55e">${autoClean}</span> <span style="color:#94a3b8;font-size:18px">\u672a\u53d1\u73b0\u95ee\u9898</span>
     <span style="color:#475569;margin:0 16px">/</span>
@@ -1094,7 +1093,6 @@ export function generateMlps3HtmlReport(
     <div class="mlps-summary-card"><div class="stat-count" style="color:#eab308">${manualCount}</div><div class="stat-label">\ud83d\udccb \u9700\u4eba\u5de5\u8bc4\u4f30</div></div>
     ${naCount > 0 ? `<div class="mlps-summary-card"><div class="stat-count" style="color:#64748b">${naCount}</div><div class="stat-label">\u2796 \u4e0d\u9002\u7528</div></div>` : ""}
   </div>
-</div>
 </section>
 ${unknownNote}
 
