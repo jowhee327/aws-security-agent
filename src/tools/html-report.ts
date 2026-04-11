@@ -1082,27 +1082,20 @@ export function generateMlps3HtmlReport(
 </header>
 
 <section class="summary">
-  <div class="score-card">
-    <div class="score-value" style="color:#60a5fa">${checkedTotal}</div>
-    <div class="score-label">\u5df2\u68c0\u67e5\u9879</div>
-  </div>
-  <div class="severity-stats">
-    <div class="stat-card" style="border-color:#22c55e30"><div class="stat-count" style="color:#22c55e">${autoClean}</div><div class="stat-label">\ud83d\udfe2 \u672a\u53d1\u73b0\u95ee\u9898</div></div>
-    <div class="stat-card" style="border-color:#ef444430"><div class="stat-count" style="color:#ef4444">${autoIssues}</div><div class="stat-label">\ud83d\udd34 \u53d1\u73b0\u95ee\u9898</div></div>
-    ${autoUnknown > 0 ? `<div class="stat-card" style="border-color:#94a3b830"><div class="stat-count" style="color:#94a3b8">${autoUnknown}</div><div class="stat-label">\u2b1c \u672a\u68c0\u67e5</div></div>` : ""}
-  </div>
-</section>
-
-<div style="text-align:center;margin-bottom:24px">
-  <div style="font-size:36px;font-weight:700;margin-bottom:8px">
+  <div style="text-align:center;margin-bottom:24px">
+  <div style="font-size:36px;font-weight:700;margin-bottom:12px">
     <span style="color:#22c55e">${autoClean}</span> <span style="color:#94a3b8;font-size:18px">\u672a\u53d1\u73b0\u95ee\u9898</span>
     <span style="color:#475569;margin:0 16px">/</span>
     <span style="color:#ef4444">${autoIssues}</span> <span style="color:#94a3b8;font-size:18px">\u53d1\u73b0\u95ee\u9898</span>
   </div>
-  <div style="font-size:14px;color:#64748b">
-    ${checkedTotal} \u5df2\u68c0\u67e5\u9879 / ${cloudCount} \u4e91\u5e73\u53f0\u8d1f\u8d23 / ${manualCount} \u9700\u4eba\u5de5\u8bc4\u4f30${naCount > 0 ? ` / ${naCount} \u4e0d\u9002\u7528` : ""}
+  <div class="mlps-summary-cards" style="justify-content:center">
+    <div class="mlps-summary-card"><div class="stat-count" style="color:#60a5fa">${checkedTotal}</div><div class="stat-label">\u5df2\u68c0\u67e5\u9879</div></div>
+    <div class="mlps-summary-card"><div class="stat-count" style="color:#94a3b8">${cloudCount}</div><div class="stat-label">\ud83c\udfe2 \u4e91\u5e73\u53f0\u8d1f\u8d23</div></div>
+    <div class="mlps-summary-card"><div class="stat-count" style="color:#eab308">${manualCount}</div><div class="stat-label">\ud83d\udccb \u9700\u4eba\u5de5\u8bc4\u4f30</div></div>
+    ${naCount > 0 ? `<div class="mlps-summary-card"><div class="stat-count" style="color:#64748b">${naCount}</div><div class="stat-label">\u2796 \u4e0d\u9002\u7528</div></div>` : ""}
   </div>
 </div>
+</section>
 ${unknownNote}
 
 ${trendHtml}
