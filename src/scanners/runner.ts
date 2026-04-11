@@ -132,34 +132,13 @@ export async function runMultiAccountScanners(
     accounts = await listOrgAccounts(region);
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
-    const isNotOrg = errMsg.includes("NotInUse") || errMsg.includes("not a member") || errMsg.includes("AWSOrganizationsNotInUseException");
-    if (isNotOrg) {
-      // Graceful fallback: single account not in an Organization
-      const result = await runAllScanners(scanners, region);
-      // Inject warning about org_mode on non-org account
-      if (result.modules.length > 0) {
-        if (!result.modules[0].warnings) result.modules[0].warnings = [];
-        result.modules[0].warnings.unshift("org_mode enabled but this account is not part of an AWS Organization. Scanning current account only.");
-      }
-      return result;
+    // Graceful fallback: scan current account only, with clear warning
+    const result = await runAllScanners(scanners, region);
+    if (result.modules.length > 0) {
+      if (!result.modules[0].warnings) result.modules[0].warnings = [];
+      result.modules[0].warnings.unshift(`org_mode enabled but Organizations listing failed: ${errMsg}. Scanning current account only.`);
     }
-    // Real error (permissions etc) — fail loudly
-    return {
-      scanStart: new Date().toISOString(),
-      scanEnd: new Date().toISOString(),
-      region,
-      accountId: adminAccountId,
-      modules: [{
-        module: "org_discovery",
-        status: "error" as const,
-        resourcesScanned: 0,
-        findingsCount: 0,
-        scanTimeMs: 0,
-        findings: [],
-        warnings: [`Organizations ListAccounts failed: ${errMsg}. Ensure you are running from the management account or a delegated admin with organizations:ListAccounts permission.`],
-      }],
-      summary: { totalFindings: 0, critical: 0, high: 0, medium: 0, low: 0, modulesSuccess: 0, modulesError: 1 },
-    };
+    return result;
   }
 
   // Filter to specific accounts if requested
