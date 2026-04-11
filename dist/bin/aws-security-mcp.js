@@ -19322,7 +19322,7 @@ function createServer(defaultRegion) {
     "scan_group",
     "Run a predefined group of security scanners for a specific scenario (e.g., MLPS compliance, network defense). Read-only. Supports multi-account org scanning.",
     {
-      group: external_exports.string().describe("Scan group ID: mlps3_precheck, hw_defense, exposure, pre_launch, data_encryption, least_privilege, log_integrity, disaster_recovery, idle_resources, tag_compliance, new_account_baseline, public_access_verify, aggregation"),
+      group: external_exports.string().describe("Scan group ID: mlps3_precheck, hw_defense, exposure, data_encryption, least_privilege, log_integrity, disaster_recovery, idle_resources, tag_compliance, new_account_baseline, aggregation"),
       region: external_exports.string().optional().describe("AWS region to scan (default: server region)"),
       org_mode: external_exports.boolean().optional().describe("Enable multi-account scanning via AWS Organizations"),
       role_name: external_exports.string().optional().describe("IAM role name to assume in child accounts (default: AWSSecurityMCPAudit)"),
