@@ -100,6 +100,60 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
     "Checks if internet-facing ALBs have WAF Web ACL associated for protection against common web exploits.",
 };
 
+const HW_DEFENSE_CHECKLIST = `
+═══════════════════════════════════════════════════
+📋 护网行动补充提醒（超出自动化扫描范围）
+═══════════════════════════════════════════════════
+
+以下事项需要人工确认和执行：
+
+⚠️ 应急隔离/止血方案
+  □ 准备专用隔离安全组（无 Inbound/Outbound 规则）
+  □ 制定实例隔离 SOP：告警 → 排查 → 封锁攻击IP → 网络隔离 → 安全处置 → 记录攻击项
+  □ 明确各系统（生产核心/生产非核心/测试/开发）的应急处置方式
+  □ 明确各项目账户及资源的负责人与联系方式
+
+⚠️ 测试/开发环境处置
+  □ 非核心系统在护网期间关闭
+  □ 测试/开发环境关闭或与生产保持同等安全基线
+  □ 确认哪些环境可以紧急关停，避免攻击扩散
+
+⚠️ 值守团队组建
+  □ 7×24 监控快速响应团队
+  □ 技术与风险分析组
+  □ 安全策略下发组
+  □ 业务响应组
+  □ 明确 AWS TAM/Support 联系方式（ES/EOP 客户）
+
+⚠️ 出入站路径架构图
+  □ 确保所有互联网/DX 专线出入站路径在架构图中清晰标注
+  □ 明确各 ELB/Public EC2/S3/DX 的数据流向
+  □ 识别所有面向互联网的数据交互接口
+
+⚠️ 主动式渗透测试
+  □ 护网前联系安全厂商（青藤/长亭/微步等）进行模拟攻击演练
+  □ 基于渗透测试报告进行正式护网前的安全加固
+  □ 关注 AWS 安全公告（已知漏洞与补丁）
+
+⚠️ WAR-ROOM 实时沟通
+  □ 创建护网期间专用沟通渠道（企微/钉钉/飞书/Chime）
+  □ 与 AWS TAM 建立 WAR-ROOM 联系（企业级支持客户）
+  □ 统一案例标题格式："【护网】+ 问题描述"
+
+⚠️ 密码与凭证管理
+  □ 所有 IAM 用户绑定 MFA
+  □ AKSK 轮转周期 ≤ 90 天
+  □ 避免共享账户使用
+  □ S3/Lambda/应用代码中无明文密码
+
+⚠️ 护网后优化
+  □ 针对攻击报告逐项应答与修复
+  □ 与安全团队建立周期性安全维护流程
+  □ 持续补全安全风险
+
+参考：AWS 护网行动 Standard Operation Procedure (Compliance IEM)
+`;
+
 function summarizeResult(result: FullScanResult): string {
   const { summary } = result;
   const lines = [
@@ -354,12 +408,20 @@ export function createServer(defaultRegion: string): McpServer {
           lines.push(`Warning: ${missingModules.length} requested module(s) not available: ${missingModules.join(", ")}`);
         }
 
-        return {
-          content: [
-            { type: "text", text: lines.join("\n") },
-            { type: "text", text: JSON.stringify(result, null, 2) },
-          ],
-        };
+        const content: Array<{ type: "text"; text: string }> = [
+          { type: "text", text: lines.join("\n") },
+          { type: "text", text: JSON.stringify(result, null, 2) },
+        ];
+
+        if (group === "hw_defense") {
+          // Append checklist to summary
+          const summaryContent = content[0];
+          if (summaryContent && summaryContent.type === "text") {
+            summaryContent.text += "\n\n" + HW_DEFENSE_CHECKLIST;
+          }
+        }
+
+        return { content };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
       }
@@ -749,6 +811,22 @@ export function createServer(defaultRegion: string): McpServer {
           content: {
             type: "text",
             text: `Analyze this AWS security finding in depth. Explain the risk, potential attack vectors, blast radius, and provide detailed step-by-step remediation guidance.\n\nFinding:\n${finding}`,
+          },
+        },
+      ],
+    }),
+  );
+
+  server.prompt(
+    "hw_defense_checklist",
+    "护网行动完整检查清单 — 包含自动化扫描项和人工检查项",
+    async () => ({
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: `请基于以下护网行动检查清单，帮助我制定护网准备计划：\n\n${HW_DEFENSE_CHECKLIST}\n\n自动化扫描部分请使用 scan_group hw_defense 执行。以上人工检查项请逐项确认并提供具体建议。`,
           },
         },
       ],
