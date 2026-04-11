@@ -1093,11 +1093,15 @@ export function generateMlps3HtmlReport(
   </div>
 </section>
 
-<div class="mlps-summary-cards">
-  <div class="mlps-summary-card"><div class="stat-count" style="color:#60a5fa">${checkedTotal}</div><div class="stat-label">\u5df2\u68c0\u67e5\uff08\ud83d\udfe2 ${autoClean} \u672a\u53d1\u73b0\u95ee\u9898 / \ud83d\udd34 ${autoIssues} \u53d1\u73b0\u95ee\u9898${autoUnknown > 0 ? ` / \u2b1c ${autoUnknown} \u672a\u68c0\u67e5` : ""}\uff09</div></div>
-  <div class="mlps-summary-card"><div class="stat-count" style="color:#94a3b8">${cloudCount}</div><div class="stat-label">\ud83c\udfe2 \u4e91\u5e73\u53f0\u8d1f\u8d23</div></div>
-  <div class="mlps-summary-card"><div class="stat-count" style="color:#eab308">${manualCount}</div><div class="stat-label">\ud83d\udccb \u9700\u4eba\u5de5\u8bc4\u4f30</div></div>
-  ${naCount > 0 ? `<div class="mlps-summary-card"><div class="stat-count" style="color:#64748b">${naCount}</div><div class="stat-label">\u2796 \u4e0d\u9002\u7528</div></div>` : ""}
+<div class="mlps-summary-cards" style="justify-content:center">
+  <div class="mlps-summary-card" style="flex:none;min-width:180px"><div class="stat-count" style="color:#22c55e;font-size:42px">${autoClean}</div><div class="stat-label" style="font-size:14px">\ud83d\udfe2 \u672a\u53d1\u73b0\u95ee\u9898</div></div>
+  <div class="mlps-summary-card" style="flex:none;min-width:180px"><div class="stat-count" style="color:#ef4444;font-size:42px">${autoIssues}</div><div class="stat-label" style="font-size:14px">\ud83d\udd34 \u53d1\u73b0\u95ee\u9898</div></div>
+</div>
+<div class="mlps-summary-cards" style="justify-content:center;margin-top:8px">
+  ${autoUnknown > 0 ? `<div class="mlps-summary-card" style="flex:none;min-width:120px"><div class="stat-count" style="color:#64748b">${autoUnknown}</div><div class="stat-label">\u2b1c \u672a\u68c0\u67e5</div></div>` : ""}
+  <div class="mlps-summary-card" style="flex:none;min-width:120px"><div class="stat-count" style="color:#94a3b8">${cloudCount}</div><div class="stat-label">\ud83c\udfe2 \u4e91\u5e73\u53f0\u8d1f\u8d23</div></div>
+  <div class="mlps-summary-card" style="flex:none;min-width:120px"><div class="stat-count" style="color:#eab308">${manualCount}</div><div class="stat-label">\ud83d\udccb \u9700\u4eba\u5de5\u8bc4\u4f30</div></div>
+  ${naCount > 0 ? `<div class="mlps-summary-card" style="flex:none;min-width:120px"><div class="stat-count" style="color:#64748b">${naCount}</div><div class="stat-label">\u2796 \u4e0d\u9002\u7528</div></div>` : ""}
 </div>
 ${unknownNote}
 

@@ -6752,14 +6752,7 @@ function evaluateFullCheck(item, mapping, allFindings, scanModules) {
   } else {
     relatedFindings = allFindings.filter((f) => mods.includes(f.module ?? ""));
   }
-  let status;
-  if (relatedFindings.length === 0) {
-    status = "pass";
-  } else if (mapping.securityHubControlIds?.length) {
-    status = relatedFindings.length <= 3 ? "partial" : "fail";
-  } else {
-    status = "fail";
-  }
+  const status = relatedFindings.length === 0 ? "clean" : "issues";
   return { item, mapping, status, relatedFindings };
 }
 function evaluateAllFullChecks(scanResults) {
@@ -6948,7 +6941,7 @@ function evaluateCheck(check, allFindings, scanModules) {
   });
   return {
     check,
-    status: relatedFindings.length === 0 ? "pass" : "fail",
+    status: relatedFindings.length === 0 ? "clean" : "issues",
     relatedFindings
   };
 }
@@ -6965,22 +6958,25 @@ function generateMlps3Report(scanResults) {
   const results = MLPS_CHECKS.map(
     (check) => evaluateCheck(check, allFindings, scanModules)
   );
-  const passCount = results.filter((r) => r.status === "pass").length;
-  const failCount = results.filter((r) => r.status === "fail").length;
+  const cleanCount = results.filter((r) => r.status === "clean").length;
+  const issuesCount = results.filter((r) => r.status === "issues").length;
   const unknownCount = results.filter((r) => r.status === "unknown").length;
-  const checkedTotal = passCount + failCount;
+  const checkedTotal = cleanCount + issuesCount;
   const total = results.length;
-  const percent = checkedTotal > 0 ? Math.round(passCount / checkedTotal * 100) : 0;
   const lines = [];
   lines.push("# \u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0\u62A5\u544A");
-  lines.push("> **\u672C\u62A5\u544A\u4E3A\u7B49\u4FDD\u9884\u68C0\u53C2\u8003\uFF0C\u4EC5\u8986\u76D6 AWS \u4E91\u5E73\u53F0\u914D\u7F6E\u68C0\u67E5\u3002\u5B8C\u6574\u7B49\u4FDD\u6D4B\u8BC4\u9700\u7531\u6301\u8BC1\u6D4B\u8BC4\u673A\u6784\u6267\u884C\u3002**");
+  lines.push("> **\u672C\u62A5\u544A\u4E3A\u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0\u53C2\u8003\uFF0C\u63D0\u4F9B\u4E91\u5E73\u53F0\u914D\u7F6E\u68C0\u67E5\u6570\u636E\u4E0E\u5EFA\u8BAE\u3002\u5408\u89C4\u5224\u5B9A\uFF08\u7B26\u5408/\u90E8\u5206\u7B26\u5408/\u4E0D\u7B26\u5408\uFF09\u9700\u7531\u6301\u8BC1\u6D4B\u8BC4\u673A\u6784\u6839\u636E\u5B9E\u9645\u60C5\u51B5\u786E\u8BA4\u3002**");
   lines.push("");
   lines.push("## \u8D26\u6237\u4FE1\u606F");
   lines.push(`- Account: ${accountId} | Region: ${region} | \u626B\u63CF\u65F6\u95F4: ${scanTime}`);
   lines.push("");
   lines.push("## \u9884\u68C0\u603B\u89C8");
-  lines.push(`- \u68C0\u67E5\u9879: ${total} | \u901A\u8FC7: ${passCount} | \u4E0D\u901A\u8FC7: ${failCount}${unknownCount > 0 ? ` | \u672A\u68C0\u67E5: ${unknownCount}` : ""}`);
-  lines.push(`- \u901A\u8FC7\u7387: ${percent}%${unknownCount > 0 ? "\uFF08\u672A\u68C0\u67E5\u9879\u4E0D\u8BA1\u5165\u901A\u8FC7\u7387\uFF09" : ""}`);
+  lines.push(`- \u5DF2\u68C0\u67E5 ${checkedTotal} \u9879 / \u5171 ${total} \u9879`);
+  lines.push(`  - \u672A\u53D1\u73B0\u95EE\u9898: ${cleanCount} \u9879`);
+  lines.push(`  - \u53D1\u73B0\u95EE\u9898: ${issuesCount} \u9879`);
+  if (unknownCount > 0) {
+    lines.push(`  - \u672A\u68C0\u67E5: ${unknownCount} \u9879`);
+  }
   lines.push("");
   for (const category of CATEGORY_ORDER) {
     const sectionTitle = CATEGORY_SECTION[category];
@@ -6997,10 +6993,10 @@ function generateMlps3Report(scanResults) {
     for (const [checkId, checkResults] of byId) {
       lines.push(`### ${checkId} ${checkResults[0].check.name}`);
       for (const r of checkResults) {
-        const icon = r.status === "pass" ? "\u2705" : r.status === "fail" ? "\u274C" : "\u26A0\uFE0F";
-        const label = r.status === "unknown" ? " \u672A\u68C0\u67E5" : "";
+        const icon = r.status === "clean" ? "\u2705" : r.status === "issues" ? "\u274C" : "\u26A0\uFE0F";
+        const label = r.status === "unknown" ? " \u672A\u68C0\u67E5" : r.status === "clean" ? " \u672A\u53D1\u73B0\u95EE\u9898" : r.status === "issues" ? " \u53D1\u73B0\u95EE\u9898" : "";
         lines.push(`- [${icon}] ${r.check.name}${label}`);
-        if (r.status === "fail" && r.relatedFindings.length > 0) {
+        if (r.status === "issues" && r.relatedFindings.length > 0) {
           for (const f of r.relatedFindings.slice(0, 3)) {
             lines.push(`  - ${f.severity}: ${f.title}`);
           }
@@ -7012,7 +7008,7 @@ function generateMlps3Report(scanResults) {
       lines.push("");
     }
   }
-  const failedResults = results.filter((r) => r.status === "fail");
+  const failedResults = results.filter((r) => r.status === "issues");
   if (failedResults.length > 0) {
     lines.push("## \u5EFA\u8BAE\u6574\u6539\u9879\uFF08\u6309\u4F18\u5148\u7EA7\uFF09");
     lines.push("");
@@ -7709,15 +7705,13 @@ function generateMlps3HtmlReport(scanResults, history) {
   const scanTime = scanStart.replace("T", " ").replace(/\.\d+Z$/, " UTC");
   const results = evaluateAllFullChecks(scanResults);
   const autoResults = results.filter((r) => r.mapping.type === "auto");
-  const autoPass = autoResults.filter((r) => r.status === "pass").length;
-  const autoPartial = autoResults.filter((r) => r.status === "partial").length;
-  const autoFail = autoResults.filter((r) => r.status === "fail").length;
+  const autoClean = autoResults.filter((r) => r.status === "clean").length;
+  const autoIssues = autoResults.filter((r) => r.status === "issues").length;
   const autoUnknown = autoResults.filter((r) => r.status === "unknown").length;
+  const checkedTotal = autoClean + autoIssues;
   const cloudCount = results.filter((r) => r.status === "cloud_provider").length;
   const manualCount = results.filter((r) => r.status === "manual").length;
   const naCount = results.filter((r) => r.status === "not_applicable").length;
-  const checkedTotal = autoPass + autoPartial + autoFail;
-  const percent = checkedTotal > 0 ? Math.round((autoPass + autoPartial * 0.5) / checkedTotal * 100) : 0;
   let trendHtml = "";
   if (history && history.length >= 2) {
     trendHtml = `
@@ -7749,24 +7743,22 @@ function generateMlps3HtmlReport(scanResults, history) {
       return `<details class="category-fold mlps-cloud-section">
   <summary>
     <span class="category-title">${esc(sectionTitle)}</span>
-    <span class="category-stats"><span class="category-stat-cloud">\u{1F3E2} ${catResults.length} \u9879\u4E91\u5E73\u53F0\u8D1F\u8D23\uFF08\u7B26\u5408\uFF09</span></span>
+    <span class="category-stats"><span class="category-stat-cloud">\u{1F3E2} ${catResults.length} \u9879\u4E91\u5E73\u53F0\u8D1F\u8D23</span></span>
   </summary>
   <div class="category-body">
-    <div class="mlps-cloud-note">\u4EE5\u4E0B ${catResults.length} \u9879\u7531 AWS \u4E91\u5E73\u53F0\u8D1F\u8D23\uFF0C\u6839\u636E\u5B89\u5168\u8D23\u4EFB\u5171\u62C5\u6A21\u578B\u8BC4\u4F30\u4E3A\u7B26\u5408\u3002</div>
+    <div class="mlps-cloud-note">\u4EE5\u4E0B ${catResults.length} \u9879\u7531 AWS \u4E91\u5E73\u53F0\u8D1F\u8D23\uFF0C\u6839\u636E\u5B89\u5168\u8D23\u4EFB\u5171\u62C5\u6A21\u578B\u4E0D\u5728\u672C\u62A5\u544A\u68C0\u67E5\u8303\u56F4\u5185\u3002</div>
     ${catResults.map((r) => `<div class="check-item check-cloud"><span class="check-icon">\u{1F3E2}</span><span class="check-name">${esc(r.item.id)} ${esc(r.item.controlCn)}</span><span class="check-note">${esc(r.mapping.note ?? "")}</span></div>`).join("\n")}
   </div>
 </details>`;
     }
-    const catPass = catResults.filter((r) => r.status === "pass").length;
-    const catPartial = catResults.filter((r) => r.status === "partial").length;
-    const catFail = catResults.filter((r) => r.status === "fail").length;
+    const catClean = catResults.filter((r) => r.status === "clean").length;
+    const catIssues = catResults.filter((r) => r.status === "issues").length;
     const catUnknown = catResults.filter((r) => r.status === "unknown").length;
     const catCloud = catResults.filter((r) => r.status === "cloud_provider").length;
     const catManual = catResults.filter((r) => r.status === "manual").length;
     const statsHtml = [
-      catPass > 0 ? `<span class="category-stat-pass">&#10003; ${catPass}</span>` : "",
-      catPartial > 0 ? `<span class="category-stat-partial">&#128993; ${catPartial}</span>` : "",
-      catFail > 0 ? `<span class="category-stat-fail">&#10007; ${catFail}</span>` : "",
+      catClean > 0 ? `<span class="category-stat-clean">\u{1F7E2} ${catClean}</span>` : "",
+      catIssues > 0 ? `<span class="category-stat-issues">\u{1F534} ${catIssues}</span>` : "",
       catUnknown > 0 ? `<span class="category-stat-unknown">? ${catUnknown}</span>` : "",
       catCloud > 0 ? `<span class="category-stat-cloud">\u{1F3E2} ${catCloud}</span>` : "",
       catManual > 0 ? `<span class="category-stat-manual">\u{1F4CB} ${catManual}</span>` : ""
@@ -7782,16 +7774,19 @@ function generateMlps3HtmlReport(scanResults, history) {
       const nonCloudItems = controlResults.filter((r) => r.status !== "cloud_provider");
       let itemsHtml = "";
       for (const r of nonCloudItems) {
-        const icon = r.status === "pass" ? "&#10004;" : r.status === "partial" ? "&#128993;" : r.status === "fail" ? "&#10008;" : r.status === "unknown" ? "&#9888;" : r.status === "manual" ? "&#128203;" : "&#127970;";
+        const icon = r.status === "clean" ? "\u{1F7E2}" : r.status === "issues" ? "\u{1F534}" : r.status === "unknown" ? "\u2B1C" : r.status === "manual" ? "\u{1F4CB}" : "\u{1F3E2}";
         const cls = `check-${r.status === "cloud_provider" ? "cloud" : r.status}`;
-        const suffix = r.status === "unknown" ? " (\u672A\u68C0\u67E5)" : r.status === "partial" ? ` (\u90E8\u5206\u7B26\u5408 \u2014 ${r.relatedFindings.length} \u9879\u53D1\u73B0)` : r.status === "manual" ? ` \u2014 ${esc(r.mapping.guidance ?? "\u9700\u4EBA\u5DE5\u8BC4\u4F30")}` : "";
+        const suffix = r.status === "unknown" ? " \u2014 \u672A\u68C0\u67E5" : r.status === "manual" ? ` \u2014 ${esc(r.mapping.guidance ?? "\u9700\u4EBA\u5DE5\u8BC4\u4F30")}` : "";
         let findingsDetail = "";
-        if ((r.status === "fail" || r.status === "partial") && r.relatedFindings.length > 0) {
-          const fItems = r.relatedFindings.slice(0, 3).map((f) => `<li>${esc(f.severity)}: ${esc(f.title)}</li>`);
-          if (r.relatedFindings.length > 3) {
-            fItems.push(`<li>... \u53CA\u5176\u4ED6 ${r.relatedFindings.length - 3} \u9879</li>`);
+        if (r.status === "clean") {
+          findingsDetail = `<div class="check-detail">\u68C0\u67E5\u7ED3\u679C\uFF1A\u672A\u53D1\u73B0\u76F8\u5173\u95EE\u9898</div>`;
+        } else if (r.status === "issues" && r.relatedFindings.length > 0) {
+          const fItems = r.relatedFindings.slice(0, 5).map((f) => `<li>${esc(f.severity)}: ${esc(f.title)}</li>`);
+          if (r.relatedFindings.length > 5) {
+            fItems.push(`<li>... \u53CA\u5176\u4ED6 ${r.relatedFindings.length - 5} \u9879</li>`);
           }
-          findingsDetail = `<div class="check-findings-wrap"><ul class="check-findings">${fItems.join("")}</ul></div>`;
+          const remediationHint = r.relatedFindings[0]?.remediationSteps?.[0] ? `<p style="color:#fbbf24;font-size:12px;margin-top:4px">\u5EFA\u8BAE\uFF1A${esc(r.relatedFindings[0].remediationSteps[0])}</p>` : "";
+          findingsDetail = `<div class="check-findings-wrap"><details><summary>\u68C0\u67E5\u7ED3\u679C\uFF1A\u53D1\u73B0 ${r.relatedFindings.length} \u4E2A\u76F8\u5173\u95EE\u9898</summary><ul class="check-findings">${fItems.join("")}</ul>${remediationHint}</details></div>`;
         }
         itemsHtml += `<div class="check-item ${cls}"><span class="check-icon">${icon}</span><span class="check-name">${esc(r.item.id)} ${esc(r.item.requirementCn.slice(0, 60))}${r.item.requirementCn.length > 60 ? "\u2026" : ""}${suffix}</span></div>
 ${findingsDetail}`;
@@ -7802,21 +7797,19 @@ ${findingsDetail}`;
 `;
         }
       }
-      const grpPass = controlResults.filter((r) => r.status === "pass").length;
-      const grpPartial = controlResults.filter((r) => r.status === "partial").length;
-      const grpFail = controlResults.filter((r) => r.status === "fail").length;
+      const grpClean = controlResults.filter((r) => r.status === "clean").length;
+      const grpIssues = controlResults.filter((r) => r.status === "issues").length;
       const grpUnknown = controlResults.filter((r) => r.status === "unknown").length;
       const grpCloud = controlResults.filter((r) => r.status === "cloud_provider").length;
       const grpManual = controlResults.filter((r) => r.status === "manual").length;
       const grpStats = [
-        grpPass > 0 ? `<span class="category-stat-pass">&#10003; ${grpPass}</span>` : "",
-        grpPartial > 0 ? `<span class="category-stat-partial">&#128993; ${grpPartial}</span>` : "",
-        grpFail > 0 ? `<span class="category-stat-fail">&#10007; ${grpFail}</span>` : "",
+        grpClean > 0 ? `<span class="category-stat-clean">\u{1F7E2} ${grpClean}</span>` : "",
+        grpIssues > 0 ? `<span class="category-stat-issues">\u{1F534} ${grpIssues}</span>` : "",
         grpUnknown > 0 ? `<span class="category-stat-unknown">? ${grpUnknown}</span>` : "",
         grpCloud > 0 ? `<span class="category-stat-cloud">\u{1F3E2} ${grpCloud}</span>` : "",
         grpManual > 0 ? `<span class="category-stat-manual">\u{1F4CB} ${grpManual}</span>` : ""
       ].filter(Boolean).join(" ");
-      const hasFailures = grpFail > 0 || grpPartial > 0;
+      const hasFailures = grpIssues > 0;
       return `<details class="severity-group-fold"${hasFailures ? " open" : ""}><summary><h4>${esc(controlName)} <span class="category-stats">${grpStats}</span></h4></summary>
 ${itemsHtml}
 </details>`;
@@ -7829,7 +7822,7 @@ ${itemsHtml}
   <div class="category-body">${controlGroups}</div>
 </details>`;
   }).filter(Boolean).join("\n");
-  const failedResults = results.filter((r) => r.status === "fail" || r.status === "partial");
+  const failedResults = results.filter((r) => r.status === "issues");
   let remediationHtml = "";
   if (failedResults.length > 0) {
     const mlpsRecMap = /* @__PURE__ */ new Map();
@@ -7875,20 +7868,20 @@ ${mlpsRemaining.map(renderMlpsRec).join("\n")}
     }
   }
   const naNote = naCount > 0 ? `<p style="color:#64748b;font-size:13px;margin-top:24px">\u4E0D\u9002\u7528\u9879: ${naCount} \u9879\uFF08\u7269\u8054\u7F51/\u65E0\u7EBF\u7F51\u7EDC/\u79FB\u52A8\u7EC8\u7AEF/\u5DE5\u63A7\u7CFB\u7EDF/\u53EF\u4FE1\u9A8C\u8BC1\u7B49\uFF09</p>` : "";
-  const passRateColor = percent >= 80 ? "#22c55e" : percent >= 50 ? "#eab308" : "#ef4444";
-  const unknownNote = autoUnknown > 0 ? `<div style="color:#94a3b8;font-size:12px;margin-top:8px">\uFF08\u672A\u68C0\u67E5\u9879\u4E0D\u8BA1\u5165\u901A\u8FC7\u7387\uFF09</div>` : "";
+  const unknownNote = autoUnknown > 0 ? `<div style="color:#94a3b8;font-size:12px;margin-top:8px">\uFF08${autoUnknown} \u9879\u672A\u68C0\u67E5\uFF0C\u5BF9\u5E94\u626B\u63CF\u6A21\u5757\u672A\u8FD0\u884C\uFF09</div>` : "";
   const mlpsCss = `
     .mlps-cloud-section>summary{color:#94a3b8}
     .mlps-cloud-note{color:#94a3b8;font-size:13px;margin-bottom:12px;font-style:italic}
     .check-cloud{background:rgba(148,163,184,0.08)}
     .check-cloud .check-note{color:#64748b;font-size:12px;margin-left:auto;white-space:nowrap}
     .check-manual{background:rgba(148,163,184,0.06)}
-    .check-pass{background:rgba(34,197,94,0.1)}
-    .check-partial{background:rgba(234,179,8,0.1);border-left:3px solid #eab308}
-    .check-fail{background:rgba(239,68,68,0.1)}
-    .check-unknown{background:rgba(148,163,184,0.1)}
+    .check-clean{background:rgba(34,197,94,0.1);border-left:3px solid #22c55e}
+    .check-issues{background:rgba(239,68,68,0.1);border-left:3px solid #ef4444}
+    .check-unknown{background:rgba(148,163,184,0.1);border-left:3px solid #94a3b8}
     .check-findings-wrap{margin-left:28px;margin-bottom:4px}
-    .category-stat-partial{color:#eab308}
+    .check-detail{color:#94a3b8;font-size:13px;margin-left:28px;margin-top:2px}
+    .category-stat-clean{color:#22c55e}
+    .category-stat-issues{color:#ef4444}
     .category-stat-cloud{color:#94a3b8}
     .category-stat-manual{color:#94a3b8}
     .mlps-summary-cards{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:32px}
@@ -7909,28 +7902,31 @@ ${mlpsRemaining.map(renderMlpsRec).join("\n")}
 
 <header>
   <h1>&#128737;&#65039; \u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0\u62A5\u544A</h1>
-  <div class="disclaimer">\u672C\u62A5\u544A\u57FA\u4E8E GB/T 22239-2019 \u5B8C\u6574\u68C0\u67E5\u6E05\u5355\uFF08184 \u9879\uFF09\uFF0C\u4EC5\u8986\u76D6 AWS \u4E91\u5E73\u53F0\u914D\u7F6E\u68C0\u67E5\u3002\u5B8C\u6574\u7B49\u4FDD\u6D4B\u8BC4\u9700\u7531\u6301\u8BC1\u6D4B\u8BC4\u673A\u6784\u6267\u884C\u3002</div>
+  <div class="disclaimer">\u672C\u62A5\u544A\u4E3A\u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0\u53C2\u8003\uFF0C\u63D0\u4F9B\u4E91\u5E73\u53F0\u914D\u7F6E\u68C0\u67E5\u6570\u636E\u4E0E\u5EFA\u8BAE\u3002\u5408\u89C4\u5224\u5B9A\uFF08\u7B26\u5408/\u90E8\u5206\u7B26\u5408/\u4E0D\u7B26\u5408\uFF09\u9700\u7531\u6301\u8BC1\u6D4B\u8BC4\u673A\u6784\u6839\u636E\u5B9E\u9645\u60C5\u51B5\u786E\u8BA4\u3002\uFF08GB/T 22239-2019 \u5B8C\u6574\u68C0\u67E5\u6E05\u5355 184 \u9879\uFF09</div>
   <div class="meta">\u8D26\u6237: ${esc(accountId)} | \u533A\u57DF: ${esc(region)} | \u626B\u63CF\u65F6\u95F4: ${esc(scanTime)}</div>
 </header>
 
 <section class="summary">
   <div class="score-card">
-    <div class="score-value" style="color:${passRateColor}">${percent}%</div>
-    <div class="score-label">\u5408\u89C4\u901A\u8FC7\u7387${autoPartial > 0 ? '<br><span style="font-size:10px;color:#94a3b8">\u90E8\u5206\u7B26\u5408\u8BA1\u534A</span>' : ""}</div>
+    <div class="score-value" style="color:#60a5fa">${checkedTotal}</div>
+    <div class="score-label">\u5DF2\u68C0\u67E5\u9879</div>
   </div>
   <div class="severity-stats">
-    <div class="stat-card" style="border-color:#22c55e30"><div class="stat-count" style="color:#22c55e">${autoPass}</div><div class="stat-label">\u7B26\u5408</div></div>
-    ${autoPartial > 0 ? `<div class="stat-card" style="border-color:#eab30830"><div class="stat-count" style="color:#eab308">${autoPartial}</div><div class="stat-label">\u90E8\u5206\u7B26\u5408</div></div>` : ""}
-    <div class="stat-card" style="border-color:#ef444430"><div class="stat-count" style="color:#ef4444">${autoFail}</div><div class="stat-label">\u4E0D\u7B26\u5408</div></div>
-    ${autoUnknown > 0 ? `<div class="stat-card" style="border-color:#94a3b830"><div class="stat-count" style="color:#94a3b8">${autoUnknown}</div><div class="stat-label">\u672A\u68C0\u67E5</div></div>` : ""}
+    <div class="stat-card" style="border-color:#22c55e30"><div class="stat-count" style="color:#22c55e">${autoClean}</div><div class="stat-label">\u{1F7E2} \u672A\u53D1\u73B0\u95EE\u9898</div></div>
+    <div class="stat-card" style="border-color:#ef444430"><div class="stat-count" style="color:#ef4444">${autoIssues}</div><div class="stat-label">\u{1F534} \u53D1\u73B0\u95EE\u9898</div></div>
+    ${autoUnknown > 0 ? `<div class="stat-card" style="border-color:#94a3b830"><div class="stat-count" style="color:#94a3b8">${autoUnknown}</div><div class="stat-label">\u2B1C \u672A\u68C0\u67E5</div></div>` : ""}
   </div>
 </section>
 
-<div class="mlps-summary-cards">
-  <div class="mlps-summary-card"><div class="stat-count" style="color:#22c55e">${autoResults.length}</div><div class="stat-label">\u81EA\u52A8\u68C0\u67E5 (${autoPass} \u7B26\u5408${autoPartial > 0 ? ` / ${autoPartial} \u90E8\u5206\u7B26\u5408` : ""} / ${autoFail} \u4E0D\u7B26\u5408${autoUnknown > 0 ? ` / ${autoUnknown} \u672A\u68C0\u67E5` : ""})</div></div>
-  <div class="mlps-summary-card"><div class="stat-count" style="color:#94a3b8">${cloudCount}</div><div class="stat-label">\u4E91\u5E73\u53F0\u8D1F\u8D23</div></div>
-  <div class="mlps-summary-card"><div class="stat-count" style="color:#eab308">${manualCount}</div><div class="stat-label">\u9700\u4EBA\u5DE5\u8BC4\u4F30</div></div>
-  <div class="mlps-summary-card"><div class="stat-count" style="color:#64748b">${naCount}</div><div class="stat-label">\u4E0D\u9002\u7528</div></div>
+<div class="mlps-summary-cards" style="justify-content:center">
+  <div class="mlps-summary-card" style="flex:none;min-width:180px"><div class="stat-count" style="color:#22c55e;font-size:42px">${autoClean}</div><div class="stat-label" style="font-size:14px">\u{1F7E2} \u672A\u53D1\u73B0\u95EE\u9898</div></div>
+  <div class="mlps-summary-card" style="flex:none;min-width:180px"><div class="stat-count" style="color:#ef4444;font-size:42px">${autoIssues}</div><div class="stat-label" style="font-size:14px">\u{1F534} \u53D1\u73B0\u95EE\u9898</div></div>
+</div>
+<div class="mlps-summary-cards" style="justify-content:center;margin-top:8px">
+  ${autoUnknown > 0 ? `<div class="mlps-summary-card" style="flex:none;min-width:120px"><div class="stat-count" style="color:#64748b">${autoUnknown}</div><div class="stat-label">\u2B1C \u672A\u68C0\u67E5</div></div>` : ""}
+  <div class="mlps-summary-card" style="flex:none;min-width:120px"><div class="stat-count" style="color:#94a3b8">${cloudCount}</div><div class="stat-label">\u{1F3E2} \u4E91\u5E73\u53F0\u8D1F\u8D23</div></div>
+  <div class="mlps-summary-card" style="flex:none;min-width:120px"><div class="stat-count" style="color:#eab308">${manualCount}</div><div class="stat-label">\u{1F4CB} \u9700\u4EBA\u5DE5\u8BC4\u4F30</div></div>
+  ${naCount > 0 ? `<div class="mlps-summary-card" style="flex:none;min-width:120px"><div class="stat-count" style="color:#64748b">${naCount}</div><div class="stat-label">\u2796 \u4E0D\u9002\u7528</div></div>` : ""}
 </div>
 ${unknownNote}
 
@@ -7946,7 +7942,7 @@ ${naNote}
 
 <footer>
   <p>\u7531 AWS Security MCP Server v${VERSION} \u751F\u6210</p>
-  <p>\u672C\u62A5\u544A\u4EC5\u4F9B\u53C2\u8003\u3002\u5B8C\u6574\u7B49\u4FDD\u6D4B\u8BC4\u9700\u7531\u6301\u8BC1\u6D4B\u8BC4\u673A\u6784\u6267\u884C\u3002</p>
+  <p>\u672C\u62A5\u544A\u4E3A\u8BC1\u636E\u6536\u96C6\u53C2\u8003\uFF0C\u4E0D\u5305\u542B\u5408\u89C4\u5224\u5B9A\u3002\u5B8C\u6574\u7B49\u4FDD\u6D4B\u8BC4\u9700\u7531\u6301\u8BC1\u6D4B\u8BC4\u673A\u6784\u6267\u884C\u3002</p>
 </footer>
 
 </div>
