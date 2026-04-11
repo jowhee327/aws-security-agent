@@ -1,6 +1,6 @@
 {
   "name": "aws-security-mcp",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "MCP Server for AWS security scanning",
   "bin": {
     "aws-security-mcp": "./dist/bin/aws-security-mcp.js"
