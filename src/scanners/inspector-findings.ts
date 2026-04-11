@@ -117,10 +117,23 @@ export class InspectorFindingsScanner implements Scanner {
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      const isNotEnabled =
-        msg.includes("not enabled") ||
-        msg.includes("not subscribed") ||
-        (err instanceof Error && err.name === "AccessDeniedException");
+      const errName = err instanceof Error ? err.name : "";
+
+      const isAccessDenied = errName === "AccessDeniedException" || msg.includes("AccessDeniedException");
+      const isNotEnabled = msg.includes("not enabled") || msg.includes("not subscribed");
+
+      if (isAccessDenied) {
+        warnings.push("Insufficient permissions to access Inspector. Grant inspector2:ListFindings to scan for vulnerabilities.");
+        return {
+          module: this.moduleName,
+          status: "success",
+          warnings,
+          resourcesScanned: 0,
+          findingsCount: 0,
+          scanTimeMs: Date.now() - startMs,
+          findings: [],
+        };
+      }
 
       if (isNotEnabled) {
         warnings.push("Inspector is not enabled in this region. Enable it to scan for software vulnerabilities.");

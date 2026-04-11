@@ -99,7 +99,7 @@ describe("InspectorFindingsScanner", () => {
 
   it("returns empty findings with warning when Inspector is not enabled", async () => {
     const err = new Error("Inspector is not enabled in this account");
-    err.name = "AccessDeniedException";
+    err.name = "ValidationException";
     mockSend.mockRejectedValue(err);
 
     const result = await scanner.scan(ctx);
@@ -108,6 +108,19 @@ describe("InspectorFindingsScanner", () => {
     expect(result.findingsCount).toBe(0);
     expect(result.warnings).toBeDefined();
     expect(result.warnings!.some((w) => w.includes("Inspector is not enabled"))).toBe(true);
+  });
+
+  it("returns warning for AccessDeniedException (insufficient permissions)", async () => {
+    const err = new Error("User is not authorized to perform inspector2:ListFindings");
+    err.name = "AccessDeniedException";
+    mockSend.mockRejectedValue(err);
+
+    const result = await scanner.scan(ctx);
+
+    expect(result.status).toBe("success");
+    expect(result.findingsCount).toBe(0);
+    expect(result.warnings).toBeDefined();
+    expect(result.warnings!.some((w) => w.includes("Insufficient permissions"))).toBe(true);
   });
 
   it("paginates through findings", async () => {

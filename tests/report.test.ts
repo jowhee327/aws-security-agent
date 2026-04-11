@@ -11,7 +11,7 @@ describe("generateMarkdownReport", () => {
       accountId: "123456789012",
       modules: [
         {
-          module: "security_group",
+          module: "network_reachability",
           status: "success",
           resourcesScanned: 3,
           findingsCount: 1,
@@ -19,12 +19,12 @@ describe("generateMarkdownReport", () => {
           findings: [
             {
               severity: "CRITICAL",
-              title: "Security group sg-123 allows SSH (22) from 0.0.0.0/0",
-              resourceType: "AWS::EC2::SecurityGroup",
-              resourceId: "sg-123",
-              resourceArn: "arn:aws:ec2:us-east-1:123456789012:security-group/sg-123",
+              title: "EC2 instance i-abc123 has SSH (22) reachable from 0.0.0.0/0",
+              resourceType: "AWS::EC2::Instance",
+              resourceId: "i-abc123",
+              resourceArn: "arn:aws:ec2:us-east-1:123456789012:instance/i-abc123",
               region: "us-east-1",
-              description: "Open SSH",
+              description: "SSH reachable from the internet",
               impact: "SSH exposed",
               riskScore: 9.0,
               remediationSteps: ["Restrict port 22"],
@@ -50,7 +50,7 @@ describe("generateMarkdownReport", () => {
     expect(report).toContain("## Executive Summary");
     expect(report).toContain("## Findings by Severity");
     expect(report).toContain("## Scan Statistics");
-    expect(report).toContain("sg-123 allows SSH");
+    expect(report).toContain("i-abc123 has SSH");
     expect(report).toContain("123456789012");
   });
 
@@ -62,7 +62,7 @@ describe("generateMarkdownReport", () => {
       accountId: "123456789012",
       modules: [
         {
-          module: "s3",
+          module: "service_detection",
           status: "success",
           resourcesScanned: 5,
           findingsCount: 0,

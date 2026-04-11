@@ -549,7 +549,7 @@ export function createServer(defaultRegion: string): McpServer {
   server.resource(
     "security-rules",
     "security://rules",
-    { description: "Describes all 7 scan modules and their check rules", mimeType: "text/markdown" },
+    { description: "Describes all 14 scan modules and their check rules", mimeType: "text/markdown" },
     async () => ({
       contents: [{ uri: "security://rules", text: SECURITY_RULES_CONTENT, mimeType: "text/markdown" }],
     }),

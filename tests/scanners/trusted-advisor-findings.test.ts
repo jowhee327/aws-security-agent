@@ -104,14 +104,39 @@ describe("TrustedAdvisorFindingsScanner", () => {
     expect(result.findings[0].riskScore).toBe(8.0);
   });
 
-  it("skips in China regions", async () => {
+  it("works in China regions using cn-north-1 endpoint", async () => {
+    mockSend.mockImplementation((cmd: { constructor: { name: string } }) => {
+      const name = cmd.constructor.name;
+      switch (name) {
+        case "DescribeTrustedAdvisorChecksCommand":
+          return {
+            checks: [
+              {
+                id: "check-cn",
+                name: "S3 Bucket Permissions",
+                category: "security",
+                metadata: [],
+              },
+            ],
+          };
+        case "DescribeTrustedAdvisorCheckResultCommand":
+          return {
+            result: {
+              status: "ok",
+              flaggedResources: [],
+            },
+          };
+        default:
+          return {};
+      }
+    });
+
     const result = await scanner.scan(ctxChina);
 
     expect(result.status).toBe("success");
     expect(result.findingsCount).toBe(0);
-    expect(result.warnings).toBeDefined();
-    expect(result.warnings!.some((w) => w.includes("China"))).toBe(true);
-    expect(mockSend).not.toHaveBeenCalled();
+    // Should have called the API (not skipped)
+    expect(mockSend).toHaveBeenCalled();
   });
 
   it("handles subscription required error gracefully", async () => {

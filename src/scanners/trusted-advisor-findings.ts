@@ -27,23 +27,10 @@ export class TrustedAdvisorFindingsScanner implements Scanner {
     const warnings: string[] = [];
     let resourcesScanned = 0;
 
-    // Trusted Advisor is not available in China regions
-    if (region.startsWith("cn-")) {
-      warnings.push("Trusted Advisor is not available in AWS China regions.");
-      return {
-        module: this.moduleName,
-        status: "success",
-        warnings,
-        resourcesScanned: 0,
-        findingsCount: 0,
-        scanTimeMs: Date.now() - startMs,
-        findings: [],
-      };
-    }
-
     try {
-      // Trusted Advisor API is only available in us-east-1
-      const client = new SupportClient({ region: "us-east-1" });
+      // Trusted Advisor API endpoint: cn-north-1 for China, us-east-1 for standard
+      const supportRegion = region.startsWith("cn-") ? "cn-north-1" : "us-east-1";
+      const client = new SupportClient({ region: supportRegion });
 
       // Step 1: List security checks
       const checksResp = await client.send(

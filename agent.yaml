@@ -1,11 +1,11 @@
 name: aws-security-mcp
 description: >
   AWS Security MCP Server - A Model Context Protocol server that provides
-  AI-powered security scanning for AWS infrastructure. Runs 7 read-only
-  security scanner modules (Security Groups, S3, IAM, CloudTrail, RDS, EBS, VPC)
+  AI-powered security scanning for AWS infrastructure. Runs 14 read-only
+  security scanner modules (10 unique scanners + 4 aggregation scanners)
   with risk scoring, parallel execution, and a React dashboard.
 
-version: "0.1.0"
+version: "0.3.1"
 license: MIT
 
 architecture:
@@ -20,40 +20,76 @@ entry_points:
   cli: dist/bin/aws-security-mcp.js
 
 scanner_modules:
-  - name: security_group
-    file: src/scanners/sg.ts
-    description: Detects overly permissive security group rules (0.0.0.0/0, ::/0)
-  - name: s3
-    file: src/scanners/s3.ts
-    description: Checks S3 bucket encryption, public access, versioning, logging
-  - name: iam
-    file: src/scanners/iam.ts
-    description: Audits IAM users for MFA, access key rotation, unused credentials
-  - name: cloudtrail
-    file: src/scanners/cloudtrail.ts
-    description: Validates CloudTrail logging, multi-region, log file validation
-  - name: rds
-    file: src/scanners/rds.ts
-    description: Checks RDS encryption, public accessibility, backup configuration
-  - name: ebs
-    file: src/scanners/ebs.ts
-    description: Detects unencrypted EBS volumes and unused snapshots
-  - name: vpc
-    file: src/scanners/vpc.ts
-    description: Audits VPC flow logs, default VPC usage, network ACLs
+  unique:
+    - name: service_detection
+      file: src/scanners/service-detection.ts
+      description: Detects enabled security services (Security Hub, GuardDuty, Inspector, Config, Macie) and assesses maturity
+    - name: secret_exposure
+      file: src/scanners/secret-exposure.ts
+      description: Checks Lambda env vars and EC2 userData for exposed secrets
+    - name: ssl_certificate
+      file: src/scanners/ssl-certificate.ts
+      description: Checks ACM certificates for expiry, failed status, upcoming renewals
+    - name: dns_dangling
+      file: src/scanners/dns-dangling.ts
+      description: Detects Route53 CNAME records pointing to non-existent resources (subdomain takeover)
+    - name: network_reachability
+      file: src/scanners/network-reachability.ts
+      description: Analyzes true network reachability combining Security Group + NACL rules for public EC2 instances
+    - name: iam_privilege_escalation
+      file: src/scanners/iam-privilege-escalation.ts
+      description: Detects IAM privilege escalation paths via policy manipulation, role creation, or service abuse
+    - name: public_access_verify
+      file: src/scanners/public-access-verify.ts
+      description: Verifies actual public accessibility of resources (S3 HTTP check, RDS DNS resolution)
+    - name: tag_compliance
+      file: src/scanners/tag-compliance.ts
+      description: Checks EC2, RDS, S3 resources for required tags (Environment, Project, Owner)
+    - name: idle_resources
+      file: src/scanners/idle-resources.ts
+      description: Finds unused resources (unattached EBS, unused EIPs, stopped instances, unused SGs)
+    - name: disaster_recovery
+      file: src/scanners/disaster-recovery.ts
+      description: Assesses disaster recovery readiness (RDS Multi-AZ, EBS snapshots, S3 versioning)
+  aggregation:
+    - name: security_hub_findings
+      file: src/scanners/security-hub-findings.ts
+      description: Aggregates active findings from AWS Security Hub (FSBP, CIS, PCI DSS)
+    - name: guardduty_findings
+      file: src/scanners/guardduty-findings.ts
+      description: Aggregates threat detection findings from Amazon GuardDuty
+    - name: inspector_findings
+      file: src/scanners/inspector-findings.ts
+      description: Aggregates vulnerability findings from Amazon Inspector (CVEs)
+    - name: trusted_advisor_findings
+      file: src/scanners/trusted-advisor-findings.ts
+      description: Aggregates security checks from AWS Trusted Advisor
 
 mcp_tools:
   - scan_all
-  - scan_sg
-  - scan_s3
-  - scan_iam
-  - scan_cloudtrail
-  - scan_rds
-  - scan_ebs
-  - scan_vpc
-  - generate_report
-  - save_results
+  - detect_services
+  - scan_secret_exposure
+  - scan_ssl_certificate
+  - scan_dns_dangling
+  - scan_network_reachability
+  - scan_iam_privilege_escalation
+  - scan_public_access_verify
+  - scan_tag_compliance
+  - scan_idle_resources
+  - scan_disaster_recovery
+  - scan_security_hub_findings
+  - scan_guardduty_findings
+  - scan_inspector_findings
+  - scan_trusted_advisor_findings
+  - scan_group
+  - list_groups
   - list_modules
+  - generate_report
+  - generate_html_report
+  - generate_mlps3_report
+  - generate_mlps3_html_report
+  - generate_maturity_report
+  - save_results
 
 mcp_resources:
   - security-rules
@@ -66,10 +102,10 @@ mcp_prompts:
 risk_scoring:
   scale: 0-10
   severity_map:
-    CRITICAL: 8-10
-    HIGH: 6-7
-    MEDIUM: 3-5
-    LOW: 0-2
+    CRITICAL: 9-10
+    HIGH: 7-8.9
+    MEDIUM: 4-6.9
+    LOW: 0-3.9
   priority_map:
     P0: CRITICAL
     P1: HIGH

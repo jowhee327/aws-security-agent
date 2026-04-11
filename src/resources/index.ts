@@ -38,7 +38,7 @@ Aggregates vulnerability findings from Amazon Inspector v2.
 ## 5. Trusted Advisor Findings (trusted_advisor_findings)
 Aggregates security checks from AWS Trusted Advisor.
 - Requires AWS Business or Enterprise Support plan.
-- Not available in AWS China regions.
+- In China regions, uses cn-north-1 as the Support API endpoint.
 - Status mapped: error (RED) → 8.0, warning (YELLOW) → 5.5, ok (GREEN) → skip.
 
 ## 6. Secret Exposure (secret_exposure)
