@@ -180,10 +180,21 @@ function sharedCss(): string {
     .finding-card-body p{color:#cbd5e1;font-size:13px;margin-bottom:4px}
     .finding-card-body ol{padding-left:20px}
     .finding-card-body li{color:#cbd5e1;font-size:13px;margin-bottom:2px}
+    .rec-fold{background:#1e293b;border:1px solid #334155;border-radius:8px;margin-bottom:16px;overflow:hidden}
+    .rec-fold>summary{cursor:pointer;padding:16px 20px;display:flex;align-items:center;gap:12px;list-style:none;user-select:none}
+    .rec-fold>summary::-webkit-details-marker{display:none}
+    .rec-fold>summary::marker{content:""}
+    .rec-fold>summary::after{content:"\\25B6";font-size:12px;color:#64748b;flex-shrink:0;transition:transform 0.2s;margin-left:auto}
+    .rec-fold[open]>summary::after{transform:rotate(90deg)}
+    .rec-fold[open]>summary{border-bottom:1px solid #334155}
+    .rec-body{padding:12px 20px 16px}
+    .rec-body ol{padding-left:24px}
+    .rec-body li{margin-bottom:8px;color:#cbd5e1;font-size:13px}
+    .rec-body .badge{margin-right:6px;vertical-align:middle}
     @media print{
       body{background:#fff;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .container{max-width:100%;padding:20px}
-      .card,.score-card,.stat-card,.chart-box,.finding-fold,.top5-card,.trend-chart,.category-fold,.module-fold,.finding-card{background:#fff;border:1px solid #e2e8f0}
+      .card,.score-card,.stat-card,.chart-box,.finding-fold,.top5-card,.trend-chart,.category-fold,.module-fold,.finding-card,.rec-fold{background:#fff;border:1px solid #e2e8f0}
       .badge{border:1px solid}
       header{border-bottom-color:#e2e8f0}
       h2{border-bottom-color:#e2e8f0}
@@ -201,10 +212,10 @@ function sharedCss(): string {
       .finding-title-text{color:#1e293b}
       .finding-resource{color:#64748b}
       .check-findings li{color:#64748b}
-      .finding-fold,.top5-card,.category-fold,.module-fold,.finding-card{break-inside:avoid}
+      .finding-fold,.top5-card,.category-fold,.module-fold,.finding-card,.rec-fold{break-inside:avoid}
       .check-item{break-inside:avoid}
       svg text{fill:#1e293b !important}
-      .finding-fold[open]>summary,.category-fold[open]>summary,.module-fold[open]>summary{border-bottom-color:#e2e8f0}
+      .finding-fold[open]>summary,.category-fold[open]>summary,.module-fold[open]>summary,.rec-fold[open]>summary{border-bottom-color:#e2e8f0}
       details{display:block}
       details>summary{display:block}
       details>:not(summary){display:block !important}
@@ -524,9 +535,6 @@ export function generateHtmlReport(
     });
 
     findingsHtml = moduleEntries.map(([modName, modFindings]) => {
-      const hasCritHigh = modFindings.some((f) => f.severity === "CRITICAL" || f.severity === "HIGH");
-      const openAttr = hasCritHigh ? " open" : "";
-
       const sevCounts: Record<string, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
       for (const f of modFindings) sevCounts[f.severity]++;
 
@@ -542,21 +550,14 @@ export function generateHtmlReport(
 
         const emoji = SEV_EMOJI[sev] ?? "";
         const label = sev.charAt(0) + sev.slice(1).toLowerCase();
-        const isCritHigh = sev === "CRITICAL" || sev === "HIGH";
 
-        if (isCritHigh) {
-          return `<div class="severity-group">
-            <h4>${emoji} ${label} (${findings.length})</h4>
-            ${renderCards(findings)}
-          </div>`;
-        }
         return `<details class="severity-group-fold">
-          <summary><h4>${emoji} ${label} (${findings.length}) &mdash; click to expand</h4></summary>
+          <summary><h4>${emoji} ${label} (${findings.length})</h4></summary>
           ${renderCards(findings)}
         </details>`;
       }).filter(Boolean).join("\n");
 
-      return `<details class="module-fold"${openAttr}>
+      return `<details class="module-fold">
         <summary>
           <h3>&#128274; ${esc(modName)} (${modFindings.length})</h3>
           <span class="module-badges">${badges}</span>
@@ -593,22 +594,48 @@ export function generateHtmlReport(
     )
     .join("\n");
 
-  // --- Recommendations ---
+  // --- Recommendations (deduplicated) ---
   let recsHtml = "";
   if (summary.totalFindings > 0) {
-    const sorted = [...allFindings].sort((a, b) => b.riskScore - a.riskScore);
-    const items = sorted
-      .map((f) => {
-        const pc = f.priority.toLowerCase();
-        const rem = f.remediationSteps[0] ?? "Review and remediate.";
-        return `<li><span class="priority-${esc(pc)}">[${esc(f.priority)}]</span> ${esc(f.title)}: ${esc(rem)}</li>`;
-      })
-      .join("\n");
+    const recMap = new Map<string, { text: string; severity: Severity; count: number }>();
+    for (const f of allFindings) {
+      const rem = f.remediationSteps[0] ?? "Review and remediate.";
+      const existing = recMap.get(rem);
+      if (existing) {
+        existing.count++;
+        if (SEVERITY_ORDER.indexOf(f.severity) < SEVERITY_ORDER.indexOf(existing.severity)) {
+          existing.severity = f.severity;
+        }
+      } else {
+        recMap.set(rem, { text: rem, severity: f.severity, count: 1 });
+      }
+    }
+    const uniqueRecs = [...recMap.values()].sort((a, b) => {
+      const sevDiff = SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity);
+      if (sevDiff !== 0) return sevDiff;
+      return b.count - a.count;
+    });
+
+    const renderRec = (r: { text: string; severity: Severity; count: number }): string => {
+      const sev = r.severity.toLowerCase();
+      const countLabel = r.count > 1 ? ` (&times; ${r.count})` : "";
+      return `<li><span class="badge badge-${esc(sev)}">${esc(r.severity)}</span> ${esc(r.text)}${countLabel}</li>`;
+    };
+
+    const TOP_N = 10;
+    const topItems = uniqueRecs.slice(0, TOP_N).map(renderRec).join("\n");
+    const remaining = uniqueRecs.slice(TOP_N);
+    const moreHtml = remaining.length > 0
+      ? `\n<details><summary>Show ${remaining.length} more&hellip;</summary>\n${remaining.map(renderRec).join("\n")}\n</details>`
+      : "";
+
     recsHtml = `
-      <section class="recommendations">
-        <h2>Recommendations (Priority Order)</h2>
-        <ol>${items}</ol>
-      </section>`;
+      <details class="rec-fold">
+        <summary><h2 style="margin:0;border:0;display:inline">Recommendations (${uniqueRecs.length} unique)</h2></summary>
+        <div class="rec-body">
+          <ol>${topItems}${moreHtml}</ol>
+        </div>
+      </details>`;
   }
 
   return `<!DOCTYPE html>
@@ -741,9 +768,6 @@ export function generateMlps3HtmlReport(
     const catUnknown = categoryResults.filter(
       (r) => r.status === "unknown",
     ).length;
-    const hasFailure = catFail > 0;
-    const openAttr = hasFailure ? " open" : "";
-
     const byId = new Map<string, typeof categoryResults>();
     for (const r of categoryResults) {
       const existing = byId.get(r.check.id) ?? [];
@@ -753,6 +777,10 @@ export function generateMlps3HtmlReport(
 
     const groups = [...byId.entries()]
       .map(([checkId, checkResults]) => {
+        const grpPass = checkResults.filter((r) => r.status === "pass").length;
+        const grpFail = checkResults.filter((r) => r.status === "fail").length;
+        const grpUnknown = checkResults.filter((r) => r.status === "unknown").length;
+
         const items = checkResults
           .map((r) => {
             const icon =
@@ -781,7 +809,14 @@ export function generateMlps3HtmlReport(
             return `<div class="check-item ${cls}"><span class="check-icon">${icon}</span><span class="check-name">${esc(r.check.name)}${label}</span></div>${findingsHtml}`;
           })
           .join("\n");
-        return `<h3>${esc(checkId)} ${esc(checkResults[0].check.name)}</h3>\n${items}`;
+
+        const statusBadges = [
+          grpPass > 0 ? `<span class="category-stat-pass">&#10003; ${grpPass}</span>` : "",
+          grpFail > 0 ? `<span class="category-stat-fail">&#10007; ${grpFail}</span>` : "",
+          grpUnknown > 0 ? `<span class="category-stat-unknown">? ${grpUnknown}</span>` : "",
+        ].filter(Boolean).join(" ");
+
+        return `<details class="severity-group-fold"><summary><h4>${esc(checkId)} ${esc(checkResults[0].check.name)} <span class="category-stats">${statusBadges}</span></h4></summary>\n${items}\n</details>`;
       })
       .join("\n");
 
@@ -799,7 +834,7 @@ export function generateMlps3HtmlReport(
       .filter(Boolean)
       .join("");
 
-    return `<details class="category-fold"${openAttr}>
+    return `<details class="category-fold">
   <summary>
     <span class="category-title">${esc(sectionTitle)}</span>
     <span class="category-stats">${statsHtml}</span>
@@ -810,41 +845,51 @@ export function generateMlps3HtmlReport(
     .filter(Boolean)
     .join("\n");
 
-  // --- Remediation ---
+  // --- Remediation (deduplicated) ---
   const failedResults = results.filter((r) => r.status === "fail");
   let remediationHtml = "";
   if (failedResults.length > 0) {
-    const allFailedFindings = new Map<string, Finding>();
+    const mlpsRecMap = new Map<string, { text: string; severity: Severity; count: number }>();
     for (const r of failedResults) {
       for (const f of r.relatedFindings) {
-        const key = `${f.resourceId}:${f.title}`;
-        if (!allFailedFindings.has(key)) {
-          allFailedFindings.set(key, f);
+        const rem = f.remediationSteps[0] ?? "Review and remediate.";
+        const existing = mlpsRecMap.get(rem);
+        if (existing) {
+          existing.count++;
+          if (SEVERITY_ORDER.indexOf(f.severity) < SEVERITY_ORDER.indexOf(existing.severity)) {
+            existing.severity = f.severity;
+          }
+        } else {
+          mlpsRecMap.set(rem, { text: rem, severity: f.severity, count: 1 });
         }
       }
     }
-    const sorted = [...allFailedFindings.values()].sort(
-      (a, b) => b.riskScore - a.riskScore,
-    );
-    const items = sorted
-      .map((f) => {
-        const p =
-          f.riskScore >= 9.0
-            ? "P0"
-            : f.riskScore >= 7.0
-              ? "P1"
-              : f.riskScore >= 4.0
-                ? "P2"
-                : "P3";
-        const rem = f.remediationSteps[0] ?? "Review and remediate.";
-        return `<li><span class="priority-${p.toLowerCase()}">[${p}]</span> ${esc(f.title)} &mdash; ${esc(rem)}</li>`;
-      })
-      .join("\n");
+    const mlpsUniqueRecs = [...mlpsRecMap.values()].sort((a, b) => {
+      const sevDiff = SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity);
+      if (sevDiff !== 0) return sevDiff;
+      return b.count - a.count;
+    });
+
+    const renderMlpsRec = (r: { text: string; severity: Severity; count: number }): string => {
+      const sev = r.severity.toLowerCase();
+      const countLabel = r.count > 1 ? ` (&times; ${r.count})` : "";
+      return `<li><span class="badge badge-${esc(sev)}">${esc(r.severity)}</span> ${esc(r.text)}${countLabel}</li>`;
+    };
+
+    const MLPS_TOP_N = 10;
+    const mlpsTopItems = mlpsUniqueRecs.slice(0, MLPS_TOP_N).map(renderMlpsRec).join("\n");
+    const mlpsRemaining = mlpsUniqueRecs.slice(MLPS_TOP_N);
+    const mlpsMoreHtml = mlpsRemaining.length > 0
+      ? `\n<details><summary>显示其余 ${mlpsRemaining.length} 项&hellip;</summary>\n${mlpsRemaining.map(renderMlpsRec).join("\n")}\n</details>`
+      : "";
+
     remediationHtml = `
-      <section class="recommendations">
-        <h2>建议整改项（按优先级）</h2>
-        <ol>${items}</ol>
-      </section>`;
+      <details class="rec-fold">
+        <summary><h2 style="margin:0;border:0;display:inline">建议整改项（${mlpsUniqueRecs.length} 项去重）</h2></summary>
+        <div class="rec-body">
+          <ol>${mlpsTopItems}${mlpsMoreHtml}</ol>
+        </div>
+      </details>`;
   }
 
   const passRateColor =
