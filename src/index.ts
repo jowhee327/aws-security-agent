@@ -154,6 +154,97 @@ const HW_DEFENSE_CHECKLIST = `
 参考：AWS 护网行动 Standard Operation Procedure (Compliance IEM)
 `;
 
+const SERVICE_RECOMMENDATIONS: Record<string, { icon: string; service: string; impact: string; action: string }> = {
+  security_hub_findings: {
+    icon: "🔴",
+    service: "Security Hub",
+    impact: "无法获取 300+ 项自动化安全检查（FSBP/CIS/PCI DSS 标准）",
+    action: "启用 Security Hub 获得最全面的安全态势评估",
+  },
+  guardduty_findings: {
+    icon: "🔴",
+    service: "GuardDuty",
+    impact: "无法检测威胁活动（恶意 IP、异常 API 调用、加密货币挖矿等）",
+    action: "启用 GuardDuty 获得持续威胁检测能力",
+  },
+  inspector_findings: {
+    icon: "🟡",
+    service: "Inspector",
+    impact: "无法扫描 EC2/Lambda/容器的软件漏洞（CVE）",
+    action: "启用 Inspector 发现已知安全漏洞",
+  },
+  trusted_advisor_findings: {
+    icon: "🟡",
+    service: "Trusted Advisor",
+    impact: "无法获取 AWS 最佳实践安全检查",
+    action: "升级至 Business/Enterprise Support 计划以使用 Trusted Advisor 安全检查",
+  },
+  config_rules_findings: {
+    icon: "🟡",
+    service: "AWS Config",
+    impact: "无法检查资源配置合规状态",
+    action: "启用 AWS Config 并配置 Config Rules",
+  },
+  access_analyzer_findings: {
+    icon: "🟡",
+    service: "IAM Access Analyzer",
+    impact: "无法检测资源是否被外部账号或公网访问",
+    action: "创建 IAM Access Analyzer（账户级或组织级）",
+  },
+  patch_compliance_findings: {
+    icon: "🟡",
+    service: "SSM Patch Manager",
+    impact: "无法检查实例补丁合规状态",
+    action: "安装 SSM Agent 并配置 Patch Manager",
+  },
+};
+
+const SERVICE_NOT_ENABLED_PATTERNS = [
+  "not enabled",
+  "not found",
+  "No IAM Access Analyzer",
+  "No SSM-managed instances",
+  "requires AWS Business or Enterprise Support",
+  "not available",
+  "is not enabled",
+];
+
+function buildServiceReminder(modules: ScanResult[]): string {
+  const disabledServices: Array<{ icon: string; service: string; impact: string; action: string }> = [];
+
+  for (const mod of modules) {
+    const rec = SERVICE_RECOMMENDATIONS[mod.module];
+    if (!rec) continue;
+    if (!mod.warnings?.length) continue;
+
+    const hasNotEnabled = mod.warnings.some((w) =>
+      SERVICE_NOT_ENABLED_PATTERNS.some((p) => w.includes(p)),
+    );
+    if (hasNotEnabled) {
+      disabledServices.push(rec);
+    }
+  }
+
+  if (disabledServices.length === 0) return "";
+
+  const lines = [
+    "",
+    "⚡ 以下安全服务未启用，部分检查无法执行：",
+    "",
+  ];
+
+  for (const svc of disabledServices) {
+    lines.push(`${svc.icon} ${svc.service} 未启用`);
+    lines.push(`   影响：${svc.impact}`);
+    lines.push(`   建议：${svc.action}`);
+    lines.push("");
+  }
+
+  lines.push("启用以上服务后重新扫描可获得更完整的安全评估。");
+
+  return lines.join("\n");
+}
+
 function summarizeResult(result: FullScanResult): string {
   const { summary } = result;
   const lines = [
@@ -161,6 +252,12 @@ function summarizeResult(result: FullScanResult): string {
     `Total findings: ${summary.totalFindings} (${summary.critical} Critical, ${summary.high} High, ${summary.medium} Medium, ${summary.low} Low)`,
     `Modules: ${summary.modulesSuccess} succeeded, ${summary.modulesError} errored`,
   ];
+
+  const reminder = buildServiceReminder(result.modules);
+  if (reminder) {
+    lines.push(reminder);
+  }
+
   return lines.join("\n");
 }
 

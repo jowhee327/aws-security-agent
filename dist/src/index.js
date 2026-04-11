@@ -4356,6 +4356,92 @@ function scoreColor(score) {
   if (score >= 50) return "#eab308";
   return "#ef4444";
 }
+var SERVICE_RECOMMENDATIONS = {
+  security_hub_findings: {
+    icon: "\u{1F534}",
+    service: "Security Hub",
+    impact: "\u65E0\u6CD5\u83B7\u53D6 300+ \u9879\u81EA\u52A8\u5316\u5B89\u5168\u68C0\u67E5\uFF08FSBP/CIS/PCI DSS \u6807\u51C6\uFF09",
+    action: "\u542F\u7528 Security Hub \u83B7\u5F97\u6700\u5168\u9762\u7684\u5B89\u5168\u6001\u52BF\u8BC4\u4F30"
+  },
+  guardduty_findings: {
+    icon: "\u{1F534}",
+    service: "GuardDuty",
+    impact: "\u65E0\u6CD5\u68C0\u6D4B\u5A01\u80C1\u6D3B\u52A8\uFF08\u6076\u610F IP\u3001\u5F02\u5E38 API \u8C03\u7528\u3001\u52A0\u5BC6\u8D27\u5E01\u6316\u77FF\u7B49\uFF09",
+    action: "\u542F\u7528 GuardDuty \u83B7\u5F97\u6301\u7EED\u5A01\u80C1\u68C0\u6D4B\u80FD\u529B"
+  },
+  inspector_findings: {
+    icon: "\u{1F7E1}",
+    service: "Inspector",
+    impact: "\u65E0\u6CD5\u626B\u63CF EC2/Lambda/\u5BB9\u5668\u7684\u8F6F\u4EF6\u6F0F\u6D1E\uFF08CVE\uFF09",
+    action: "\u542F\u7528 Inspector \u53D1\u73B0\u5DF2\u77E5\u5B89\u5168\u6F0F\u6D1E"
+  },
+  trusted_advisor_findings: {
+    icon: "\u{1F7E1}",
+    service: "Trusted Advisor",
+    impact: "\u65E0\u6CD5\u83B7\u53D6 AWS \u6700\u4F73\u5B9E\u8DF5\u5B89\u5168\u68C0\u67E5",
+    action: "\u5347\u7EA7\u81F3 Business/Enterprise Support \u8BA1\u5212\u4EE5\u4F7F\u7528 Trusted Advisor \u5B89\u5168\u68C0\u67E5"
+  },
+  config_rules_findings: {
+    icon: "\u{1F7E1}",
+    service: "AWS Config",
+    impact: "\u65E0\u6CD5\u68C0\u67E5\u8D44\u6E90\u914D\u7F6E\u5408\u89C4\u72B6\u6001",
+    action: "\u542F\u7528 AWS Config \u5E76\u914D\u7F6E Config Rules"
+  },
+  access_analyzer_findings: {
+    icon: "\u{1F7E1}",
+    service: "IAM Access Analyzer",
+    impact: "\u65E0\u6CD5\u68C0\u6D4B\u8D44\u6E90\u662F\u5426\u88AB\u5916\u90E8\u8D26\u53F7\u6216\u516C\u7F51\u8BBF\u95EE",
+    action: "\u521B\u5EFA IAM Access Analyzer\uFF08\u8D26\u6237\u7EA7\u6216\u7EC4\u7EC7\u7EA7\uFF09"
+  },
+  patch_compliance_findings: {
+    icon: "\u{1F7E1}",
+    service: "SSM Patch Manager",
+    impact: "\u65E0\u6CD5\u68C0\u67E5\u5B9E\u4F8B\u8865\u4E01\u5408\u89C4\u72B6\u6001",
+    action: "\u5B89\u88C5 SSM Agent \u5E76\u914D\u7F6E Patch Manager"
+  }
+};
+var SERVICE_NOT_ENABLED_PATTERNS = [
+  "not enabled",
+  "not found",
+  "No IAM Access Analyzer",
+  "No SSM-managed instances",
+  "requires AWS Business or Enterprise Support",
+  "not available",
+  "is not enabled"
+];
+function getDisabledServices(modules) {
+  const disabled = [];
+  for (const mod of modules) {
+    const rec = SERVICE_RECOMMENDATIONS[mod.module];
+    if (!rec) continue;
+    if (!mod.warnings?.length) continue;
+    const hasNotEnabled = mod.warnings.some(
+      (w) => SERVICE_NOT_ENABLED_PATTERNS.some((p) => w.includes(p))
+    );
+    if (hasNotEnabled) {
+      disabled.push(rec);
+    }
+  }
+  return disabled;
+}
+function buildServiceReminderHtml(modules) {
+  const disabled = getDisabledServices(modules);
+  if (disabled.length === 0) return "";
+  const items = disabled.map((svc) => `
+    <div style="margin-bottom:12px">
+      <div style="font-weight:600;font-size:15px">${esc(svc.icon)} ${esc(svc.service)} \u672A\u542F\u7528</div>
+      <div style="margin-left:28px;color:#cbd5e1;font-size:13px">\u5F71\u54CD\uFF1A${esc(svc.impact)}</div>
+      <div style="margin-left:28px;color:#cbd5e1;font-size:13px">\u5EFA\u8BAE\uFF1A${esc(svc.action)}</div>
+    </div>`).join("\n");
+  return `
+  <section>
+    <div style="background:#2d1f00;border:1px solid #b45309;border-radius:8px;padding:20px;margin-bottom:32px">
+      <div style="font-size:17px;font-weight:700;margin-bottom:12px">&#9889; \u4EE5\u4E0B\u5B89\u5168\u670D\u52A1\u672A\u542F\u7528\uFF0C\u90E8\u5206\u68C0\u67E5\u65E0\u6CD5\u6267\u884C\uFF1A</div>
+      ${items}
+      <div style="margin-top:12px;font-size:13px;color:#fbbf24;font-weight:500">\u542F\u7528\u4EE5\u4E0A\u670D\u52A1\u540E\u91CD\u65B0\u626B\u63CF\u53EF\u83B7\u5F97\u66F4\u5B8C\u6574\u7684\u5B89\u5168\u8BC4\u4F30\u3002</div>
+    </div>
+  </section>`;
+}
 function sharedCss() {
   return `
     *{margin:0;padding:0;box-sizing:border-box}
@@ -4881,6 +4967,8 @@ ${trendHtml}
 
 ${top5Html}
 
+${buildServiceReminderHtml(modules)}
+
 <section>
   <h2>Scan Statistics</h2>
   <table>
@@ -5076,6 +5164,8 @@ ${mlpsRemaining.map(renderMlpsRec).join("\n")}
 ${unknownNote}
 
 ${trendHtml}
+
+${buildServiceReminderHtml(scanResults.modules)}
 
 ${categorySections}
 
@@ -5502,6 +5592,87 @@ var HW_DEFENSE_CHECKLIST = `
 
 \u53C2\u8003\uFF1AAWS \u62A4\u7F51\u884C\u52A8 Standard Operation Procedure (Compliance IEM)
 `;
+var SERVICE_RECOMMENDATIONS2 = {
+  security_hub_findings: {
+    icon: "\u{1F534}",
+    service: "Security Hub",
+    impact: "\u65E0\u6CD5\u83B7\u53D6 300+ \u9879\u81EA\u52A8\u5316\u5B89\u5168\u68C0\u67E5\uFF08FSBP/CIS/PCI DSS \u6807\u51C6\uFF09",
+    action: "\u542F\u7528 Security Hub \u83B7\u5F97\u6700\u5168\u9762\u7684\u5B89\u5168\u6001\u52BF\u8BC4\u4F30"
+  },
+  guardduty_findings: {
+    icon: "\u{1F534}",
+    service: "GuardDuty",
+    impact: "\u65E0\u6CD5\u68C0\u6D4B\u5A01\u80C1\u6D3B\u52A8\uFF08\u6076\u610F IP\u3001\u5F02\u5E38 API \u8C03\u7528\u3001\u52A0\u5BC6\u8D27\u5E01\u6316\u77FF\u7B49\uFF09",
+    action: "\u542F\u7528 GuardDuty \u83B7\u5F97\u6301\u7EED\u5A01\u80C1\u68C0\u6D4B\u80FD\u529B"
+  },
+  inspector_findings: {
+    icon: "\u{1F7E1}",
+    service: "Inspector",
+    impact: "\u65E0\u6CD5\u626B\u63CF EC2/Lambda/\u5BB9\u5668\u7684\u8F6F\u4EF6\u6F0F\u6D1E\uFF08CVE\uFF09",
+    action: "\u542F\u7528 Inspector \u53D1\u73B0\u5DF2\u77E5\u5B89\u5168\u6F0F\u6D1E"
+  },
+  trusted_advisor_findings: {
+    icon: "\u{1F7E1}",
+    service: "Trusted Advisor",
+    impact: "\u65E0\u6CD5\u83B7\u53D6 AWS \u6700\u4F73\u5B9E\u8DF5\u5B89\u5168\u68C0\u67E5",
+    action: "\u5347\u7EA7\u81F3 Business/Enterprise Support \u8BA1\u5212\u4EE5\u4F7F\u7528 Trusted Advisor \u5B89\u5168\u68C0\u67E5"
+  },
+  config_rules_findings: {
+    icon: "\u{1F7E1}",
+    service: "AWS Config",
+    impact: "\u65E0\u6CD5\u68C0\u67E5\u8D44\u6E90\u914D\u7F6E\u5408\u89C4\u72B6\u6001",
+    action: "\u542F\u7528 AWS Config \u5E76\u914D\u7F6E Config Rules"
+  },
+  access_analyzer_findings: {
+    icon: "\u{1F7E1}",
+    service: "IAM Access Analyzer",
+    impact: "\u65E0\u6CD5\u68C0\u6D4B\u8D44\u6E90\u662F\u5426\u88AB\u5916\u90E8\u8D26\u53F7\u6216\u516C\u7F51\u8BBF\u95EE",
+    action: "\u521B\u5EFA IAM Access Analyzer\uFF08\u8D26\u6237\u7EA7\u6216\u7EC4\u7EC7\u7EA7\uFF09"
+  },
+  patch_compliance_findings: {
+    icon: "\u{1F7E1}",
+    service: "SSM Patch Manager",
+    impact: "\u65E0\u6CD5\u68C0\u67E5\u5B9E\u4F8B\u8865\u4E01\u5408\u89C4\u72B6\u6001",
+    action: "\u5B89\u88C5 SSM Agent \u5E76\u914D\u7F6E Patch Manager"
+  }
+};
+var SERVICE_NOT_ENABLED_PATTERNS2 = [
+  "not enabled",
+  "not found",
+  "No IAM Access Analyzer",
+  "No SSM-managed instances",
+  "requires AWS Business or Enterprise Support",
+  "not available",
+  "is not enabled"
+];
+function buildServiceReminder(modules) {
+  const disabledServices = [];
+  for (const mod of modules) {
+    const rec = SERVICE_RECOMMENDATIONS2[mod.module];
+    if (!rec) continue;
+    if (!mod.warnings?.length) continue;
+    const hasNotEnabled = mod.warnings.some(
+      (w) => SERVICE_NOT_ENABLED_PATTERNS2.some((p) => w.includes(p))
+    );
+    if (hasNotEnabled) {
+      disabledServices.push(rec);
+    }
+  }
+  if (disabledServices.length === 0) return "";
+  const lines = [
+    "",
+    "\u26A1 \u4EE5\u4E0B\u5B89\u5168\u670D\u52A1\u672A\u542F\u7528\uFF0C\u90E8\u5206\u68C0\u67E5\u65E0\u6CD5\u6267\u884C\uFF1A",
+    ""
+  ];
+  for (const svc of disabledServices) {
+    lines.push(`${svc.icon} ${svc.service} \u672A\u542F\u7528`);
+    lines.push(`   \u5F71\u54CD\uFF1A${svc.impact}`);
+    lines.push(`   \u5EFA\u8BAE\uFF1A${svc.action}`);
+    lines.push("");
+  }
+  lines.push("\u542F\u7528\u4EE5\u4E0A\u670D\u52A1\u540E\u91CD\u65B0\u626B\u63CF\u53EF\u83B7\u5F97\u66F4\u5B8C\u6574\u7684\u5B89\u5168\u8BC4\u4F30\u3002");
+  return lines.join("\n");
+}
 function summarizeResult(result) {
   const { summary } = result;
   const lines = [
@@ -5509,6 +5680,10 @@ function summarizeResult(result) {
     `Total findings: ${summary.totalFindings} (${summary.critical} Critical, ${summary.high} High, ${summary.medium} Medium, ${summary.low} Low)`,
     `Modules: ${summary.modulesSuccess} succeeded, ${summary.modulesError} errored`
   ];
+  const reminder = buildServiceReminder(result.modules);
+  if (reminder) {
+    lines.push(reminder);
+  }
   return lines.join("\n");
 }
 function summarizeScanResult(result) {

@@ -1,4 +1,4 @@
-import type { FullScanResult, Finding, Severity, DashboardHistoryEntry } from "../types.js";
+import type { FullScanResult, Finding, Severity, DashboardHistoryEntry, ScanResult } from "../types.js";
 import {
   MLPS_CHECKS,
   CATEGORY_ORDER,
@@ -51,6 +51,102 @@ function scoreColor(score: number): string {
   if (score >= 80) return "#22c55e";
   if (score >= 50) return "#eab308";
   return "#ef4444";
+}
+
+// ---------------------------------------------------------------------------
+// Service Dependency Reminder
+// ---------------------------------------------------------------------------
+
+const SERVICE_RECOMMENDATIONS: Record<string, { icon: string; service: string; impact: string; action: string }> = {
+  security_hub_findings: {
+    icon: "\ud83d\udd34",
+    service: "Security Hub",
+    impact: "\u65e0\u6cd5\u83b7\u53d6 300+ \u9879\u81ea\u52a8\u5316\u5b89\u5168\u68c0\u67e5\uff08FSBP/CIS/PCI DSS \u6807\u51c6\uff09",
+    action: "\u542f\u7528 Security Hub \u83b7\u5f97\u6700\u5168\u9762\u7684\u5b89\u5168\u6001\u52bf\u8bc4\u4f30",
+  },
+  guardduty_findings: {
+    icon: "\ud83d\udd34",
+    service: "GuardDuty",
+    impact: "\u65e0\u6cd5\u68c0\u6d4b\u5a01\u80c1\u6d3b\u52a8\uff08\u6076\u610f IP\u3001\u5f02\u5e38 API \u8c03\u7528\u3001\u52a0\u5bc6\u8d27\u5e01\u6316\u77ff\u7b49\uff09",
+    action: "\u542f\u7528 GuardDuty \u83b7\u5f97\u6301\u7eed\u5a01\u80c1\u68c0\u6d4b\u80fd\u529b",
+  },
+  inspector_findings: {
+    icon: "\ud83d\udfe1",
+    service: "Inspector",
+    impact: "\u65e0\u6cd5\u626b\u63cf EC2/Lambda/\u5bb9\u5668\u7684\u8f6f\u4ef6\u6f0f\u6d1e\uff08CVE\uff09",
+    action: "\u542f\u7528 Inspector \u53d1\u73b0\u5df2\u77e5\u5b89\u5168\u6f0f\u6d1e",
+  },
+  trusted_advisor_findings: {
+    icon: "\ud83d\udfe1",
+    service: "Trusted Advisor",
+    impact: "\u65e0\u6cd5\u83b7\u53d6 AWS \u6700\u4f73\u5b9e\u8df5\u5b89\u5168\u68c0\u67e5",
+    action: "\u5347\u7ea7\u81f3 Business/Enterprise Support \u8ba1\u5212\u4ee5\u4f7f\u7528 Trusted Advisor \u5b89\u5168\u68c0\u67e5",
+  },
+  config_rules_findings: {
+    icon: "\ud83d\udfe1",
+    service: "AWS Config",
+    impact: "\u65e0\u6cd5\u68c0\u67e5\u8d44\u6e90\u914d\u7f6e\u5408\u89c4\u72b6\u6001",
+    action: "\u542f\u7528 AWS Config \u5e76\u914d\u7f6e Config Rules",
+  },
+  access_analyzer_findings: {
+    icon: "\ud83d\udfe1",
+    service: "IAM Access Analyzer",
+    impact: "\u65e0\u6cd5\u68c0\u6d4b\u8d44\u6e90\u662f\u5426\u88ab\u5916\u90e8\u8d26\u53f7\u6216\u516c\u7f51\u8bbf\u95ee",
+    action: "\u521b\u5efa IAM Access Analyzer\uff08\u8d26\u6237\u7ea7\u6216\u7ec4\u7ec7\u7ea7\uff09",
+  },
+  patch_compliance_findings: {
+    icon: "\ud83d\udfe1",
+    service: "SSM Patch Manager",
+    impact: "\u65e0\u6cd5\u68c0\u67e5\u5b9e\u4f8b\u8865\u4e01\u5408\u89c4\u72b6\u6001",
+    action: "\u5b89\u88c5 SSM Agent \u5e76\u914d\u7f6e Patch Manager",
+  },
+};
+
+const SERVICE_NOT_ENABLED_PATTERNS = [
+  "not enabled",
+  "not found",
+  "No IAM Access Analyzer",
+  "No SSM-managed instances",
+  "requires AWS Business or Enterprise Support",
+  "not available",
+  "is not enabled",
+];
+
+function getDisabledServices(modules: ScanResult[]): Array<{ icon: string; service: string; impact: string; action: string }> {
+  const disabled: Array<{ icon: string; service: string; impact: string; action: string }> = [];
+  for (const mod of modules) {
+    const rec = SERVICE_RECOMMENDATIONS[mod.module];
+    if (!rec) continue;
+    if (!mod.warnings?.length) continue;
+    const hasNotEnabled = mod.warnings.some((w) =>
+      SERVICE_NOT_ENABLED_PATTERNS.some((p) => w.includes(p)),
+    );
+    if (hasNotEnabled) {
+      disabled.push(rec);
+    }
+  }
+  return disabled;
+}
+
+function buildServiceReminderHtml(modules: ScanResult[]): string {
+  const disabled = getDisabledServices(modules);
+  if (disabled.length === 0) return "";
+
+  const items = disabled.map((svc) => `
+    <div style="margin-bottom:12px">
+      <div style="font-weight:600;font-size:15px">${esc(svc.icon)} ${esc(svc.service)} \u672a\u542f\u7528</div>
+      <div style="margin-left:28px;color:#cbd5e1;font-size:13px">\u5f71\u54cd\uff1a${esc(svc.impact)}</div>
+      <div style="margin-left:28px;color:#cbd5e1;font-size:13px">\u5efa\u8bae\uff1a${esc(svc.action)}</div>
+    </div>`).join("\n");
+
+  return `
+  <section>
+    <div style="background:#2d1f00;border:1px solid #b45309;border-radius:8px;padding:20px;margin-bottom:32px">
+      <div style="font-size:17px;font-weight:700;margin-bottom:12px">&#9889; \u4ee5\u4e0b\u5b89\u5168\u670d\u52a1\u672a\u542f\u7528\uff0c\u90e8\u5206\u68c0\u67e5\u65e0\u6cd5\u6267\u884c\uff1a</div>
+      ${items}
+      <div style="margin-top:12px;font-size:13px;color:#fbbf24;font-weight:500">\u542f\u7528\u4ee5\u4e0a\u670d\u52a1\u540e\u91cd\u65b0\u626b\u63cf\u53ef\u83b7\u5f97\u66f4\u5b8c\u6574\u7684\u5b89\u5168\u8bc4\u4f30\u3002</div>
+    </div>
+  </section>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -683,6 +779,8 @@ ${trendHtml}
 
 ${top5Html}
 
+${buildServiceReminderHtml(modules)}
+
 <section>
   <h2>Scan Statistics</h2>
   <table>
@@ -931,6 +1029,8 @@ export function generateMlps3HtmlReport(
 ${unknownNote}
 
 ${trendHtml}
+
+${buildServiceReminderHtml(scanResults.modules)}
 
 ${categorySections}
 
