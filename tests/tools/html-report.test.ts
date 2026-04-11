@@ -171,7 +171,7 @@ describe("generateHtmlReport", () => {
     const result = makeResult([{ module: "service_detection", findings: [] }]);
     const html = generateHtmlReport(result);
 
-    expect(html).toContain("AWS Security MCP Server v0.4.2");
+    expect(html).toContain("AWS Security MCP Server v0.5.0");
     expect(html).toContain("informational purposes only");
   });
 

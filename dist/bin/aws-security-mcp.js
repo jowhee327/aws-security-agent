@@ -237,7 +237,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 
 // src/version.ts
-var VERSION = "0.4.2";
+var VERSION = "0.5.0";
 
 // src/utils/aws-client.ts
 import { STSClient, GetCallerIdentityCommand } from "@aws-sdk/client-sts";
@@ -3961,6 +3961,243 @@ var PatchComplianceFindingsScanner = class {
   }
 };
 
+// src/scanners/imdsv2-enforcement.ts
+import {
+  EC2Client as EC2Client6,
+  DescribeInstancesCommand as DescribeInstancesCommand5
+} from "@aws-sdk/client-ec2";
+function makeFinding11(opts) {
+  const severity = severityFromScore(opts.riskScore);
+  return { ...opts, severity, priority: priorityFromSeverity(severity) };
+}
+var Imdsv2EnforcementScanner = class {
+  moduleName = "imdsv2_enforcement";
+  async scan(ctx) {
+    const { region, partition, accountId } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    try {
+      const client = createClient(EC2Client6, region, ctx.credentials);
+      const instances = [];
+      let nextToken;
+      do {
+        const resp = await client.send(
+          new DescribeInstancesCommand5({
+            Filters: [{ Name: "instance-state-name", Values: ["running"] }],
+            NextToken: nextToken
+          })
+        );
+        if (resp.Reservations) {
+          for (const reservation of resp.Reservations) {
+            if (reservation.Instances) {
+              instances.push(...reservation.Instances);
+            }
+          }
+        }
+        nextToken = resp.NextToken;
+      } while (nextToken);
+      for (const instance of instances) {
+        const instanceId = instance.InstanceId ?? "unknown";
+        const instanceType = instance.InstanceType ?? "unknown";
+        const state = instance.State?.Name ?? "unknown";
+        const httpTokens = instance.MetadataOptions?.HttpTokens ?? "unknown";
+        const hopLimit = instance.MetadataOptions?.HttpPutResponseHopLimit ?? 1;
+        const arnSuffix = partition === "aws-cn" ? "amazonaws.com.cn" : "amazonaws.com";
+        const instanceArn = `arn:${partition}:ec2:${region}:${accountId}:instance/${instanceId}`;
+        if (httpTokens !== "required") {
+          const description = [
+            `EC2 instance ${instanceId} (type: ${instanceType}, state: ${state}) has HttpTokens set to "${httpTokens}".`,
+            `IMDSv1 is accessible, allowing unauthenticated metadata requests.`
+          ];
+          if (hopLimit > 1) {
+            description.push(`HttpPutResponseHopLimit is ${hopLimit} (>1), which may allow containers to reach IMDS.`);
+          }
+          findings.push(
+            makeFinding11({
+              riskScore: 7.5,
+              title: `EC2 instance ${instanceId} does not enforce IMDSv2`,
+              resourceType: "AWS::EC2::Instance",
+              resourceId: instanceId,
+              resourceArn: instanceArn,
+              region,
+              description: description.join(" "),
+              impact: "IMDSv1 allows attackers to steal IAM role credentials via SSRF attacks",
+              remediationSteps: [
+                "Enforce IMDSv2 by setting HttpTokens to 'required'.",
+                "Run: aws ec2 modify-instance-metadata-options --instance-id " + instanceId + " --http-tokens required --http-endpoint enabled",
+                "Set HttpPutResponseHopLimit to 1 unless running containers that need metadata access.",
+                "Update launch templates and Auto Scaling groups to enforce IMDSv2 for new instances."
+              ]
+            })
+          );
+        } else if (hopLimit > 1) {
+          warnings.push(
+            `Instance ${instanceId} enforces IMDSv2 but HttpPutResponseHopLimit is ${hopLimit} (>1). Verify this is intentional for containerized workloads.`
+          );
+        }
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: instances.length,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: 0,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+
+// src/scanners/waf-coverage.ts
+import {
+  ElasticLoadBalancingV2Client,
+  DescribeLoadBalancersCommand
+} from "@aws-sdk/client-elastic-load-balancing-v2";
+import {
+  WAFV2Client,
+  GetWebACLForResourceCommand
+} from "@aws-sdk/client-wafv2";
+function makeFinding12(opts) {
+  const severity = severityFromScore(opts.riskScore);
+  return { ...opts, severity, priority: priorityFromSeverity(severity) };
+}
+var WafCoverageScanner = class {
+  moduleName = "waf_coverage";
+  async scan(ctx) {
+    const { region, partition, accountId } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    try {
+      const elbClient = createClient(ElasticLoadBalancingV2Client, region, ctx.credentials);
+      const wafClient = createClient(WAFV2Client, region, ctx.credentials);
+      const loadBalancers = [];
+      let marker;
+      do {
+        const resp = await elbClient.send(
+          new DescribeLoadBalancersCommand({ Marker: marker })
+        );
+        if (resp.LoadBalancers) {
+          loadBalancers.push(...resp.LoadBalancers);
+        }
+        marker = resp.NextMarker;
+      } while (marker);
+      const internetFacing = loadBalancers.filter((lb) => lb.Scheme === "internet-facing");
+      for (const lb of internetFacing) {
+        const lbName = lb.LoadBalancerName ?? "unknown";
+        const lbArn = lb.LoadBalancerArn ?? "unknown";
+        const lbType = lb.Type ?? "unknown";
+        if (lbType !== "application") {
+          warnings.push(
+            `Skipping ${lbType} load balancer "${lbName}" \u2014 WAF Web ACL association is only supported for ALBs.`
+          );
+          continue;
+        }
+        try {
+          const wafResp = await wafClient.send(
+            new GetWebACLForResourceCommand({ ResourceArn: lbArn })
+          );
+          if (!wafResp.WebACL) {
+            findings.push(
+              makeFinding12({
+                riskScore: 7.5,
+                title: `Internet-facing ALB ${lbName} has no WAF protection`,
+                resourceType: "AWS::ElasticLoadBalancingV2::LoadBalancer",
+                resourceId: lbName,
+                resourceArn: lbArn,
+                region,
+                description: `Internet-facing Application Load Balancer "${lbName}" does not have a WAF Web ACL associated. Traffic is not inspected for common web exploits.`,
+                impact: "Without WAF, the ALB is exposed to SQL injection, XSS, and other OWASP Top 10 attacks",
+                remediationSteps: [
+                  "Create a WAFv2 Web ACL with managed rule groups (e.g., AWSManagedRulesCommonRuleSet).",
+                  "Associate the Web ACL with the ALB using the REGIONAL scope.",
+                  "Enable WAF logging for visibility into blocked requests.",
+                  "Consider adding rate-based rules to mitigate DDoS at the application layer."
+                ]
+              })
+            );
+          }
+        } catch (wafErr) {
+          const errMsg = wafErr instanceof Error ? wafErr.message : String(wafErr);
+          const errName = wafErr instanceof Error ? wafErr.name ?? "" : "";
+          if (errName === "WAFNonexistentItemException") {
+            findings.push(
+              makeFinding12({
+                riskScore: 7.5,
+                title: `Internet-facing ALB ${lbName} has no WAF protection`,
+                resourceType: "AWS::ElasticLoadBalancingV2::LoadBalancer",
+                resourceId: lbName,
+                resourceArn: lbArn,
+                region,
+                description: `Internet-facing Application Load Balancer "${lbName}" does not have a WAF Web ACL associated. Traffic is not inspected for common web exploits.`,
+                impact: "Without WAF, the ALB is exposed to SQL injection, XSS, and other OWASP Top 10 attacks",
+                remediationSteps: [
+                  "Create a WAFv2 Web ACL with managed rule groups (e.g., AWSManagedRulesCommonRuleSet).",
+                  "Associate the Web ACL with the ALB using the REGIONAL scope.",
+                  "Enable WAF logging for visibility into blocked requests.",
+                  "Consider adding rate-based rules to mitigate DDoS at the application layer."
+                ]
+              })
+            );
+          } else if (errName === "AccessDeniedException" || errName === "WAFInvalidParameterException") {
+            warnings.push(
+              `Could not check WAF for ALB "${lbName}": ${errMsg}. Ensure wafv2:GetWebACLForResource permission is granted.`
+            );
+          } else {
+            warnings.push(`Error checking WAF for ALB "${lbName}": ${errMsg}`);
+          }
+        }
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: internetFacing.length,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const errName = err instanceof Error ? err.name ?? "" : "";
+      if (errName === "AccessDeniedException" || errName === "UnrecognizedClientException") {
+        return {
+          module: this.moduleName,
+          status: "success",
+          warnings: [`WAF coverage check skipped: ${errMsg}`],
+          resourcesScanned: 0,
+          findingsCount: 0,
+          scanTimeMs: Date.now() - startMs,
+          findings: []
+        };
+      }
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: errMsg,
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned: 0,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+
 // src/tools/report-tool.ts
 var SEVERITY_ICON = {
   CRITICAL: "\u{1F534}",
@@ -5192,13 +5429,13 @@ var SCAN_GROUPS = {
   mlps3_precheck: {
     name: "\u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0",
     description: "GB/T 22239-2019 \u7B49\u4FDD\u4E09\u7EA7 AWS \u4E91\u79DF\u6237\u5C42\u914D\u7F6E\u68C0\u67E5",
-    modules: ["service_detection", "secret_exposure", "ssl_certificate", "dns_dangling", "network_reachability", "iam_privilege_escalation", "tag_compliance", "disaster_recovery", "security_hub_findings", "guardduty_findings", "inspector_findings", "trusted_advisor_findings", "config_rules_findings", "access_analyzer_findings", "patch_compliance_findings"],
+    modules: ["service_detection", "secret_exposure", "ssl_certificate", "dns_dangling", "network_reachability", "iam_privilege_escalation", "tag_compliance", "disaster_recovery", "security_hub_findings", "guardduty_findings", "inspector_findings", "trusted_advisor_findings", "config_rules_findings", "access_analyzer_findings", "patch_compliance_findings", "imdsv2_enforcement", "waf_coverage"],
     reportType: "mlps3"
   },
   hw_defense: {
     name: "\u62A4\u7F51\u84DD\u961F\u52A0\u56FA",
     description: "\u62A4\u7F51\u524D\u5B89\u5168\u81EA\u67E5 \u2014 \u653B\u51FB\u9762+\u5F31\u70B9\u8BC4\u4F30",
-    modules: ["service_detection", "secret_exposure", "network_reachability", "dns_dangling", "ssl_certificate", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "inspector_findings", "config_rules_findings", "access_analyzer_findings", "patch_compliance_findings"],
+    modules: ["service_detection", "secret_exposure", "network_reachability", "dns_dangling", "ssl_certificate", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "inspector_findings", "config_rules_findings", "access_analyzer_findings", "patch_compliance_findings", "imdsv2_enforcement", "waf_coverage"],
     findingsFilter: {
       guardDutyTypes: ["Backdoor", "Trojan", "PenTest", "CryptoCurrency"],
       minSeverity: "MEDIUM"
@@ -5207,7 +5444,7 @@ var SCAN_GROUPS = {
   exposure: {
     name: "\u516C\u7F51\u66B4\u9732\u9762\u8BC4\u4F30",
     description: "\u8BC4\u4F30\u516C\u7F51\u53EF\u8FBE\u7684\u8D44\u6E90\u548C\u7AEF\u53E3",
-    modules: ["network_reachability", "dns_dangling", "public_access_verify", "ssl_certificate", "security_hub_findings", "access_analyzer_findings"],
+    modules: ["network_reachability", "dns_dangling", "public_access_verify", "ssl_certificate", "security_hub_findings", "access_analyzer_findings", "imdsv2_enforcement", "waf_coverage"],
     findingsFilter: {
       securityHubCategories: ["network", "public", "exposure", "port"]
     }
@@ -5254,7 +5491,7 @@ var SCAN_GROUPS = {
   new_account_baseline: {
     name: "\u65B0\u8D26\u6237\u57FA\u7EBF\u68C0\u67E5",
     description: "\u65B0 AWS \u8D26\u6237\u5B89\u5168\u57FA\u7EBF",
-    modules: ["service_detection", "secret_exposure", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "access_analyzer_findings"]
+    modules: ["service_detection", "secret_exposure", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "access_analyzer_findings", "imdsv2_enforcement"]
   },
   aggregation: {
     name: "\u5B89\u5168\u670D\u52A1\u805A\u5408",
@@ -5264,7 +5501,7 @@ var SCAN_GROUPS = {
 };
 
 // src/resources/index.ts
-var SECURITY_RULES_CONTENT = `# AWS Security Scan Modules & Rules (17 modules)
+var SECURITY_RULES_CONTENT = `# AWS Security Scan Modules & Rules (19 modules)
 
 ## 1. Service Detection (service_detection)
 Detects which AWS security services are enabled and assesses overall security maturity.
@@ -5358,6 +5595,21 @@ Checks patch compliance status for SSM-managed instances.
 - Missing non-security patches \u2192 MEDIUM (5.5).
 - Instances without patch data flagged as LOW (3.0) for visibility.
 - Includes platform info, missing/failed counts, and last scan time.
+
+## 18. IMDSv2 Enforcement (imdsv2_enforcement)
+Checks if EC2 instances enforce IMDSv2 (Instance Metadata Service v2).
+- Lists all running EC2 instances and checks MetadataOptions.HttpTokens.
+- **HttpTokens != "required"** \u2014 Risk 7.5: IMDSv1 allows credential theft via SSRF attacks.
+- Also checks HttpPutResponseHopLimit \u2014 values >1 on containerized workloads noted as warning.
+- Remediation: Set HttpTokens to "required" via modify-instance-metadata-options.
+
+## 19. WAF Coverage (waf_coverage)
+Checks if internet-facing ALBs have WAF Web ACL associated for protection.
+- Lists all ELBv2 load balancers, filters to internet-facing only.
+- For each internet-facing ALB, checks WAFv2 Web ACL association.
+- **No WAF Web ACL** \u2014 Risk 7.5: ALB exposed to SQL injection, XSS, and OWASP Top 10 attacks.
+- NLBs (L4) are skipped as WAF does not apply \u2014 noted in warnings.
+- Gracefully handles WAFv2 access denied or unavailable regions.
 `;
 var RISK_SCORING_CONTENT = `# Risk Scoring Model
 
@@ -5422,7 +5674,9 @@ var MODULE_DESCRIPTIONS = {
   trusted_advisor_findings: "Aggregates security checks from AWS Trusted Advisor \u2014 requires Business or Enterprise Support plan.",
   config_rules_findings: "Pulls non-compliant AWS Config Rule evaluation results \u2014 configuration compliance violations across all resource types.",
   access_analyzer_findings: "Pulls active IAM Access Analyzer findings \u2014 resources accessible from outside the account (external principals, public access).",
-  patch_compliance_findings: "Checks SSM Patch Manager compliance \u2014 managed instances with missing or failed security and system patches."
+  patch_compliance_findings: "Checks SSM Patch Manager compliance \u2014 managed instances with missing or failed security and system patches.",
+  imdsv2_enforcement: "Checks if EC2 instances enforce IMDSv2 (HttpTokens: required) \u2014 IMDSv1 allows credential theft via SSRF.",
+  waf_coverage: "Checks if internet-facing ALBs have WAF Web ACL associated for protection against common web exploits."
 };
 function summarizeResult(result) {
   const { summary } = result;
@@ -5474,7 +5728,9 @@ function createServer(defaultRegion) {
     new TrustedAdvisorFindingsScanner(),
     new ConfigRulesFindingsScanner(),
     new AccessAnalyzerFindingsScanner(),
-    new PatchComplianceFindingsScanner()
+    new PatchComplianceFindingsScanner(),
+    new Imdsv2EnforcementScanner(),
+    new WafCoverageScanner()
   ];
   const scannerMap = /* @__PURE__ */ new Map();
   for (const s of allScanners) {
@@ -5530,7 +5786,9 @@ function createServer(defaultRegion) {
     { toolName: "scan_trusted_advisor_findings", moduleName: "trusted_advisor_findings", label: "Trusted Advisor Findings" },
     { toolName: "scan_config_rules_findings", moduleName: "config_rules_findings", label: "Config Rules Findings" },
     { toolName: "scan_access_analyzer_findings", moduleName: "access_analyzer_findings", label: "Access Analyzer Findings" },
-    { toolName: "scan_patch_compliance_findings", moduleName: "patch_compliance_findings", label: "Patch Compliance Findings" }
+    { toolName: "scan_patch_compliance_findings", moduleName: "patch_compliance_findings", label: "Patch Compliance Findings" },
+    { toolName: "scan_imdsv2_enforcement", moduleName: "imdsv2_enforcement", label: "IMDSv2 Enforcement" },
+    { toolName: "scan_waf_coverage", moduleName: "waf_coverage", label: "WAF Coverage" }
   ];
   for (const { toolName, moduleName, label } of individualScanners) {
     server.tool(
@@ -5962,7 +6220,7 @@ Deploy this as a StackSet from your Management Account to all member accounts.` 
   server.resource(
     "security-rules",
     "security://rules",
-    { description: "Describes all 17 scan modules and their check rules", mimeType: "text/markdown" },
+    { description: "Describes all 19 scan modules and their check rules", mimeType: "text/markdown" },
     async () => ({
       contents: [{ uri: "security://rules", text: SECURITY_RULES_CONTENT, mimeType: "text/markdown" }]
     })

@@ -1,4 +1,4 @@
-export const SECURITY_RULES_CONTENT = `# AWS Security Scan Modules & Rules (17 modules)
+export const SECURITY_RULES_CONTENT = `# AWS Security Scan Modules & Rules (19 modules)
 
 ## 1. Service Detection (service_detection)
 Detects which AWS security services are enabled and assesses overall security maturity.
@@ -92,6 +92,21 @@ Checks patch compliance status for SSM-managed instances.
 - Missing non-security patches → MEDIUM (5.5).
 - Instances without patch data flagged as LOW (3.0) for visibility.
 - Includes platform info, missing/failed counts, and last scan time.
+
+## 18. IMDSv2 Enforcement (imdsv2_enforcement)
+Checks if EC2 instances enforce IMDSv2 (Instance Metadata Service v2).
+- Lists all running EC2 instances and checks MetadataOptions.HttpTokens.
+- **HttpTokens != "required"** — Risk 7.5: IMDSv1 allows credential theft via SSRF attacks.
+- Also checks HttpPutResponseHopLimit — values >1 on containerized workloads noted as warning.
+- Remediation: Set HttpTokens to "required" via modify-instance-metadata-options.
+
+## 19. WAF Coverage (waf_coverage)
+Checks if internet-facing ALBs have WAF Web ACL associated for protection.
+- Lists all ELBv2 load balancers, filters to internet-facing only.
+- For each internet-facing ALB, checks WAFv2 Web ACL association.
+- **No WAF Web ACL** — Risk 7.5: ALB exposed to SQL injection, XSS, and OWASP Top 10 attacks.
+- NLBs (L4) are skipped as WAF does not apply — noted in warnings.
+- Gracefully handles WAFv2 access denied or unavailable regions.
 `;
 
 export const RISK_SCORING_CONTENT = `# Risk Scoring Model

@@ -23,6 +23,8 @@ import { TrustedAdvisorFindingsScanner } from "./scanners/trusted-advisor-findin
 import { ConfigRulesFindingsScanner } from "./scanners/config-rules-findings.js";
 import { AccessAnalyzerFindingsScanner } from "./scanners/access-analyzer-findings.js";
 import { PatchComplianceFindingsScanner } from "./scanners/patch-compliance-findings.js";
+import { Imdsv2EnforcementScanner } from "./scanners/imdsv2-enforcement.js";
+import { WafCoverageScanner } from "./scanners/waf-coverage.js";
 import { generateMarkdownReport } from "./tools/report-tool.js";
 import { generateMlps3Report } from "./tools/mlps-report.js";
 import { generateHtmlReport, generateMlps3HtmlReport } from "./tools/html-report.js";
@@ -92,6 +94,10 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
     "Pulls active IAM Access Analyzer findings — resources accessible from outside the account (external principals, public access).",
   patch_compliance_findings:
     "Checks SSM Patch Manager compliance — managed instances with missing or failed security and system patches.",
+  imdsv2_enforcement:
+    "Checks if EC2 instances enforce IMDSv2 (HttpTokens: required) — IMDSv1 allows credential theft via SSRF.",
+  waf_coverage:
+    "Checks if internet-facing ALBs have WAF Web ACL associated for protection against common web exploits.",
 };
 
 function summarizeResult(result: FullScanResult): string {
@@ -149,6 +155,8 @@ export function createServer(defaultRegion: string): McpServer {
     new ConfigRulesFindingsScanner(),
     new AccessAnalyzerFindingsScanner(),
     new PatchComplianceFindingsScanner(),
+    new Imdsv2EnforcementScanner(),
+    new WafCoverageScanner(),
   ];
 
   const scannerMap = new Map<string, Scanner>();
@@ -214,6 +222,8 @@ export function createServer(defaultRegion: string): McpServer {
     { toolName: "scan_config_rules_findings", moduleName: "config_rules_findings", label: "Config Rules Findings" },
     { toolName: "scan_access_analyzer_findings", moduleName: "access_analyzer_findings", label: "Access Analyzer Findings" },
     { toolName: "scan_patch_compliance_findings", moduleName: "patch_compliance_findings", label: "Patch Compliance Findings" },
+    { toolName: "scan_imdsv2_enforcement", moduleName: "imdsv2_enforcement", label: "IMDSv2 Enforcement" },
+    { toolName: "scan_waf_coverage", moduleName: "waf_coverage", label: "WAF Coverage" },
   ];
 
   for (const { toolName, moduleName, label } of individualScanners) {
@@ -695,7 +705,7 @@ export function createServer(defaultRegion: string): McpServer {
   server.resource(
     "security-rules",
     "security://rules",
-    { description: "Describes all 17 scan modules and their check rules", mimeType: "text/markdown" },
+    { description: "Describes all 19 scan modules and their check rules", mimeType: "text/markdown" },
     async () => ({
       contents: [{ uri: "security://rules", text: SECURITY_RULES_CONTENT, mimeType: "text/markdown" }],
     }),
