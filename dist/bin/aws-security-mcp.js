@@ -8146,15 +8146,15 @@ ${mlpsRemaining.map(renderMlpsRec).join("\n")}
   </div>
 </section>
 
-<div class="mlps-summary-cards" style="justify-content:center">
-  <div class="mlps-summary-card" style="flex:none;min-width:180px"><div class="stat-count" style="color:#22c55e;font-size:42px">${autoClean}</div><div class="stat-label" style="font-size:14px">\u{1F7E2} \u672A\u53D1\u73B0\u95EE\u9898</div></div>
-  <div class="mlps-summary-card" style="flex:none;min-width:180px"><div class="stat-count" style="color:#ef4444;font-size:42px">${autoIssues}</div><div class="stat-label" style="font-size:14px">\u{1F534} \u53D1\u73B0\u95EE\u9898</div></div>
-</div>
-<div class="mlps-summary-cards" style="justify-content:center;margin-top:8px">
-  ${autoUnknown > 0 ? `<div class="mlps-summary-card" style="flex:none;min-width:120px"><div class="stat-count" style="color:#64748b">${autoUnknown}</div><div class="stat-label">\u2B1C \u672A\u68C0\u67E5</div></div>` : ""}
-  <div class="mlps-summary-card" style="flex:none;min-width:120px"><div class="stat-count" style="color:#94a3b8">${cloudCount}</div><div class="stat-label">\u{1F3E2} \u4E91\u5E73\u53F0\u8D1F\u8D23</div></div>
-  <div class="mlps-summary-card" style="flex:none;min-width:120px"><div class="stat-count" style="color:#eab308">${manualCount}</div><div class="stat-label">\u{1F4CB} \u9700\u4EBA\u5DE5\u8BC4\u4F30</div></div>
-  ${naCount > 0 ? `<div class="mlps-summary-card" style="flex:none;min-width:120px"><div class="stat-count" style="color:#64748b">${naCount}</div><div class="stat-label">\u2796 \u4E0D\u9002\u7528</div></div>` : ""}
+<div style="text-align:center;margin-bottom:24px">
+  <div style="font-size:36px;font-weight:700;margin-bottom:8px">
+    <span style="color:#22c55e">${autoClean}</span> <span style="color:#94a3b8;font-size:18px">\u672A\u53D1\u73B0\u95EE\u9898</span>
+    <span style="color:#475569;margin:0 16px">/</span>
+    <span style="color:#ef4444">${autoIssues}</span> <span style="color:#94a3b8;font-size:18px">\u53D1\u73B0\u95EE\u9898</span>
+  </div>
+  <div style="font-size:14px;color:#64748b">
+    ${checkedTotal} \u5DF2\u68C0\u67E5\u9879 / ${cloudCount} \u4E91\u5E73\u53F0\u8D1F\u8D23 / ${manualCount} \u9700\u4EBA\u5DE5\u8BC4\u4F30${naCount > 0 ? ` / ${naCount} \u4E0D\u9002\u7528` : ""}
+  </div>
 </div>
 ${unknownNote}
 
