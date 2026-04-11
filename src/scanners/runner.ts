@@ -137,7 +137,8 @@ export async function runMultiAccountScanners(
       // Graceful fallback: single account not in an Organization
       const result = await runAllScanners(scanners, region);
       // Inject warning about org_mode on non-org account
-      if (result.modules.length > 0 && result.modules[0].warnings) {
+      if (result.modules.length > 0) {
+        if (!result.modules[0].warnings) result.modules[0].warnings = [];
         result.modules[0].warnings.unshift("org_mode enabled but this account is not part of an AWS Organization. Scanning current account only.");
       }
       return result;
@@ -218,6 +219,17 @@ export async function runMultiAccountScanners(
   }
 
   const scanEnd = new Date().toISOString();
+
+  // Post-filter: if account_ids was specified, filter aggregation findings too
+  if (opts.accountIds?.length) {
+    const idSet = new Set(opts.accountIds);
+    for (const mod of allModules) {
+      if (AGGREGATION_MODULES.has(mod.module)) {
+        mod.findings = mod.findings.filter((f) => !f.accountId || idSet.has(f.accountId));
+        mod.findingsCount = mod.findings.length;
+      }
+    }
+  }
 
   return {
     scanStart,
