@@ -1,16 +1,19 @@
 /**
- * Integration smoke test — runs all 7 scanners against a real AWS account.
+ * Integration smoke test — runs all scanners against a real AWS account.
  * Usage: npx tsx tests/integration/smoke-test.ts
  */
 import { writeFileSync } from "node:fs";
 
-import { SgScanner } from "../../src/scanners/sg.js";
-import { S3Scanner } from "../../src/scanners/s3.js";
-import { IamScanner } from "../../src/scanners/iam.js";
-import { CloudTrailScanner } from "../../src/scanners/cloudtrail.js";
-import { RdsScanner } from "../../src/scanners/rds.js";
-import { EbsScanner } from "../../src/scanners/ebs.js";
-import { VpcScanner } from "../../src/scanners/vpc.js";
+import { ServiceDetectionScanner } from "../../src/scanners/service-detection.js";
+import { SecretExposureScanner } from "../../src/scanners/secret-exposure.js";
+import { SslCertificateScanner } from "../../src/scanners/ssl-certificate.js";
+import { DnsDanglingScanner } from "../../src/scanners/dns-dangling.js";
+import { NetworkReachabilityScanner } from "../../src/scanners/network-reachability.js";
+import { IamPrivilegeEscalationScanner } from "../../src/scanners/iam-privilege-escalation.js";
+import { SecurityHubFindingsScanner } from "../../src/scanners/security-hub-findings.js";
+import { GuardDutyFindingsScanner } from "../../src/scanners/guardduty-findings.js";
+import { InspectorFindingsScanner } from "../../src/scanners/inspector-findings.js";
+import { TrustedAdvisorFindingsScanner } from "../../src/scanners/trusted-advisor-findings.js";
 import { runAllScanners } from "../../src/scanners/runner.js";
 import { generateMarkdownReport } from "../../src/tools/report-tool.js";
 
@@ -23,13 +26,16 @@ async function main() {
   console.log(`Time   : ${new Date().toISOString()}\n`);
 
   const scanners = [
-    new SgScanner(),
-    new S3Scanner(),
-    new IamScanner(),
-    new CloudTrailScanner(),
-    new RdsScanner(),
-    new EbsScanner(),
-    new VpcScanner(),
+    new ServiceDetectionScanner(),
+    new SecretExposureScanner(),
+    new SslCertificateScanner(),
+    new DnsDanglingScanner(),
+    new NetworkReachabilityScanner(),
+    new IamPrivilegeEscalationScanner(),
+    new SecurityHubFindingsScanner(),
+    new GuardDutyFindingsScanner(),
+    new InspectorFindingsScanner(),
+    new TrustedAdvisorFindingsScanner(),
   ];
 
   console.log(`Running ${scanners.length} scanners…\n`);
@@ -43,7 +49,7 @@ async function main() {
       m.status === "success"
         ? `${m.resourcesScanned} resources, ${m.findingsCount} findings`
         : m.error;
-    console.log(`  [${tag}] ${m.module.padEnd(16)} ${detail}`);
+    console.log(`  [${tag}] ${m.module.padEnd(28)} ${detail}`);
   }
 
   // Summary

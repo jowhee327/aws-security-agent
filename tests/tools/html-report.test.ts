@@ -323,7 +323,7 @@ describe("generateMlps3HtmlReport", () => {
   it("includes remediation section for failed checks", () => {
     const result = makeResult([
       {
-        module: "iam_password_policy",
+        module: "security_hub_findings",
         findings: [{
           severity: "MEDIUM",
           title: "IAM password policy minimum length is too short",
@@ -336,7 +336,7 @@ describe("generateMlps3HtmlReport", () => {
           impact: "Weak passwords.",
           remediationSteps: ["Set minimum password length to at least 8 characters."],
           priority: "P2",
-          module: "iam_password_policy",
+          module: "security_hub_findings",
         }],
       },
     ]);

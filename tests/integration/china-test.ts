@@ -1,25 +1,33 @@
 import { runAllScanners } from '../../src/scanners/runner.js';
-import { SgScanner } from '../../src/scanners/sg.js';
-import { S3Scanner } from '../../src/scanners/s3.js';
-import { IamScanner } from '../../src/scanners/iam.js';
-import { CloudTrailScanner } from '../../src/scanners/cloudtrail.js';
-import { RdsScanner } from '../../src/scanners/rds.js';
-import { EbsScanner } from '../../src/scanners/ebs.js';
-import { VpcScanner } from '../../src/scanners/vpc.js';
 import { ServiceDetectionScanner } from '../../src/scanners/service-detection.js';
+import { SecretExposureScanner } from '../../src/scanners/secret-exposure.js';
+import { NetworkReachabilityScanner } from '../../src/scanners/network-reachability.js';
+import { IamPrivilegeEscalationScanner } from '../../src/scanners/iam-privilege-escalation.js';
+import { SecurityHubFindingsScanner } from '../../src/scanners/security-hub-findings.js';
+import { GuardDutyFindingsScanner } from '../../src/scanners/guardduty-findings.js';
+import { InspectorFindingsScanner } from '../../src/scanners/inspector-findings.js';
 import { saveResults } from '../../src/tools/save-results.js';
 import { generateMarkdownReport } from '../../src/tools/report-tool.js';
 import { writeFileSync } from 'node:fs';
 
-const region = process.argv[2] || 'ap-northeast-1';
+const region = process.argv[2] || 'cn-north-1';
 
 async function main() {
   console.log(`=== AWS Security MCP — China Region Test ===`);
   console.log(`Region : ${region}`);
   console.log(`Time   : ${new Date().toISOString()}\n`);
-  console.log('Running 8 scanners (including service detection)…\n');
 
-  const scanners = [new SgScanner(), new S3Scanner(), new IamScanner(), new CloudTrailScanner(), new RdsScanner(), new EbsScanner(), new VpcScanner(), new ServiceDetectionScanner()];
+  const scanners = [
+    new ServiceDetectionScanner(),
+    new SecretExposureScanner(),
+    new NetworkReachabilityScanner(),
+    new IamPrivilegeEscalationScanner(),
+    new SecurityHubFindingsScanner(),
+    new GuardDutyFindingsScanner(),
+    new InspectorFindingsScanner(),
+  ];
+
+  console.log(`Running ${scanners.length} scanners…\n`);
   const result = await runAllScanners(scanners, region);
 
   for (const m of result.modules) {
@@ -27,7 +35,7 @@ async function main() {
     const detail = m.status === 'success'
       ? `${m.resourcesScanned} resources, ${m.findingsCount} findings`
       : m.error ?? 'unknown error';
-    console.log(`  ${icon} ${m.module.padEnd(17)} ${detail}`);
+    console.log(`  ${icon} ${m.module.padEnd(28)} ${detail}`);
     if (m.warnings?.length) {
       for (const w of m.warnings) console.log(`       ⚠ ${w}`);
     }
@@ -42,8 +50,8 @@ async function main() {
   console.log(`  HIGH           : ${result.summary.high}`);
   console.log(`  MEDIUM         : ${result.summary.medium}`);
   console.log(`  LOW            : ${result.summary.low}`);
-  console.log(`Modules OK       : ${result.summary.modulesSuccess}/8`);
-  console.log(`Modules error    : ${result.summary.modulesError}/8`);
+  console.log(`Modules OK       : ${result.summary.modulesSuccess}/${scanners.length}`);
+  console.log(`Modules error    : ${result.summary.modulesError}/${scanners.length}`);
 
   // Check ARN partition
   const sampleFindings = result.modules.flatMap(m => m.findings).slice(0, 3);

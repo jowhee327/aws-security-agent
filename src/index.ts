@@ -4,29 +4,21 @@ import { z } from "zod";
 
 import type { Scanner } from "./scanners/base.js";
 import { runAllScanners } from "./scanners/runner.js";
-import { SgScanner } from "./scanners/sg.js";
-import { S3Scanner } from "./scanners/s3.js";
-import { IamScanner } from "./scanners/iam.js";
-import { CloudTrailScanner } from "./scanners/cloudtrail.js";
-import { RdsScanner } from "./scanners/rds.js";
-import { EbsScanner } from "./scanners/ebs.js";
-import { VpcScanner } from "./scanners/vpc.js";
 import { ServiceDetectionScanner } from "./scanners/service-detection.js";
 import type { ServiceDetectionResult } from "./scanners/service-detection.js";
-import { IamPasswordPolicyScanner } from "./scanners/iam-password-policy.js";
-import { IamMfaAuditScanner } from "./scanners/iam-mfa-audit.js";
-import { CloudTrailProtectionScanner } from "./scanners/cloudtrail-protection.js";
-import { ElbHttpsScanner } from "./scanners/elb-https.js";
 import { SecretExposureScanner } from "./scanners/secret-exposure.js";
 import { SslCertificateScanner } from "./scanners/ssl-certificate.js";
 import { DnsDanglingScanner } from "./scanners/dns-dangling.js";
 import { NetworkReachabilityScanner } from "./scanners/network-reachability.js";
 import { IamPrivilegeEscalationScanner } from "./scanners/iam-privilege-escalation.js";
 import { PublicAccessVerifyScanner } from "./scanners/public-access-verify.js";
-import { LogIntegrityScanner } from "./scanners/log-integrity.js";
 import { TagComplianceScanner } from "./scanners/tag-compliance.js";
 import { IdleResourcesScanner } from "./scanners/idle-resources.js";
 import { DisasterRecoveryScanner } from "./scanners/disaster-recovery.js";
+import { SecurityHubFindingsScanner } from "./scanners/security-hub-findings.js";
+import { GuardDutyFindingsScanner } from "./scanners/guardduty-findings.js";
+import { InspectorFindingsScanner } from "./scanners/inspector-findings.js";
+import { TrustedAdvisorFindingsScanner } from "./scanners/trusted-advisor-findings.js";
 import { generateMarkdownReport } from "./tools/report-tool.js";
 import { generateMlps3Report } from "./tools/mlps-report.js";
 import { generateHtmlReport, generateMlps3HtmlReport } from "./tools/html-report.js";
@@ -56,25 +48,8 @@ export type {
 } from "./types.js";
 
 const MODULE_DESCRIPTIONS: Record<string, string> = {
-  security_group:
-    "Scans EC2 security groups for overly permissive inbound rules (SSH, RDP, database ports open to 0.0.0.0/0).",
-  s3: "Checks S3 buckets for public access, missing encryption, and versioning.",
-  iam: "Audits IAM users, root account, access keys, and over-permissive policies.",
-  cloudtrail:
-    "Validates CloudTrail logging configuration (multi-region, log validation, CloudWatch integration).",
-  rds: "Scans RDS instances for public accessibility, encryption, backups, and deletion protection.",
-  ebs: "Checks EBS volumes and snapshots for encryption and public sharing.",
-  vpc: "Reviews VPC configuration including default VPC usage, flow logs, and default security groups.",
   service_detection:
     "Detects which AWS security services (Security Hub, GuardDuty, Inspector, Config, Macie) are enabled and assesses security maturity.",
-  iam_password_policy:
-    "Checks IAM account password policy against MLPS requirements (length, complexity, expiry, reuse prevention).",
-  iam_mfa_audit:
-    "Audits MFA status for all IAM users with console access and calculates MFA adoption rate.",
-  cloudtrail_protection:
-    "Checks CloudTrail log S3 bucket protection (encryption, versioning, Block Public Access).",
-  elb_https:
-    "Checks ELB/ALB/NLB listeners for HTTPS/TLS configuration.",
   secret_exposure:
     "Checks Lambda env vars and EC2 userData for exposed secrets (AWS keys, private keys, passwords).",
   ssl_certificate:
@@ -87,14 +62,20 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
     "Detects IAM privilege escalation paths — users/roles that can escalate to admin via policy manipulation, role creation, or service abuse.",
   public_access_verify:
     "Verifies actual public accessibility of resources marked as public (S3 HTTP check, RDS DNS resolution).",
-  log_integrity_audit:
-    "Comprehensive logging integrity audit — CloudTrail, VPC Flow Logs, S3 access logging, ELB access logging.",
   tag_compliance:
     "Checks EC2, RDS, and S3 resources for required tags (Environment, Project, Owner).",
   idle_resources:
     "Finds unused/idle AWS resources (unattached EBS volumes, unused EIPs, stopped instances, unused security groups) that waste money and increase attack surface.",
   disaster_recovery:
     "Assesses disaster recovery readiness — RDS Multi-AZ & backups, EBS snapshot coverage, S3 versioning & cross-region replication.",
+  security_hub_findings:
+    "Aggregates active findings from AWS Security Hub — replaces individual config scanners with centralized compliance checks.",
+  guardduty_findings:
+    "Aggregates threat detection findings from Amazon GuardDuty — account compromise, instance compromise, and reconnaissance.",
+  inspector_findings:
+    "Aggregates vulnerability findings from Amazon Inspector — CVEs in EC2, Lambda, and container images.",
+  trusted_advisor_findings:
+    "Aggregates security checks from AWS Trusted Advisor — requires Business or Enterprise Support plan.",
 };
 
 function summarizeResult(result: FullScanResult): string {
@@ -135,28 +116,20 @@ export function createServer(defaultRegion: string): McpServer {
   );
 
   const allScanners: Scanner[] = [
-    new SgScanner(),
-    new S3Scanner(),
-    new IamScanner(),
-    new CloudTrailScanner(),
-    new RdsScanner(),
-    new EbsScanner(),
-    new VpcScanner(),
     new ServiceDetectionScanner(),
-    new IamPasswordPolicyScanner(),
-    new IamMfaAuditScanner(),
-    new CloudTrailProtectionScanner(),
-    new ElbHttpsScanner(),
     new SecretExposureScanner(),
     new SslCertificateScanner(),
     new DnsDanglingScanner(),
     new NetworkReachabilityScanner(),
     new IamPrivilegeEscalationScanner(),
     new PublicAccessVerifyScanner(),
-    new LogIntegrityScanner(),
     new TagComplianceScanner(),
     new IdleResourcesScanner(),
     new DisasterRecoveryScanner(),
+    new SecurityHubFindingsScanner(),
+    new GuardDutyFindingsScanner(),
+    new InspectorFindingsScanner(),
+    new TrustedAdvisorFindingsScanner(),
   ];
 
   const scannerMap = new Map<string, Scanner>();
@@ -189,28 +162,20 @@ export function createServer(defaultRegion: string): McpServer {
 
   // Individual scanner tools
   const individualScanners: Array<{ toolName: string; moduleName: string; label: string }> = [
-    { toolName: "scan_sg", moduleName: "security_group", label: "Security Group" },
-    { toolName: "scan_s3", moduleName: "s3", label: "S3 Bucket" },
-    { toolName: "scan_iam", moduleName: "iam", label: "IAM" },
-    { toolName: "scan_cloudtrail", moduleName: "cloudtrail", label: "CloudTrail" },
-    { toolName: "scan_rds", moduleName: "rds", label: "RDS" },
-    { toolName: "scan_ebs", moduleName: "ebs", label: "EBS" },
-    { toolName: "scan_vpc", moduleName: "vpc", label: "VPC" },
     { toolName: "detect_services", moduleName: "service_detection", label: "Security Service Detection" },
-    { toolName: "scan_iam_password_policy", moduleName: "iam_password_policy", label: "IAM Password Policy" },
-    { toolName: "scan_iam_mfa_audit", moduleName: "iam_mfa_audit", label: "IAM MFA Audit" },
-    { toolName: "scan_cloudtrail_protection", moduleName: "cloudtrail_protection", label: "CloudTrail Protection" },
-    { toolName: "scan_elb_https", moduleName: "elb_https", label: "ELB HTTPS" },
     { toolName: "scan_secret_exposure", moduleName: "secret_exposure", label: "Secret Exposure" },
     { toolName: "scan_ssl_certificate", moduleName: "ssl_certificate", label: "SSL Certificate" },
     { toolName: "scan_dns_dangling", moduleName: "dns_dangling", label: "Dangling DNS" },
     { toolName: "scan_network_reachability", moduleName: "network_reachability", label: "Network Reachability" },
     { toolName: "scan_iam_privilege_escalation", moduleName: "iam_privilege_escalation", label: "IAM Privilege Escalation" },
     { toolName: "scan_public_access_verify", moduleName: "public_access_verify", label: "Public Access Verify" },
-    { toolName: "scan_log_integrity", moduleName: "log_integrity_audit", label: "Log Integrity Audit" },
     { toolName: "scan_tag_compliance", moduleName: "tag_compliance", label: "Tag Compliance" },
     { toolName: "scan_idle_resources", moduleName: "idle_resources", label: "Idle Resources" },
     { toolName: "scan_disaster_recovery", moduleName: "disaster_recovery", label: "Disaster Recovery" },
+    { toolName: "scan_security_hub_findings", moduleName: "security_hub_findings", label: "Security Hub Findings" },
+    { toolName: "scan_guardduty_findings", moduleName: "guardduty_findings", label: "GuardDuty Findings" },
+    { toolName: "scan_inspector_findings", moduleName: "inspector_findings", label: "Inspector Findings" },
+    { toolName: "scan_trusted_advisor_findings", moduleName: "trusted_advisor_findings", label: "Trusted Advisor Findings" },
   ];
 
   for (const { toolName, moduleName, label } of individualScanners) {
@@ -242,7 +207,7 @@ export function createServer(defaultRegion: string): McpServer {
     "scan_group",
     "Run a predefined group of security scanners for a specific scenario (e.g., MLPS compliance, network defense). Read-only.",
     {
-      group: z.string().describe("Scan group ID: mlps3_precheck, hw_defense, exposure, pre_launch, data_encryption, least_privilege, log_integrity, disaster_recovery, idle_resources, tag_compliance, new_account_baseline, public_access_verify"),
+      group: z.string().describe("Scan group ID: mlps3_precheck, hw_defense, exposure, pre_launch, data_encryption, least_privilege, log_integrity, disaster_recovery, idle_resources, tag_compliance, new_account_baseline, public_access_verify, aggregation"),
       region: z.string().optional().describe("AWS region to scan (default: server region)"),
     },
     async ({ group, region }) => {

@@ -1,65 +1,13 @@
 export const SECURITY_RULES_CONTENT = `# AWS Security Scan Modules & Rules
 
-## 1. Security Groups (security_group)
-Scans EC2 security groups for overly permissive inbound rules.
-- **All ports open to 0.0.0.0/0** — Risk 9.5: Full port range exposed to the internet.
-- **SSH (22) exposed to 0.0.0.0/0** — Risk 9.0: Remote shell access open to all.
-- **RDP (3389) exposed to 0.0.0.0/0** — Risk 9.0: Windows remote desktop open to all.
-- **Database ports (3306/5432/1433/27017) exposed** — Risk 8.0: Database access from internet.
-- **Cache/search ports (6379/9200/11211) exposed** — Risk 7.5: Service ports reachable externally.
-
-## 2. S3 Buckets (s3)
-Checks S3 bucket security configuration.
-- **Public ACL grants** — Risk 9.5: Bucket allows public read/write via ACL.
-- **Public bucket policy** — Risk 9.0: Bucket policy permits public access.
-- **Block Public Access incomplete** — Risk 8.0: Account or bucket-level BPA not fully enabled.
-- **Missing encryption** — Risk 6.0: Server-side encryption not configured.
-- **Versioning not enabled** — Risk 3.0: No object versioning for data protection.
-
-## 3. IAM (iam)
-Audits IAM users, credentials, and policies.
-- **Root account without MFA** — Risk 10.0: Root has no multi-factor authentication.
-- **Root account has access keys** — Risk 9.5: Programmatic access on root account.
-- **Old access keys (90+ days)** — Risk 7.5: Access keys not rotated.
-- **Over-permissive policies** — Risk 7.0: AdministratorAccess or similar attached to users.
-- **Inactive users (90+ days)** — Risk 5.0: Unused IAM users still active.
-
-## 4. CloudTrail (cloudtrail)
-Validates CloudTrail logging configuration.
-- **No trails configured** — Risk 9.5: No API logging in the account.
-- **Trail not multi-region** — Risk 7.5: Activity outside home region is unlogged.
-- **Not logging management events** — Risk 7.0: Management API calls not captured.
-- **No log file validation** — Risk 6.0: Log integrity cannot be verified.
-- **No CloudWatch Logs integration** — Risk 5.5: Logs not forwarded for alerting.
-
-## 5. RDS (rds)
-Scans RDS instances for security misconfigurations.
-- **Publicly accessible** — Risk 8.0: DB instance reachable from the internet.
-- **Storage not encrypted** — Risk 7.0: Data at rest is unencrypted.
-- **No automated backups** — Risk 6.0: No point-in-time recovery available.
-- **No deletion protection** — Risk 4.0: Instance can be accidentally deleted.
-
-## 6. EBS (ebs)
-Checks EBS volumes and snapshots.
-- **Publicly shared snapshots** — Risk 9.5: Snapshot accessible to any AWS account.
-- **Default encryption not enabled** — Risk 7.0: New volumes not encrypted by default.
-- **Unencrypted volumes** — Risk 6.0: Existing volumes without encryption.
-- **Unencrypted snapshots** — Risk 5.5: Snapshots without encryption.
-
-## 7. VPC (vpc)
-Reviews VPC network configuration.
-- **Instances in default VPC** — Risk 7.0: Resources in the default VPC lack proper isolation.
-- **Missing VPC Flow Logs** — Risk 7.0: No network traffic logging enabled.
-- **Default SG with custom inbound rules** — Risk 5.5: Default security group modified with open rules.
-
-## 8. Service Detection (service_detection)
+## 1. Service Detection (service_detection)
 Detects which AWS security services are enabled and assesses overall security maturity.
 - **Security Hub not enabled** — Risk 7.5: Provides 300+ automated security checks.
 - **GuardDuty not enabled** — Risk 7.5: Provides continuous threat detection.
 - **Inspector not enabled** — Risk 6.0: Scans for software vulnerabilities.
 - **AWS Config not enabled** — Risk 6.0: Tracks configuration changes.
 - **Macie not enabled** — Risk 5.0: Detects sensitive data in S3 (not available in China regions).
-- CloudTrail detection is included for coverage metrics; findings handled by the CloudTrail module.
+- CloudTrail detection is included for coverage metrics.
 
 ### Maturity Levels
 | Enabled Services | Level |
@@ -68,6 +16,57 @@ Detects which AWS security services are enabled and assesses overall security ma
 | 2–3 | Intermediate |
 | 4–5 | Advanced |
 | 6   | Comprehensive |
+
+## 2. Security Hub Findings (security_hub_findings)
+Aggregates active findings from AWS Security Hub. Replaces individual config scanners (SG, S3, IAM, CloudTrail, RDS, EBS, VPC, etc.) with centralized compliance checks from FSBP, CIS, and PCI DSS standards.
+- Findings are filtered to ACTIVE + NEW/NOTIFIED workflow status.
+- Severity mapped: CRITICAL → 9.5, HIGH → 8.0, MEDIUM → 5.5, LOW → 3.0.
+- INFORMATIONAL findings are skipped.
+
+## 3. GuardDuty Findings (guardduty_findings)
+Aggregates threat detection findings from Amazon GuardDuty.
+- Covers account compromise, instance compromise, and reconnaissance.
+- Severity mapped from GuardDuty 0–10 scale: ≥7 → HIGH, ≥4 → MEDIUM, <4 → LOW.
+- Only non-archived findings are included.
+
+## 4. Inspector Findings (inspector_findings)
+Aggregates vulnerability findings from Amazon Inspector v2.
+- Covers CVEs in EC2 instances, Lambda functions, and container images.
+- Severity mapped: CRITICAL → 9.5, HIGH → 8.0, MEDIUM → 5.5, LOW → 3.0.
+- CVE IDs are included in finding titles when available.
+
+## 5. Trusted Advisor Findings (trusted_advisor_findings)
+Aggregates security checks from AWS Trusted Advisor.
+- Requires AWS Business or Enterprise Support plan.
+- Not available in AWS China regions.
+- Status mapped: error (RED) → 8.0, warning (YELLOW) → 5.5, ok (GREEN) → skip.
+
+## 6. Secret Exposure (secret_exposure)
+Checks Lambda env vars and EC2 userData for exposed secrets (AWS keys, private keys, passwords).
+
+## 7. SSL Certificate (ssl_certificate)
+Checks ACM certificates for expiry, failed status, and upcoming renewals.
+
+## 8. Dangling DNS (dns_dangling)
+Checks Route53 CNAME records for dangling DNS (subdomain takeover risk).
+
+## 9. Network Reachability (network_reachability)
+Analyzes true network reachability by combining Security Group + NACL rules for public EC2 instances.
+
+## 10. IAM Privilege Escalation (iam_privilege_escalation)
+Detects IAM privilege escalation paths — users/roles that can escalate to admin via policy manipulation, role creation, or service abuse.
+
+## 11. Public Access Verify (public_access_verify)
+Verifies actual public accessibility of resources marked as public (S3 HTTP check, RDS DNS resolution).
+
+## 12. Tag Compliance (tag_compliance)
+Checks EC2, RDS, and S3 resources for required tags (Environment, Project, Owner).
+
+## 13. Idle Resources (idle_resources)
+Finds unused/idle AWS resources (unattached EBS volumes, unused EIPs, stopped instances, unused security groups).
+
+## 14. Disaster Recovery (disaster_recovery)
+Assesses disaster recovery readiness — RDS Multi-AZ & backups, EBS snapshot coverage, S3 versioning & cross-region replication.
 `;
 
 export const RISK_SCORING_CONTENT = `# Risk Scoring Model
