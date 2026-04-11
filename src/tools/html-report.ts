@@ -1,14 +1,9 @@
 import type { FullScanResult, Finding, Severity, DashboardHistoryEntry, ScanResult } from "../types.js";
 import {
-  MLPS_CHECKS,
-  CATEGORY_ORDER,
-  CATEGORY_SECTION,
-  evaluateCheck,
   evaluateAllFullChecks,
   MLPS3_CATEGORY_ORDER,
   MLPS3_CATEGORY_SECTION,
   type FullCheckResult,
-  type FullCheckStatus,
 } from "./mlps-report.js";
 import { VERSION } from "../version.js";
 

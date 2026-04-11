@@ -15,8 +15,6 @@ import { ScanResult, ScanContext, Finding } from "../types.js";
 import { createClient } from "../utils/aws-client.js";
 import { severityFromScore, priorityFromSeverity } from "../utils/risk-scoring.js";
 
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-
 function makeFinding(opts: {
   riskScore: number;
   title: string;

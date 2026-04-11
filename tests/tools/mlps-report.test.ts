@@ -72,23 +72,25 @@ describe("generateMlps3Report", () => {
           },
         ],
       },
+      // Provide additional modules so that L3-CES1-01 (IAM.7) can fully evaluate
+      { module: "iam_privilege_escalation", findings: [] },
+      { module: "access_analyzer_findings", findings: [] },
     ]);
 
     const report = generateMlps3Report(result);
 
-    // Header
+    // Header — full 184-item checklist
     expect(report).toContain("# 等保三级预检报告");
     expect(report).toContain("Account: 123456789012");
     expect(report).toContain("cn-north-1");
+    expect(report).toContain("184");
 
-    // Password policy should have issues (finding matches "IAM.7" pattern)
+    // L3-CES1-01 maps IAM.7 → should have issues
     expect(report).toContain("\u274c");
-    expect(report).toContain("密码策略");
     expect(report).toContain("发现问题");
 
-    // Audit function should be clean (security_hub_findings present, no CloudTrail finding)
+    // Clean checks should show ✅
     expect(report).toContain("\u2705");
-    expect(report).toContain("审计功能");
     expect(report).toContain("未发现问题");
 
     // Summary — no 通过率, uses fact-based summary
@@ -126,7 +128,8 @@ describe("generateMlps3Report", () => {
   });
 
   it("marks checks as unknown when required module is missing or errored", () => {
-    // Only provide security_hub_findings — other required modules (service_detection, etc.) are missing
+    // Only provide security_hub_findings — multi-module checks (e.g., L3-CES1-01 needing
+    // iam_privilege_escalation + access_analyzer_findings + security_hub_findings) will be unknown
     const result = makeResult([
       {
         module: "security_hub_findings",
@@ -151,12 +154,12 @@ describe("generateMlps3Report", () => {
 
     const report = generateMlps3Report(result);
 
-    // Password policy check should have issues (security_hub_findings present, finding matches "IAM.7")
-    expect(report).toContain("\u274c");
-    expect(report).toContain("发现问题");
-    // Checks with missing modules (e.g., service_detection for GuardDuty) should show ⚠️ 未检查
+    // Checks with missing modules should show ⚠️ 未检查
     expect(report).toContain("\u26a0\ufe0f");
     expect(report).toContain("未检查");
+    // Checks needing only security_hub_findings with non-matching control IDs should be clean
+    expect(report).toContain("\u2705");
+    expect(report).toContain("未发现问题");
   });
 });
 

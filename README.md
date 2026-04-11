@@ -9,7 +9,7 @@ MCP server for automated AWS security scanning — 19 modules, risk scoring, zer
 
 ## Features
 
-- **19 Security Scan Modules** — 15 unique scanners + 4 aggregation scanners (Security Hub, GuardDuty, Inspector, Trusted Advisor, Config Rules, Access Analyzer, Patch Compliance)
+- **19 Security Scan Modules** — Security Hub, GuardDuty, Inspector, Trusted Advisor, Config Rules, Access Analyzer, Patch Compliance, and more
 - **Risk Scoring** — every finding scored 0-10 with severity (CRITICAL/HIGH/MEDIUM/LOW) and priority (P0-P3)
 - **100% Read-Only** — uses only Describe/Get/List API calls; never modifies your AWS resources
 - **Multi-Account Support** — scan all accounts in an AWS Organization via `org_mode` with cross-account role assumption
@@ -246,8 +246,6 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
 
 ## Scan Modules
 
-### Unique Scanners (15)
-
 | Module | What It Checks | Risk Score Range |
 |--------|---------------|-----------------|
 | **Service Detection** | Enabled security services (Security Hub, GuardDuty, Inspector, Config, Macie, CloudTrail) and maturity level | 5.0 - 7.5 |
@@ -265,11 +263,6 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
 | **Patch Compliance** | SSM Patch Manager compliance status for managed instances | 3.0 - 9.5 |
 | **IMDSv2 Enforcement** | EC2 instances not enforcing IMDSv2 (HttpTokens != required) | 7.5 |
 | **WAF Coverage** | Internet-facing ALBs without WAF Web ACL protection | 7.5 |
-
-### Aggregation Scanners (4)
-
-| Module | Source Service | Risk Score Range |
-|--------|---------------|-----------------|
 | **Security Hub Findings** | AWS Security Hub (FSBP, CIS, PCI DSS) | 3.0 - 9.5 |
 | **GuardDuty Findings** | Amazon GuardDuty threat detection | 3.0 - 9.5 |
 | **Inspector Findings** | Amazon Inspector vulnerability scanning | 3.0 - 9.5 |

@@ -654,9 +654,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
   },
   {
     id: "L3-SMC1-09",
-    type: "auto",
-    modules: ["service_detection"],
-    findingPatterns: ["CloudWatch"],
+    type: "manual",
+    guidance: "需配置 CloudWatch 集中监控平台，结合 SNS 进行告警通知",
   },
   {
     id: "L3-SMC1-10",

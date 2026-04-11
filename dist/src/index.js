@@ -2211,7 +2211,6 @@ import {
   DescribeNetworkInterfacesCommand,
   DescribeSecurityGroupsCommand as DescribeSecurityGroupsCommand2
 } from "@aws-sdk/client-ec2";
-var THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1e3;
 function makeFinding9(opts) {
   const severity = severityFromScore(opts.riskScore);
   return { ...opts, severity, priority: priorityFromSeverity(severity) };
@@ -6680,9 +6679,8 @@ var MLPS3_CHECK_MAPPING = [
   },
   {
     id: "L3-SMC1-09",
-    type: "auto",
-    modules: ["service_detection"],
-    findingPatterns: ["CloudWatch"]
+    type: "manual",
+    guidance: "\u9700\u914D\u7F6E CloudWatch \u96C6\u4E2D\u76D1\u63A7\u5E73\u53F0\uFF0C\u7ED3\u5408 SNS \u8FDB\u884C\u544A\u8B66\u901A\u77E5"
   },
   {
     id: "L3-SMC1-10",
@@ -6776,226 +6774,57 @@ function evaluateAllFullChecks(scanResults) {
     return evaluateFullCheck(item, mapping, allFindings, scanModules);
   });
 }
-var MLPS_CHECKS = [
-  // 一、身份鉴别
-  {
-    id: "8.1.4.1a",
-    category: "\u8EAB\u4EFD\u9274\u522B",
-    name: "\u5BC6\u7801\u7B56\u7565",
-    modules: ["security_hub_findings"],
-    findingPatterns: ["password policy", "password length", "complexity", "password expiry", "reuse prevention", "IAM.7", "IAM.10"]
-  },
-  {
-    id: "8.1.4.1a",
-    category: "\u8EAB\u4EFD\u9274\u522B",
-    name: "\u5BC6\u94A5\u8F6E\u6362",
-    modules: ["security_hub_findings"],
-    findingPatterns: ["access key older", "access key rotated", "IAM.3", "IAM.4"]
-  },
-  {
-    id: "8.1.4.1d",
-    category: "\u8EAB\u4EFD\u9274\u522B",
-    name: "\u53CC\u56E0\u7D20\u8BA4\u8BC1",
-    modules: ["security_hub_findings"],
-    findingPatterns: ["MFA", "IAM.5", "IAM.6"]
-  },
-  // 二、访问控制
-  {
-    id: "8.1.4.2c",
-    category: "\u8BBF\u95EE\u63A7\u5236",
-    name: "\u6700\u5C0F\u6743\u9650",
-    modules: ["iam_privilege_escalation", "security_hub_findings"],
-    findingPatterns: [
-      "AdministratorAccess",
-      "PowerUserAccess",
-      "IAMFullAccess",
-      "over-permissive",
-      "privilege escalation",
-      "self-grant",
-      "iam:*",
-      "create admin",
-      "Lambda role passing",
-      "CreateAccessKey",
-      "AssumeRole"
-    ]
-  },
-  {
-    id: "8.1.4.2",
-    category: "\u8BBF\u95EE\u63A7\u5236",
-    name: "\u5B89\u5168\u7EC4",
-    modules: ["network_reachability", "security_hub_findings"],
-    findingPatterns: ["allows all ports", "allows SSH", "allows RDP", "MySQL", "PostgreSQL", "MongoDB", "Redis", "high-risk port", "security group", "EC2.18", "EC2.19"]
-  },
-  // 三、安全审计
-  {
-    id: "8.1.4.3a",
-    category: "\u5B89\u5168\u5BA1\u8BA1",
-    name: "\u5BA1\u8BA1\u529F\u80FD",
-    modules: ["security_hub_findings"],
-    findingPatterns: ["CloudTrail", "not enabled", "multi-region", "not logging", "CloudTrail.1"]
-  },
-  {
-    id: "8.1.4.3b",
-    category: "\u5B89\u5168\u5BA1\u8BA1",
-    name: "\u5BA1\u8BA1\u5B8C\u6574\u6027",
-    modules: ["security_hub_findings"],
-    findingPatterns: ["log file validation", "log integrity", "log validation", "CloudTrail.4", "CloudTrail.5"]
-  },
-  {
-    id: "8.1.4.3c",
-    category: "\u5B89\u5168\u5BA1\u8BA1",
-    name: "\u5BA1\u8BA1\u4FDD\u62A4",
-    modules: ["security_hub_findings"],
-    findingPatterns: ["CloudTrail", "S3 bucket", "encryption", "versioning", "Block Public Access", "CloudTrail.6", "CloudTrail.7"]
-  },
-  // 四、入侵防范
-  {
-    id: "8.1.4.4a",
-    category: "\u5165\u4FB5\u9632\u8303",
-    name: "GuardDuty \u5A01\u80C1\u68C0\u6D4B",
-    modules: ["service_detection", "guardduty_findings"],
-    findingPatterns: ["GuardDuty"]
-  },
-  {
-    id: "8.1.4.4a",
-    category: "\u5165\u4FB5\u9632\u8303",
-    name: "Inspector \u6F0F\u6D1E\u626B\u63CF",
-    modules: ["service_detection", "inspector_findings"],
-    findingPatterns: ["Inspector", "CVE-"]
-  },
-  // 五、数据安全
-  {
-    id: "8.1.4.5a",
-    category: "\u6570\u636E\u5B89\u5168",
-    name: "\u4F20\u8F93\u52A0\u5BC6",
-    modules: ["ssl_certificate", "security_hub_findings"],
-    findingPatterns: ["HTTPS", "TLS", "HTTP listener", "certificate", "ELB.1"]
-  },
-  {
-    id: "8.1.4.5b",
-    category: "\u6570\u636E\u5B89\u5168",
-    name: "S3 \u5B58\u50A8\u52A0\u5BC6",
-    modules: ["security_hub_findings"],
-    findingPatterns: ["no default encryption", "not encrypted", "S3.4"]
-  },
-  {
-    id: "8.1.4.5b",
-    category: "\u6570\u636E\u5B89\u5168",
-    name: "EBS \u9ED8\u8BA4\u52A0\u5BC6",
-    modules: ["security_hub_findings"],
-    findingPatterns: ["EBS default encryption", "EC2.7"]
-  },
-  {
-    id: "8.1.4.5b",
-    category: "\u6570\u636E\u5B89\u5168",
-    name: "RDS \u5B58\u50A8\u52A0\u5BC6",
-    modules: ["security_hub_findings"],
-    findingPatterns: ["storage is not encrypted", "RDS.3"]
-  },
-  // 六、网络安全
-  {
-    id: "8.1.3.1a",
-    category: "\u7F51\u7EDC\u5B89\u5168",
-    name: "\u7F51\u7EDC\u67B6\u6784",
-    modules: ["security_hub_findings"],
-    findingPatterns: ["default VPC", "EC2.2"]
-  },
-  {
-    id: "8.1.3.2a",
-    category: "\u7F51\u7EDC\u5B89\u5168",
-    name: "\u8FB9\u754C\u9632\u62A4",
-    modules: ["network_reachability", "security_hub_findings"],
-    findingPatterns: ["allows all ports", "allows SSH", "allows RDP", "security group", "EC2.18", "EC2.19"]
-  }
-];
-var CATEGORY_ORDER = [
-  "\u8EAB\u4EFD\u9274\u522B",
-  "\u8BBF\u95EE\u63A7\u5236",
-  "\u5B89\u5168\u5BA1\u8BA1",
-  "\u5165\u4FB5\u9632\u8303",
-  "\u6570\u636E\u5B89\u5168",
-  "\u7F51\u7EDC\u5B89\u5168"
-];
-var CATEGORY_SECTION = {
-  "\u8EAB\u4EFD\u9274\u522B": "\u4E00\u3001\u8EAB\u4EFD\u9274\u522B",
-  "\u8BBF\u95EE\u63A7\u5236": "\u4E8C\u3001\u8BBF\u95EE\u63A7\u5236",
-  "\u5B89\u5168\u5BA1\u8BA1": "\u4E09\u3001\u5B89\u5168\u5BA1\u8BA1",
-  "\u5165\u4FB5\u9632\u8303": "\u56DB\u3001\u5165\u4FB5\u9632\u8303",
-  "\u6570\u636E\u5B89\u5168": "\u4E94\u3001\u6570\u636E\u5B89\u5168",
-  "\u7F51\u7EDC\u5B89\u5168": "\u516D\u3001\u7F51\u7EDC\u5B89\u5168"
-};
-function evaluateCheck(check, allFindings, scanModules) {
-  const allModulesPresent = check.modules.every(
-    (mod) => scanModules.some((m) => m.module === mod && m.status === "success")
-  );
-  if (!allModulesPresent) {
-    return { check, status: "unknown", relatedFindings: [] };
-  }
-  const relatedFindings = allFindings.filter((f) => {
-    const moduleMatch = check.modules.some((mod) => f.module === mod);
-    if (!moduleMatch) return false;
-    const text = `${f.title} ${f.description}`.toLowerCase();
-    return check.findingPatterns.some(
-      (pattern) => text.includes(pattern.toLowerCase())
-    );
-  });
-  return {
-    check,
-    status: relatedFindings.length === 0 ? "clean" : "issues",
-    relatedFindings
-  };
-}
 function generateMlps3Report(scanResults) {
   const { accountId, region, scanStart } = scanResults;
   const scanTime = scanStart.replace("T", " ").replace(/\.\d+Z$/, " UTC");
-  const allFindings = scanResults.modules.flatMap(
-    (m) => m.findings.map((f) => ({ ...f, module: f.module ?? m.module }))
-  );
-  const scanModules = scanResults.modules.map((m) => ({
-    module: m.module,
-    status: m.status
-  }));
-  const results = MLPS_CHECKS.map(
-    (check) => evaluateCheck(check, allFindings, scanModules)
-  );
-  const cleanCount = results.filter((r) => r.status === "clean").length;
-  const issuesCount = results.filter((r) => r.status === "issues").length;
-  const unknownCount = results.filter((r) => r.status === "unknown").length;
-  const checkedTotal = cleanCount + issuesCount;
-  const total = results.length;
+  const results = evaluateAllFullChecks(scanResults);
+  const autoResults = results.filter((r) => r.mapping.type === "auto");
+  const autoClean = autoResults.filter((r) => r.status === "clean").length;
+  const autoIssues = autoResults.filter((r) => r.status === "issues").length;
+  const autoUnknown = autoResults.filter((r) => r.status === "unknown").length;
+  const checkedTotal = autoClean + autoIssues;
+  const cloudCount = results.filter((r) => r.status === "cloud_provider").length;
+  const manualCount = results.filter((r) => r.status === "manual").length;
+  const naCount = results.filter((r) => r.status === "not_applicable").length;
   const lines = [];
   lines.push("# \u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0\u62A5\u544A");
   lines.push("> **\u672C\u62A5\u544A\u4E3A\u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0\u53C2\u8003\uFF0C\u63D0\u4F9B\u4E91\u5E73\u53F0\u914D\u7F6E\u68C0\u67E5\u6570\u636E\u4E0E\u5EFA\u8BAE\u3002\u5408\u89C4\u5224\u5B9A\uFF08\u7B26\u5408/\u90E8\u5206\u7B26\u5408/\u4E0D\u7B26\u5408\uFF09\u9700\u7531\u6301\u8BC1\u6D4B\u8BC4\u673A\u6784\u6839\u636E\u5B9E\u9645\u60C5\u51B5\u786E\u8BA4\u3002**");
+  lines.push("> **\uFF08GB/T 22239-2019 \u5B8C\u6574\u68C0\u67E5\u6E05\u5355 184 \u9879\uFF09**");
   lines.push("");
   lines.push("## \u8D26\u6237\u4FE1\u606F");
   lines.push(`- Account: ${accountId} | Region: ${region} | \u626B\u63CF\u65F6\u95F4: ${scanTime}`);
   lines.push("");
   lines.push("## \u9884\u68C0\u603B\u89C8");
-  lines.push(`- \u5DF2\u68C0\u67E5 ${checkedTotal} \u9879 / \u5171 ${total} \u9879`);
-  lines.push(`  - \u672A\u53D1\u73B0\u95EE\u9898: ${cleanCount} \u9879`);
-  lines.push(`  - \u53D1\u73B0\u95EE\u9898: ${issuesCount} \u9879`);
-  if (unknownCount > 0) {
-    lines.push(`  - \u672A\u68C0\u67E5: ${unknownCount} \u9879`);
+  lines.push(`- \u5DF2\u68C0\u67E5: ${checkedTotal} \u9879\uFF08\u672A\u53D1\u73B0\u95EE\u9898: ${autoClean} \u9879 | \u53D1\u73B0\u95EE\u9898: ${autoIssues} \u9879\uFF09`);
+  if (autoUnknown > 0) {
+    lines.push(`- \u672A\u68C0\u67E5: ${autoUnknown} \u9879\uFF08\u5BF9\u5E94\u626B\u63CF\u6A21\u5757\u672A\u8FD0\u884C\uFF09`);
+  }
+  lines.push(`- \u4E91\u5E73\u53F0\u8D1F\u8D23: ${cloudCount} \u9879`);
+  lines.push(`- \u9700\u4EBA\u5DE5\u8BC4\u4F30: ${manualCount} \u9879`);
+  if (naCount > 0) {
+    lines.push(`- \u4E0D\u9002\u7528: ${naCount} \u9879`);
   }
   lines.push("");
-  for (const category of CATEGORY_ORDER) {
-    const sectionTitle = CATEGORY_SECTION[category];
-    const categoryResults = results.filter((r) => r.check.category === category);
-    if (categoryResults.length === 0) continue;
+  for (const category of MLPS3_CATEGORY_ORDER) {
+    const sectionTitle = MLPS3_CATEGORY_SECTION[category];
+    const catResults = results.filter(
+      (r) => r.item.categoryCn === category && r.status !== "not_applicable"
+    );
+    if (catResults.length === 0) continue;
     lines.push(`## ${sectionTitle}`);
     lines.push("");
-    const byId = /* @__PURE__ */ new Map();
-    for (const r of categoryResults) {
-      const existing = byId.get(r.check.id) ?? [];
-      existing.push(r);
-      byId.set(r.check.id, existing);
+    const controlMap = /* @__PURE__ */ new Map();
+    for (const r of catResults) {
+      const key = r.item.controlCn;
+      if (!controlMap.has(key)) controlMap.set(key, []);
+      controlMap.get(key).push(r);
     }
-    for (const [checkId, checkResults] of byId) {
-      lines.push(`### ${checkId} ${checkResults[0].check.name}`);
-      for (const r of checkResults) {
-        const icon = r.status === "clean" ? "\u2705" : r.status === "issues" ? "\u274C" : "\u26A0\uFE0F";
-        const label = r.status === "unknown" ? " \u672A\u68C0\u67E5" : r.status === "clean" ? " \u672A\u53D1\u73B0\u95EE\u9898" : r.status === "issues" ? " \u53D1\u73B0\u95EE\u9898" : "";
-        lines.push(`- [${icon}] ${r.check.name}${label}`);
+    for (const [controlName, controlResults] of controlMap) {
+      lines.push(`### ${controlName}`);
+      for (const r of controlResults) {
+        const icon = r.status === "clean" ? "\u2705" : r.status === "issues" ? "\u274C" : r.status === "unknown" ? "\u26A0\uFE0F" : r.status === "manual" ? "\u{1F4CB}" : "\u{1F3E2}";
+        const suffix = r.status === "unknown" ? " \u2014 \u672A\u68C0\u67E5" : r.status === "manual" ? ` \u2014 ${r.mapping.guidance ?? "\u9700\u4EBA\u5DE5\u8BC4\u4F30"}` : r.status === "cloud_provider" ? ` \u2014 ${r.mapping.note ?? "\u4E91\u5E73\u53F0\u8D1F\u8D23"}` : r.status === "clean" ? " \u672A\u53D1\u73B0\u95EE\u9898" : " \u53D1\u73B0\u95EE\u9898";
+        lines.push(`- [${icon}] ${r.item.id} ${r.item.requirementCn.slice(0, 60)}${r.item.requirementCn.length > 60 ? "\u2026" : ""}${suffix}`);
         if (r.status === "issues" && r.relatedFindings.length > 0) {
           for (const f of r.relatedFindings.slice(0, 3)) {
             lines.push(`  - ${f.severity}: ${f.title}`);
@@ -7030,6 +6859,10 @@ function generateMlps3Report(scanResults) {
       const remediation = f.remediationSteps[0] ?? "Review and remediate.";
       lines.push(`${i + 1}. [${priority}] ${f.title} \u2014 ${remediation}`);
     }
+    lines.push("");
+  }
+  if (naCount > 0) {
+    lines.push(`> \u4E0D\u9002\u7528\u9879: ${naCount} \u9879\uFF08\u7269\u8054\u7F51/\u65E0\u7EBF\u7F51\u7EDC/\u79FB\u52A8\u7EC8\u7AEF/\u5DE5\u63A7\u7CFB\u7EDF/\u53EF\u4FE1\u9A8C\u8BC1\u7B49\uFF09`);
     lines.push("");
   }
   return lines.join("\n");

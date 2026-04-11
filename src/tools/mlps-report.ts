@@ -2,6 +2,8 @@ import type { FullScanResult, Finding } from "../types.js";
 import {
   MLPS3_FULL_CHECKLIST,
   MLPS3_CHECK_MAPPING,
+  MLPS3_CATEGORY_ORDER,
+  MLPS3_CATEGORY_SECTION,
   getMappingById,
   type MlpsChecklistItem,
   type MlpsCheckMapping,
@@ -319,31 +321,25 @@ export function generateMlps3Report(scanResults: FullScanResult): string {
   const { accountId, region, scanStart } = scanResults;
   const scanTime = scanStart.replace("T", " ").replace(/\.\d+Z$/, " UTC");
 
-  // Collect all findings with module info
-  const allFindings: Finding[] = scanResults.modules.flatMap((m) =>
-    m.findings.map((f) => ({ ...f, module: f.module ?? m.module })),
-  );
+  // Evaluate all 184 checks from the full GB/T 22239-2019 checklist
+  const results = evaluateAllFullChecks(scanResults);
 
-  // Evaluate all checks (pass scan module info for missing-module detection)
-  const scanModules = scanResults.modules.map((m) => ({
-    module: m.module,
-    status: m.status,
-  }));
-  const results = MLPS_CHECKS.map((check) =>
-    evaluateCheck(check, allFindings, scanModules),
-  );
-
-  const cleanCount = results.filter((r) => r.status === "clean").length;
-  const issuesCount = results.filter((r) => r.status === "issues").length;
-  const unknownCount = results.filter((r) => r.status === "unknown").length;
-  const checkedTotal = cleanCount + issuesCount;
-  const total = results.length;
+  // Summary counts by type
+  const autoResults = results.filter((r) => r.mapping.type === "auto");
+  const autoClean = autoResults.filter((r) => r.status === "clean").length;
+  const autoIssues = autoResults.filter((r) => r.status === "issues").length;
+  const autoUnknown = autoResults.filter((r) => r.status === "unknown").length;
+  const checkedTotal = autoClean + autoIssues;
+  const cloudCount = results.filter((r) => r.status === "cloud_provider").length;
+  const manualCount = results.filter((r) => r.status === "manual").length;
+  const naCount = results.filter((r) => r.status === "not_applicable").length;
 
   const lines: string[] = [];
 
   // Header
   lines.push("# 等保三级预检报告");
   lines.push("> **本报告为等保三级预检参考，提供云平台配置检查数据与建议。合规判定（符合/部分符合/不符合）需由持证测评机构根据实际情况确认。**");
+  lines.push("> **（GB/T 22239-2019 完整检查清单 184 项）**");
   lines.push("");
 
   // Account info
@@ -353,37 +349,51 @@ export function generateMlps3Report(scanResults: FullScanResult): string {
 
   // Summary
   lines.push("## 预检总览");
-  lines.push(`- 已检查 ${checkedTotal} 项 / 共 ${total} 项`);
-  lines.push(`  - 未发现问题: ${cleanCount} 项`);
-  lines.push(`  - 发现问题: ${issuesCount} 项`);
-  if (unknownCount > 0) {
-    lines.push(`  - 未检查: ${unknownCount} 项`);
+  lines.push(`- 已检查: ${checkedTotal} 项（未发现问题: ${autoClean} 项 | 发现问题: ${autoIssues} 项）`);
+  if (autoUnknown > 0) {
+    lines.push(`- 未检查: ${autoUnknown} 项（对应扫描模块未运行）`);
+  }
+  lines.push(`- 云平台负责: ${cloudCount} 项`);
+  lines.push(`- 需人工评估: ${manualCount} 项`);
+  if (naCount > 0) {
+    lines.push(`- 不适用: ${naCount} 项`);
   }
   lines.push("");
 
-  // Group results by category
-  for (const category of CATEGORY_ORDER) {
-    const sectionTitle = CATEGORY_SECTION[category];
-    const categoryResults = results.filter((r) => r.check.category === category);
-    if (categoryResults.length === 0) continue;
+  // Group results by categoryCn (skip N/A items)
+  for (const category of MLPS3_CATEGORY_ORDER) {
+    const sectionTitle = MLPS3_CATEGORY_SECTION[category];
+    const catResults = results.filter(
+      (r) => r.item.categoryCn === category && r.status !== "not_applicable",
+    );
+    if (catResults.length === 0) continue;
 
     lines.push(`## ${sectionTitle}`);
     lines.push("");
 
-    // Group by check ID within category
-    const byId = new Map<string, CheckResult[]>();
-    for (const r of categoryResults) {
-      const existing = byId.get(r.check.id) ?? [];
-      existing.push(r);
-      byId.set(r.check.id, existing);
+    // Group by controlCn within category
+    const controlMap = new Map<string, FullCheckResult[]>();
+    for (const r of catResults) {
+      const key = r.item.controlCn;
+      if (!controlMap.has(key)) controlMap.set(key, []);
+      controlMap.get(key)!.push(r);
     }
 
-    for (const [checkId, checkResults] of byId) {
-      lines.push(`### ${checkId} ${checkResults[0].check.name}`);
-      for (const r of checkResults) {
-        const icon = r.status === "clean" ? "\u2705" : r.status === "issues" ? "\u274c" : "\u26a0\ufe0f";
-        const label = r.status === "unknown" ? " 未检查" : r.status === "clean" ? " 未发现问题" : r.status === "issues" ? " 发现问题" : "";
-        lines.push(`- [${icon}] ${r.check.name}${label}`);
+    for (const [controlName, controlResults] of controlMap) {
+      lines.push(`### ${controlName}`);
+      for (const r of controlResults) {
+        const icon = r.status === "clean" ? "\u2705"
+          : r.status === "issues" ? "\u274c"
+          : r.status === "unknown" ? "\u26a0\ufe0f"
+          : r.status === "manual" ? "\ud83d\udccb"
+          : "\ud83c\udfe2";
+        const suffix = r.status === "unknown" ? " — 未检查"
+          : r.status === "manual" ? ` — ${r.mapping.guidance ?? "需人工评估"}`
+          : r.status === "cloud_provider" ? ` — ${r.mapping.note ?? "云平台负责"}`
+          : r.status === "clean" ? " 未发现问题"
+          : " 发现问题";
+
+        lines.push(`- [${icon}] ${r.item.id} ${r.item.requirementCn.slice(0, 60)}${r.item.requirementCn.length > 60 ? "\u2026" : ""}${suffix}`);
         if (r.status === "issues" && r.relatedFindings.length > 0) {
           for (const f of r.relatedFindings.slice(0, 3)) {
             lines.push(`  - ${f.severity}: ${f.title}`);
@@ -424,6 +434,12 @@ export function generateMlps3Report(scanResults: FullScanResult): string {
       const remediation = f.remediationSteps[0] ?? "Review and remediate.";
       lines.push(`${i + 1}. [${priority}] ${f.title} — ${remediation}`);
     }
+    lines.push("");
+  }
+
+  // N/A note
+  if (naCount > 0) {
+    lines.push(`> 不适用项: ${naCount} 项（物联网/无线网络/移动终端/工控系统/可信验证等）`);
     lines.push("");
   }
 
