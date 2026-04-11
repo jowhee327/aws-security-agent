@@ -77,7 +77,7 @@ export const SCAN_GROUPS: Record<string, {
   hw_defense: {
     name: "护网蓝队加固",
     description: "护网前安全自查 — 攻击面+弱点评估",
-    modules: ["service_detection", "secret_exposure", "network_reachability", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "inspector_findings", "config_rules_findings", "access_analyzer_findings", "patch_compliance_findings"],
+    modules: ["service_detection", "secret_exposure", "network_reachability", "dns_dangling", "ssl_certificate", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "inspector_findings", "config_rules_findings", "access_analyzer_findings", "patch_compliance_findings"],
     findingsFilter: {
       guardDutyTypes: ["Backdoor", "Trojan", "PenTest", "CryptoCurrency"],
       minSeverity: "MEDIUM",
