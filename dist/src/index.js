@@ -13956,6 +13956,14 @@ async function runMultiAccountScanners(scanners, region, opts) {
     accounts = await listOrgAccounts(region);
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
+    const isNotOrg = errMsg.includes("NotInUse") || errMsg.includes("not a member") || errMsg.includes("AWSOrganizationsNotInUseException");
+    if (isNotOrg) {
+      const result = await runAllScanners(scanners, region);
+      if (result.modules.length > 0 && result.modules[0].warnings) {
+        result.modules[0].warnings.unshift("org_mode enabled but this account is not part of an AWS Organization. Scanning current account only.");
+      }
+      return result;
+    }
     return {
       scanStart: (/* @__PURE__ */ new Date()).toISOString(),
       scanEnd: (/* @__PURE__ */ new Date()).toISOString(),
