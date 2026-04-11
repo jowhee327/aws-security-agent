@@ -52,7 +52,6 @@ export function evaluateFullCheck(
 
   // Type "auto" — check modules present and evaluate findings
   const mods = mapping.modules ?? [];
-  const patterns = mapping.findingPatterns ?? [];
 
   const allModulesPresent = mods.every((mod) =>
     scanModules.some((m) => m.module === mod && m.status === "success"),
@@ -62,12 +61,30 @@ export function evaluateFullCheck(
     return { item, mapping, status: "unknown", relatedFindings: [] };
   }
 
-  const relatedFindings = allFindings.filter((f) => {
-    const moduleMatch = mods.some((mod) => f.module === mod);
-    if (!moduleMatch) return false;
-    const text = `${f.title} ${f.description}`.toLowerCase();
-    return patterns.some((pattern) => text.includes(pattern.toLowerCase()));
-  });
+  let relatedFindings: Finding[];
+
+  if (mapping.securityHubControlIds?.length) {
+    // Hybrid: security_hub_findings filtered by specific control IDs,
+    // other scanner modules matched at module level (all findings count)
+    relatedFindings = allFindings.filter((f) => {
+      if (!mods.includes(f.module ?? "")) return false;
+      if (f.module === "security_hub_findings") {
+        return mapping.securityHubControlIds!.some((id) => f.title.includes(id));
+      }
+      return true;
+    });
+  } else if (mapping.findingPatterns?.length) {
+    // Pattern-based matching (for service_detection or other special cases)
+    const patterns = mapping.findingPatterns;
+    relatedFindings = allFindings.filter((f) => {
+      if (!mods.includes(f.module ?? "")) return false;
+      const text = `${f.title} ${f.description}`.toLowerCase();
+      return patterns.some((pattern) => text.includes(pattern.toLowerCase()));
+    });
+  } else {
+    // Module-level: any findings from mapped modules = fail
+    relatedFindings = allFindings.filter((f) => mods.includes(f.module ?? ""));
+  }
 
   return {
     item,

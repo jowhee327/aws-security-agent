@@ -320,7 +320,7 @@ describe("generateMlps3HtmlReport", () => {
         module: "security_hub_findings",
         findings: [{
           severity: "MEDIUM",
-          title: "IAM password policy minimum length is too short",
+          title: "IAM.7 IAM password policy minimum length is too short",
           description: "The IAM password policy requires only 6 characters.",
           riskScore: 5.0,
           resourceId: "password-policy",

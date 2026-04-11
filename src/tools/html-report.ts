@@ -1081,17 +1081,17 @@ export function generateMlps3HtmlReport(
 <section class="summary">
   <div class="score-card">
     <div class="score-value" style="color:${passRateColor}">${percent}%</div>
-    <div class="score-label">\u81ea\u52a8\u68c0\u67e5\u901a\u8fc7\u7387</div>
+    <div class="score-label">\u5408\u89c4\u901a\u8fc7\u7387</div>
   </div>
   <div class="severity-stats">
-    <div class="stat-card" style="border-color:#22c55e30"><div class="stat-count" style="color:#22c55e">${autoPass}</div><div class="stat-label">\u81ea\u52a8\u901a\u8fc7</div></div>
-    <div class="stat-card" style="border-color:#ef444430"><div class="stat-count" style="color:#ef4444">${autoFail}</div><div class="stat-label">\u81ea\u52a8\u4e0d\u901a\u8fc7</div></div>
+    <div class="stat-card" style="border-color:#22c55e30"><div class="stat-count" style="color:#22c55e">${autoPass}</div><div class="stat-label">\u7b26\u5408</div></div>
+    <div class="stat-card" style="border-color:#ef444430"><div class="stat-count" style="color:#ef4444">${autoFail}</div><div class="stat-label">\u4e0d\u7b26\u5408</div></div>
     ${autoUnknown > 0 ? `<div class="stat-card" style="border-color:#94a3b830"><div class="stat-count" style="color:#94a3b8">${autoUnknown}</div><div class="stat-label">\u672a\u68c0\u67e5</div></div>` : ""}
   </div>
 </section>
 
 <div class="mlps-summary-cards">
-  <div class="mlps-summary-card"><div class="stat-count" style="color:#22c55e">${autoResults.length}</div><div class="stat-label">\u81ea\u52a8\u68c0\u67e5 (${autoPass} \u901a\u8fc7 / ${autoFail} \u4e0d\u901a\u8fc7${autoUnknown > 0 ? ` / ${autoUnknown} \u672a\u68c0\u67e5` : ""})</div></div>
+  <div class="mlps-summary-card"><div class="stat-count" style="color:#22c55e">${autoResults.length}</div><div class="stat-label">\u81ea\u52a8\u68c0\u67e5 (${autoPass} \u7b26\u5408 / ${autoFail} \u4e0d\u7b26\u5408${autoUnknown > 0 ? ` / ${autoUnknown} \u672a\u68c0\u67e5` : ""})</div></div>
   <div class="mlps-summary-card"><div class="stat-count" style="color:#94a3b8">${cloudCount}</div><div class="stat-label">\u4e91\u5e73\u53f0\u8d1f\u8d23</div></div>
   <div class="mlps-summary-card"><div class="stat-count" style="color:#eab308">${manualCount}</div><div class="stat-label">\u9700\u4eba\u5de5\u8bc4\u4f30</div></div>
   <div class="mlps-summary-card"><div class="stat-count" style="color:#64748b">${naCount}</div><div class="stat-label">\u4e0d\u9002\u7528</div></div>

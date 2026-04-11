@@ -6391,35 +6391,26 @@ var MLPS3_CHECK_MAPPING = [
     id: "L3-CNS1-03",
     type: "auto",
     modules: ["network_reachability", "security_hub_findings"],
-    findingPatterns: ["default VPC", "EC2.2", "VPC", "subnet"]
+    securityHubControlIds: ["EC2.2"]
   },
   {
     id: "L3-CNS1-04",
     type: "auto",
     modules: ["network_reachability", "security_hub_findings"],
-    findingPatterns: [
-      "allows all ports",
-      "allows SSH",
-      "allows RDP",
-      "security group",
-      "EC2.18",
-      "EC2.19",
-      "NACL",
-      "network ACL"
-    ]
+    securityHubControlIds: ["EC2.18", "EC2.19"]
   },
   { id: "L3-CNS1-05", type: "cloud_provider", note: "AWS \u591A\u53EF\u7528\u533A/\u591A\u533A\u57DF\u5197\u4F59" },
   {
     id: "L3-CNS1-06",
     type: "auto",
     modules: ["ssl_certificate", "security_hub_findings"],
-    findingPatterns: ["HTTPS", "TLS", "certificate", "ELB.1", "HTTP listener", "transport encryption"]
+    securityHubControlIds: ["ELB.1"]
   },
   {
     id: "L3-CNS1-07",
     type: "auto",
     modules: ["ssl_certificate", "security_hub_findings"],
-    findingPatterns: ["HTTPS", "TLS", "SSL", "certificate", "ELB.1", "encryption in transit"]
+    securityHubControlIds: ["ELB.1"]
   },
   { id: "L3-CNS1-08", type: "not_applicable" },
   // L3-CNS2-* (Cloud extension communication — 5 items)
@@ -6428,16 +6419,7 @@ var MLPS3_CHECK_MAPPING = [
   {
     id: "L3-CNS2-03",
     type: "auto",
-    modules: ["network_reachability", "waf_coverage", "guardduty_findings"],
-    findingPatterns: [
-      "security group",
-      "NACL",
-      "WAF",
-      "GuardDuty",
-      "allows all ports",
-      "allows SSH",
-      "allows RDP"
-    ]
+    modules: ["network_reachability", "waf_coverage", "guardduty_findings"]
   },
   { id: "L3-CNS2-04", type: "cloud_provider", note: "AWS \u652F\u6301\u81EA\u4E3B\u5B89\u5168\u7B56\u7565\u914D\u7F6E" },
   { id: "L3-CNS2-05", type: "cloud_provider", note: "AWS Marketplace \u652F\u6301\u7B2C\u4E09\u65B9\u4EA7\u54C1" },
@@ -6453,29 +6435,13 @@ var MLPS3_CHECK_MAPPING = [
     id: "L3-ABS1-01",
     type: "auto",
     modules: ["network_reachability", "waf_coverage", "security_hub_findings"],
-    findingPatterns: [
-      "security group",
-      "allows all ports",
-      "allows SSH",
-      "allows RDP",
-      "EC2.18",
-      "EC2.19",
-      "WAF",
-      "ALB"
-    ]
+    securityHubControlIds: ["EC2.18", "EC2.19"]
   },
   {
     id: "L3-ABS1-02",
     type: "auto",
     modules: ["network_reachability", "security_hub_findings"],
-    findingPatterns: [
-      "security group",
-      "allows all ports",
-      "allows SSH",
-      "allows RDP",
-      "EC2.18",
-      "EC2.19"
-    ]
+    securityHubControlIds: ["EC2.18", "EC2.19"]
   },
   {
     id: "L3-ABS1-03",
@@ -6487,41 +6453,19 @@ var MLPS3_CHECK_MAPPING = [
     id: "L3-ABS1-05",
     type: "auto",
     modules: ["network_reachability", "security_hub_findings"],
-    findingPatterns: [
-      "security group",
-      "allows all ports",
-      "allows SSH",
-      "allows RDP",
-      "EC2.18",
-      "EC2.19",
-      "NACL"
-    ]
+    securityHubControlIds: ["EC2.18", "EC2.19"]
   },
   {
     id: "L3-ABS1-06",
     type: "auto",
     modules: ["idle_resources", "security_hub_findings"],
-    findingPatterns: [
-      "unused security group",
-      "security group",
-      "EC2.18",
-      "EC2.19"
-    ]
+    securityHubControlIds: ["EC2.18", "EC2.19"]
   },
   {
     id: "L3-ABS1-07",
     type: "auto",
     modules: ["network_reachability", "waf_coverage", "security_hub_findings"],
-    findingPatterns: [
-      "security group",
-      "source address",
-      "port",
-      "protocol",
-      "EC2.18",
-      "EC2.19",
-      "allows all ports",
-      "WAF"
-    ]
+    securityHubControlIds: ["EC2.18", "EC2.19"]
   },
   {
     id: "L3-ABS1-08",
@@ -6537,25 +6481,24 @@ var MLPS3_CHECK_MAPPING = [
     id: "L3-ABS1-10",
     type: "auto",
     modules: ["guardduty_findings", "waf_coverage", "security_hub_findings"],
-    findingPatterns: ["GuardDuty", "WAF", "attack", "intrusion", "threat"]
+    securityHubControlIds: ["GuardDuty.1"]
   },
   {
     id: "L3-ABS1-11",
     type: "auto",
     modules: ["guardduty_findings", "security_hub_findings"],
-    findingPatterns: ["GuardDuty", "internal", "attack", "anomalous", "unusual"]
+    securityHubControlIds: ["GuardDuty.1"]
   },
   {
     id: "L3-ABS1-12",
     type: "auto",
     modules: ["guardduty_findings", "waf_coverage", "security_hub_findings"],
-    findingPatterns: ["GuardDuty", "WAF", "behavior analysis", "network attack", "anomalous"]
+    securityHubControlIds: ["GuardDuty.1"]
   },
   {
     id: "L3-ABS1-13",
     type: "auto",
-    modules: ["guardduty_findings", "waf_coverage"],
-    findingPatterns: ["GuardDuty", "WAF", "attack source", "alarm", "alert"]
+    modules: ["guardduty_findings", "waf_coverage"]
   },
   {
     id: "L3-ABS1-14",
@@ -6566,30 +6509,20 @@ var MLPS3_CHECK_MAPPING = [
   {
     id: "L3-ABS1-16",
     type: "auto",
-    modules: ["service_detection", "security_hub_findings"],
-    findingPatterns: ["CloudTrail", "not enabled", "multi-region", "CloudTrail.1", "audit"]
+    modules: ["security_hub_findings"],
+    securityHubControlIds: ["CloudTrail.1"]
   },
   {
     id: "L3-ABS1-17",
     type: "auto",
-    modules: ["service_detection", "security_hub_findings"],
-    findingPatterns: ["CloudTrail", "audit record", "event date", "CloudTrail.1"]
+    modules: ["security_hub_findings"],
+    securityHubControlIds: ["CloudTrail.1"]
   },
   {
     id: "L3-ABS1-18",
     type: "auto",
     modules: ["security_hub_findings"],
-    findingPatterns: [
-      "CloudTrail",
-      "S3 bucket",
-      "encryption",
-      "versioning",
-      "Block Public Access",
-      "CloudTrail.4",
-      "CloudTrail.5",
-      "CloudTrail.6",
-      "CloudTrail.7"
-    ]
+    securityHubControlIds: ["CloudTrail.4", "CloudTrail.5", "CloudTrail.6", "CloudTrail.7"]
   },
   {
     id: "L3-ABS1-19",
@@ -6602,65 +6535,45 @@ var MLPS3_CHECK_MAPPING = [
     id: "L3-ABS2-01",
     type: "auto",
     modules: ["network_reachability", "security_hub_findings"],
-    findingPatterns: [
-      "security group",
-      "NACL",
-      "allows all ports",
-      "allows SSH",
-      "allows RDP",
-      "EC2.18",
-      "EC2.19"
-    ]
+    securityHubControlIds: ["EC2.18", "EC2.19"]
   },
   {
     id: "L3-ABS2-02",
     type: "auto",
     modules: ["network_reachability", "security_hub_findings"],
-    findingPatterns: [
-      "security group",
-      "NACL",
-      "allows all ports",
-      "allows SSH",
-      "allows RDP",
-      "EC2.18",
-      "EC2.19"
-    ]
+    securityHubControlIds: ["EC2.18", "EC2.19"]
   },
   {
     id: "L3-ABS2-03",
     type: "auto",
-    modules: ["guardduty_findings", "waf_coverage"],
-    findingPatterns: ["GuardDuty", "WAF", "attack", "intrusion"]
+    modules: ["guardduty_findings", "waf_coverage"]
   },
   {
     id: "L3-ABS2-04",
     type: "auto",
-    modules: ["guardduty_findings", "waf_coverage"],
-    findingPatterns: ["GuardDuty", "WAF", "attack", "intrusion", "virtual"]
+    modules: ["guardduty_findings", "waf_coverage"]
   },
   {
     id: "L3-ABS2-05",
     type: "auto",
-    modules: ["guardduty_findings"],
-    findingPatterns: ["GuardDuty", "anomalous", "unusual", "traffic"]
+    modules: ["guardduty_findings"]
   },
   {
     id: "L3-ABS2-06",
     type: "auto",
-    modules: ["guardduty_findings", "waf_coverage"],
-    findingPatterns: ["GuardDuty", "WAF", "alarm", "alert", "attack"]
+    modules: ["guardduty_findings", "waf_coverage"]
   },
   {
     id: "L3-ABS2-07",
     type: "auto",
-    modules: ["service_detection", "security_hub_findings"],
-    findingPatterns: ["CloudTrail", "privileged command", "CloudTrail.1"]
+    modules: ["security_hub_findings"],
+    securityHubControlIds: ["CloudTrail.1"]
   },
   {
     id: "L3-ABS2-08",
     type: "auto",
-    modules: ["service_detection", "security_hub_findings"],
-    findingPatterns: ["CloudTrail", "CloudTrail.1"]
+    modules: ["security_hub_findings"],
+    securityHubControlIds: ["CloudTrail.1"]
   },
   // L3-ABS3-* (Wireless boundary — N/A)
   { id: "L3-ABS3-01", type: "not_applicable" },
@@ -6691,16 +6604,7 @@ var MLPS3_CHECK_MAPPING = [
     id: "L3-CES1-01",
     type: "auto",
     modules: ["security_hub_findings"],
-    findingPatterns: [
-      "password policy",
-      "password length",
-      "complexity",
-      "password expiry",
-      "reuse prevention",
-      "IAM.7",
-      "IAM.10",
-      "IAM.11"
-    ]
+    securityHubControlIds: ["IAM.7", "IAM.10", "IAM.11"]
   },
   {
     id: "L3-CES1-02",
@@ -6711,25 +6615,18 @@ var MLPS3_CHECK_MAPPING = [
     id: "L3-CES1-03",
     type: "auto",
     modules: ["ssl_certificate", "security_hub_findings"],
-    findingPatterns: ["HTTPS", "TLS", "SSH", "encrypted", "ELB.1", "certificate"]
+    securityHubControlIds: ["ELB.1"]
   },
   {
     id: "L3-CES1-04",
     type: "auto",
     modules: ["security_hub_findings"],
-    findingPatterns: ["MFA", "IAM.5", "IAM.6", "multi-factor"]
+    securityHubControlIds: ["IAM.5", "IAM.6"]
   },
   {
     id: "L3-CES1-05",
     type: "auto",
-    modules: ["iam_privilege_escalation", "access_analyzer_findings"],
-    findingPatterns: [
-      "AdministratorAccess",
-      "privilege escalation",
-      "over-permissive",
-      "external access",
-      "IAM"
-    ]
+    modules: ["iam_privilege_escalation", "access_analyzer_findings"]
   },
   {
     id: "L3-CES1-06",
@@ -6740,56 +6637,24 @@ var MLPS3_CHECK_MAPPING = [
     id: "L3-CES1-07",
     type: "auto",
     modules: ["security_hub_findings", "access_analyzer_findings"],
-    findingPatterns: [
-      "access key older",
-      "access key rotated",
-      "IAM.3",
-      "IAM.4",
-      "unused",
-      "expired",
-      "inactive"
-    ]
+    securityHubControlIds: ["IAM.3", "IAM.4"]
   },
   {
     id: "L3-CES1-08",
     type: "auto",
     modules: ["iam_privilege_escalation", "security_hub_findings"],
-    findingPatterns: [
-      "AdministratorAccess",
-      "PowerUserAccess",
-      "IAMFullAccess",
-      "over-permissive",
-      "privilege escalation",
-      "self-grant",
-      "iam:*",
-      "create admin",
-      "Lambda role passing",
-      "CreateAccessKey",
-      "AssumeRole"
-    ]
+    securityHubControlIds: ["IAM.1", "IAM.21"]
   },
   {
     id: "L3-CES1-09",
     type: "auto",
-    modules: ["iam_privilege_escalation", "access_analyzer_findings"],
-    findingPatterns: [
-      "access control",
-      "policy",
-      "privilege escalation",
-      "external access"
-    ]
+    modules: ["iam_privilege_escalation", "access_analyzer_findings"]
   },
   {
     id: "L3-CES1-10",
     type: "auto",
     modules: ["iam_privilege_escalation", "security_hub_findings"],
-    findingPatterns: [
-      "IAM",
-      "privilege",
-      "access control",
-      "policy",
-      "granularity"
-    ]
+    securityHubControlIds: ["IAM.1", "IAM.21"]
   },
   {
     id: "L3-CES1-11",
@@ -6799,79 +6664,45 @@ var MLPS3_CHECK_MAPPING = [
   {
     id: "L3-CES1-12",
     type: "auto",
-    modules: ["service_detection", "security_hub_findings", "config_rules_findings"],
-    findingPatterns: ["CloudTrail", "not enabled", "multi-region", "CloudTrail.1", "Config"]
+    modules: ["security_hub_findings"],
+    securityHubControlIds: ["CloudTrail.1"]
   },
   {
     id: "L3-CES1-13",
     type: "auto",
-    modules: ["service_detection", "security_hub_findings"],
-    findingPatterns: ["CloudTrail", "audit record", "CloudTrail.1"]
+    modules: ["security_hub_findings"],
+    securityHubControlIds: ["CloudTrail.1"]
   },
   {
     id: "L3-CES1-14",
     type: "auto",
     modules: ["security_hub_findings"],
-    findingPatterns: [
-      "CloudTrail",
-      "S3 bucket",
-      "encryption",
-      "versioning",
-      "CloudTrail.4",
-      "CloudTrail.5",
-      "CloudTrail.6",
-      "CloudTrail.7"
-    ]
+    securityHubControlIds: ["CloudTrail.4", "CloudTrail.5", "CloudTrail.6", "CloudTrail.7"]
   },
   {
     id: "L3-CES1-15",
     type: "auto",
     modules: ["security_hub_findings"],
-    findingPatterns: ["CloudTrail", "log file validation", "CloudTrail.4", "CloudTrail.5"]
+    securityHubControlIds: ["CloudTrail.4", "CloudTrail.5"]
   },
   // Note: L3-CES1-16 does not exist in the standard
   {
     id: "L3-CES1-17",
     type: "auto",
-    modules: ["security_hub_findings", "network_reachability"],
-    findingPatterns: [
-      "unnecessary",
-      "unneeded",
-      "default",
-      "minimum install",
-      "allows all ports",
-      "high-risk port"
-    ]
+    modules: ["network_reachability", "security_hub_findings"],
+    securityHubControlIds: ["EC2.18", "EC2.19"]
   },
   {
     id: "L3-CES1-18",
     type: "auto",
     modules: ["network_reachability", "security_hub_findings"],
-    findingPatterns: [
-      "allows all ports",
-      "high-risk port",
-      "allows SSH",
-      "allows RDP",
-      "MySQL",
-      "PostgreSQL",
-      "MongoDB",
-      "Redis",
-      "EC2.18",
-      "EC2.19"
-    ]
+    securityHubControlIds: ["EC2.18", "EC2.19"]
   },
   {
     id: "L3-CES1-19",
     type: "auto",
     modules: ["network_reachability", "security_hub_findings"],
-    findingPatterns: [
-      "allows SSH",
-      "allows RDP",
-      "management",
-      "security group",
-      "EC2.18",
-      "EC2.19"
-    ]
+    securityHubControlIds: ["EC2.18", "EC2.19"]
   },
   {
     id: "L3-CES1-20",
@@ -6881,14 +6712,12 @@ var MLPS3_CHECK_MAPPING = [
   {
     id: "L3-CES1-21",
     type: "auto",
-    modules: ["inspector_findings", "patch_compliance_findings"],
-    findingPatterns: ["CVE-", "vulnerability", "patch", "Inspector", "missing patch", "non-compliant"]
+    modules: ["inspector_findings", "patch_compliance_findings"]
   },
   {
     id: "L3-CES1-22",
     type: "auto",
-    modules: ["guardduty_findings", "waf_coverage"],
-    findingPatterns: ["GuardDuty", "WAF", "intrusion", "attack", "alarm"]
+    modules: ["guardduty_findings", "waf_coverage"]
   },
   {
     id: "L3-CES1-23",
@@ -6900,7 +6729,7 @@ var MLPS3_CHECK_MAPPING = [
     id: "L3-CES1-25",
     type: "auto",
     modules: ["ssl_certificate", "security_hub_findings"],
-    findingPatterns: ["HTTPS", "TLS", "certificate", "ELB.1", "integrity", "transport encryption"]
+    securityHubControlIds: ["ELB.1"]
   },
   {
     id: "L3-CES1-26",
@@ -6911,47 +6740,28 @@ var MLPS3_CHECK_MAPPING = [
     id: "L3-CES1-27",
     type: "auto",
     modules: ["ssl_certificate", "security_hub_findings"],
-    findingPatterns: ["HTTPS", "TLS", "certificate", "ELB.1", "encryption in transit"]
+    securityHubControlIds: ["ELB.1"]
   },
   {
     id: "L3-CES1-28",
     type: "auto",
     modules: ["security_hub_findings"],
-    findingPatterns: [
-      "no default encryption",
-      "not encrypted",
-      "S3.4",
-      "EC2.7",
-      "RDS.3",
-      "EBS default encryption",
-      "KMS",
-      "storage encryption"
-    ]
+    securityHubControlIds: ["S3.4", "EC2.7", "RDS.3"]
   },
   {
     id: "L3-CES1-29",
     type: "auto",
-    modules: ["disaster_recovery"],
-    findingPatterns: ["backup", "snapshot", "recovery", "EBS snapshot", "RDS snapshot"]
+    modules: ["disaster_recovery"]
   },
   {
     id: "L3-CES1-30",
     type: "auto",
-    modules: ["disaster_recovery"],
-    findingPatterns: [
-      "cross-region",
-      "backup",
-      "replication",
-      "Multi-AZ",
-      "S3 versioning",
-      "snapshot"
-    ]
+    modules: ["disaster_recovery"]
   },
   {
     id: "L3-CES1-31",
     type: "auto",
-    modules: ["disaster_recovery"],
-    findingPatterns: ["Multi-AZ", "redundancy", "high availability", "backup"]
+    modules: ["disaster_recovery"]
   },
   { id: "L3-CES1-32", type: "cloud_provider", note: "AWS \u5B58\u50A8\u670D\u52A1\u6570\u636E\u6E05\u9664\u7B56\u7565\u8986\u76D6" },
   { id: "L3-CES1-33", type: "cloud_provider", note: "AWS \u5B58\u50A8\u670D\u52A1\u6570\u636E\u6E05\u9664\u7B56\u7565\u8986\u76D6" },
@@ -6970,21 +6780,20 @@ var MLPS3_CHECK_MAPPING = [
     id: "L3-CES2-01",
     type: "auto",
     modules: ["security_hub_findings"],
-    findingPatterns: ["MFA", "IAM.5", "IAM.6", "authentication", "SSH", "RDP"]
+    securityHubControlIds: ["IAM.5", "IAM.6"]
   },
   { id: "L3-CES2-02", type: "cloud_provider", note: "AWS \u786E\u4FDD VM \u8FC1\u79FB\u65F6\u8BBF\u95EE\u63A7\u5236\u968F\u8FC1" },
   {
     id: "L3-CES2-03",
     type: "auto",
     modules: ["network_reachability", "security_hub_findings"],
-    findingPatterns: ["security group", "EC2.18", "EC2.19", "allows all ports"]
+    securityHubControlIds: ["EC2.18", "EC2.19"]
   },
   { id: "L3-CES2-04", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u865A\u62DF\u5316\u8D44\u6E90\u9694\u79BB" },
   {
     id: "L3-CES2-05",
     type: "auto",
-    modules: ["service_detection", "guardduty_findings"],
-    findingPatterns: ["CloudTrail", "GuardDuty", "unauthorized", "RunInstances"]
+    modules: ["guardduty_findings"]
   },
   {
     id: "L3-CES2-06",
@@ -7005,14 +6814,7 @@ var MLPS3_CHECK_MAPPING = [
     id: "L3-CES2-09",
     type: "auto",
     modules: ["security_hub_findings"],
-    findingPatterns: [
-      "not encrypted",
-      "EBS default encryption",
-      "EC2.7",
-      "snapshot",
-      "KMS",
-      "encryption"
-    ]
+    securityHubControlIds: ["EC2.7"]
   },
   { id: "L3-CES2-10", type: "cloud_provider", note: "AWS \u4E2D\u56FD\u533A\u6570\u636E\u5B58\u50A8\u4E8E\u4E2D\u56FD\u5883\u5185" },
   { id: "L3-CES2-11", type: "cloud_provider", note: "AWS \u4EC5\u5728\u5BA2\u6237\u6388\u6743\u4E0B\u7BA1\u7406\u6570\u636E" },
@@ -7021,7 +6823,7 @@ var MLPS3_CHECK_MAPPING = [
     id: "L3-CES2-13",
     type: "auto",
     modules: ["security_hub_findings"],
-    findingPatterns: ["KMS", "encryption", "key management", "CMK"]
+    securityHubControlIds: ["KMS.4"]
   },
   { id: "L3-CES2-14", type: "not_applicable" },
   { id: "L3-CES2-15", type: "cloud_provider", note: "AWS \u652F\u6301\u67E5\u8BE2\u6570\u636E\u53CA\u5907\u4EFD\u5B58\u50A8\u4F4D\u7F6E" },
@@ -7060,61 +6862,61 @@ var MLPS3_CHECK_MAPPING = [
     id: "L3-SMC1-01",
     type: "auto",
     modules: ["iam_privilege_escalation", "security_hub_findings"],
-    findingPatterns: ["IAM", "administrator", "authentication", "root", "MFA"]
+    securityHubControlIds: ["IAM.4", "IAM.6"]
   },
   {
     id: "L3-SMC1-02",
     type: "auto",
     modules: ["security_hub_findings", "config_rules_findings"],
-    findingPatterns: ["Config", "resource configuration", "IAM", "CloudFormation"]
+    securityHubControlIds: ["Config.1"]
   },
   {
     id: "L3-SMC1-03",
     type: "auto",
     modules: ["iam_privilege_escalation", "security_hub_findings"],
-    findingPatterns: ["IAM", "administrator", "audit", "root", "MFA"]
+    securityHubControlIds: ["IAM.4", "IAM.6"]
   },
   {
     id: "L3-SMC1-04",
     type: "auto",
-    modules: ["service_detection", "security_hub_findings"],
-    findingPatterns: ["CloudTrail", "audit", "analysis", "CloudTrail.1"]
+    modules: ["security_hub_findings"],
+    securityHubControlIds: ["CloudTrail.1"]
   },
   {
     id: "L3-SMC1-05",
     type: "auto",
     modules: ["iam_privilege_escalation", "security_hub_findings"],
-    findingPatterns: ["IAM", "administrator", "security", "root", "MFA"]
+    securityHubControlIds: ["IAM.4", "IAM.6"]
   },
   {
     id: "L3-SMC1-06",
     type: "auto",
     modules: ["iam_privilege_escalation", "security_hub_findings"],
-    findingPatterns: ["IAM", "policy", "security parameter", "access control"]
+    securityHubControlIds: ["IAM.1", "IAM.21"]
   },
   {
     id: "L3-SMC1-07",
     type: "auto",
-    modules: ["security_hub_findings", "service_detection"],
-    findingPatterns: ["Security Hub", "Firewall Manager", "centralized", "management"]
+    modules: ["service_detection"],
+    findingPatterns: ["Security Hub"]
   },
   {
     id: "L3-SMC1-08",
     type: "auto",
     modules: ["ssl_certificate", "security_hub_findings"],
-    findingPatterns: ["HTTPS", "TLS", "certificate", "ELB.1", "encryption"]
+    securityHubControlIds: ["ELB.1"]
   },
   {
     id: "L3-SMC1-09",
     type: "auto",
     modules: ["service_detection"],
-    findingPatterns: ["CloudWatch", "monitoring", "centralized"]
+    findingPatterns: ["CloudWatch"]
   },
   {
     id: "L3-SMC1-10",
     type: "auto",
-    modules: ["service_detection", "security_hub_findings"],
-    findingPatterns: ["CloudTrail", "centralized", "audit", "analysis"]
+    modules: ["security_hub_findings"],
+    securityHubControlIds: ["CloudTrail.1"]
   },
   {
     id: "L3-SMC1-11",
@@ -7125,7 +6927,7 @@ var MLPS3_CHECK_MAPPING = [
     id: "L3-SMC1-12",
     type: "auto",
     modules: ["guardduty_findings", "security_hub_findings"],
-    findingPatterns: ["GuardDuty", "Security Hub", "alarm", "alert", "security event"]
+    securityHubControlIds: ["GuardDuty.1"]
   },
   // L3-SMC2-* (Cloud extension management center — 4 items)
   { id: "L3-SMC2-01", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u7EDF\u4E00\u7BA1\u7406\u8C03\u5EA6\u548C\u5206\u914D" },
@@ -7153,19 +6955,31 @@ function evaluateFullCheck(item, mapping, allFindings, scanModules) {
     return { item, mapping, status: "manual", relatedFindings: [] };
   }
   const mods = mapping.modules ?? [];
-  const patterns = mapping.findingPatterns ?? [];
   const allModulesPresent = mods.every(
     (mod) => scanModules.some((m) => m.module === mod && m.status === "success")
   );
   if (!allModulesPresent) {
     return { item, mapping, status: "unknown", relatedFindings: [] };
   }
-  const relatedFindings = allFindings.filter((f) => {
-    const moduleMatch = mods.some((mod) => f.module === mod);
-    if (!moduleMatch) return false;
-    const text = `${f.title} ${f.description}`.toLowerCase();
-    return patterns.some((pattern) => text.includes(pattern.toLowerCase()));
-  });
+  let relatedFindings;
+  if (mapping.securityHubControlIds?.length) {
+    relatedFindings = allFindings.filter((f) => {
+      if (!mods.includes(f.module ?? "")) return false;
+      if (f.module === "security_hub_findings") {
+        return mapping.securityHubControlIds.some((id) => f.title.includes(id));
+      }
+      return true;
+    });
+  } else if (mapping.findingPatterns?.length) {
+    const patterns = mapping.findingPatterns;
+    relatedFindings = allFindings.filter((f) => {
+      if (!mods.includes(f.module ?? "")) return false;
+      const text = `${f.title} ${f.description}`.toLowerCase();
+      return patterns.some((pattern) => text.includes(pattern.toLowerCase()));
+    });
+  } else {
+    relatedFindings = allFindings.filter((f) => mods.includes(f.module ?? ""));
+  }
   return {
     item,
     mapping,
@@ -8320,17 +8134,17 @@ ${mlpsRemaining.map(renderMlpsRec).join("\n")}
 <section class="summary">
   <div class="score-card">
     <div class="score-value" style="color:${passRateColor}">${percent}%</div>
-    <div class="score-label">\u81EA\u52A8\u68C0\u67E5\u901A\u8FC7\u7387</div>
+    <div class="score-label">\u5408\u89C4\u901A\u8FC7\u7387</div>
   </div>
   <div class="severity-stats">
-    <div class="stat-card" style="border-color:#22c55e30"><div class="stat-count" style="color:#22c55e">${autoPass}</div><div class="stat-label">\u81EA\u52A8\u901A\u8FC7</div></div>
-    <div class="stat-card" style="border-color:#ef444430"><div class="stat-count" style="color:#ef4444">${autoFail}</div><div class="stat-label">\u81EA\u52A8\u4E0D\u901A\u8FC7</div></div>
+    <div class="stat-card" style="border-color:#22c55e30"><div class="stat-count" style="color:#22c55e">${autoPass}</div><div class="stat-label">\u7B26\u5408</div></div>
+    <div class="stat-card" style="border-color:#ef444430"><div class="stat-count" style="color:#ef4444">${autoFail}</div><div class="stat-label">\u4E0D\u7B26\u5408</div></div>
     ${autoUnknown > 0 ? `<div class="stat-card" style="border-color:#94a3b830"><div class="stat-count" style="color:#94a3b8">${autoUnknown}</div><div class="stat-label">\u672A\u68C0\u67E5</div></div>` : ""}
   </div>
 </section>
 
 <div class="mlps-summary-cards">
-  <div class="mlps-summary-card"><div class="stat-count" style="color:#22c55e">${autoResults.length}</div><div class="stat-label">\u81EA\u52A8\u68C0\u67E5 (${autoPass} \u901A\u8FC7 / ${autoFail} \u4E0D\u901A\u8FC7${autoUnknown > 0 ? ` / ${autoUnknown} \u672A\u68C0\u67E5` : ""})</div></div>
+  <div class="mlps-summary-card"><div class="stat-count" style="color:#22c55e">${autoResults.length}</div><div class="stat-label">\u81EA\u52A8\u68C0\u67E5 (${autoPass} \u7B26\u5408 / ${autoFail} \u4E0D\u7B26\u5408${autoUnknown > 0 ? ` / ${autoUnknown} \u672A\u68C0\u67E5` : ""})</div></div>
   <div class="mlps-summary-card"><div class="stat-count" style="color:#94a3b8">${cloudCount}</div><div class="stat-label">\u4E91\u5E73\u53F0\u8D1F\u8D23</div></div>
   <div class="mlps-summary-card"><div class="stat-count" style="color:#eab308">${manualCount}</div><div class="stat-label">\u9700\u4EBA\u5DE5\u8BC4\u4F30</div></div>
   <div class="mlps-summary-card"><div class="stat-count" style="color:#64748b">${naCount}</div><div class="stat-label">\u4E0D\u9002\u7528</div></div>

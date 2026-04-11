@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { generateMlps3Report } from "../../src/tools/mlps-report.js";
-import type { FullScanResult } from "../../src/types.js";
+import { generateMlps3Report, evaluateFullCheck } from "../../src/tools/mlps-report.js";
+import type { MlpsChecklistItem, MlpsCheckMapping } from "../../src/tools/mlps-report.js";
+import type { FullScanResult, Finding } from "../../src/types.js";
 
 function makeResult(modules: Array<{
   module: string;
@@ -148,5 +149,170 @@ describe("generateMlps3Report", () => {
     expect(report).toContain("未检查");
     // Summary should show 未检查 count and note about pass rate
     expect(report).toContain("未检查项不计入通过率");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// evaluateFullCheck — new 3-tier evaluation logic
+// ---------------------------------------------------------------------------
+
+const dummyItem: MlpsChecklistItem = {
+  id: "L3-TEST-01",
+  categoryCn: "测试",
+  categoryEn: "Test",
+  controlCn: "测试控制",
+  controlEn: "Test Control",
+  requirementCn: "测试要求",
+  requirementEn: "Test Requirement",
+  referenceStatus: "",
+  referenceComment: "",
+};
+
+function makeFinding(overrides: Partial<Finding> & { title: string; module: string }): Finding {
+  return {
+    severity: "MEDIUM",
+    resourceType: "AWS::EC2::Instance",
+    resourceId: "i-abc123",
+    resourceArn: "arn:aws:ec2:us-east-1:123456789012:instance/i-abc123",
+    region: "us-east-1",
+    description: "Test finding",
+    impact: "Test impact",
+    riskScore: 5.0,
+    remediationSteps: ["Fix it."],
+    priority: "P2",
+    ...overrides,
+  };
+}
+
+const allModulesPresent = [
+  { module: "security_hub_findings", status: "success" },
+  { module: "network_reachability", status: "success" },
+  { module: "guardduty_findings", status: "success" },
+  { module: "waf_coverage", status: "success" },
+  { module: "iam_privilege_escalation", status: "success" },
+  { module: "service_detection", status: "success" },
+];
+
+describe("evaluateFullCheck — securityHubControlIds", () => {
+  it("passes when no Security Hub findings match the specific control IDs", () => {
+    const mapping: MlpsCheckMapping = {
+      id: "L3-TEST-01",
+      type: "auto",
+      modules: ["security_hub_findings"],
+      securityHubControlIds: ["IAM.7", "IAM.10"],
+    };
+    // Finding has a different control ID
+    const findings = [
+      makeFinding({ title: "EC2.2 Default VPC in use", module: "security_hub_findings" }),
+    ];
+    const result = evaluateFullCheck(dummyItem, mapping, findings, allModulesPresent);
+    expect(result.status).toBe("pass");
+    expect(result.relatedFindings).toHaveLength(0);
+  });
+
+  it("fails when a Security Hub finding matches a specific control ID", () => {
+    const mapping: MlpsCheckMapping = {
+      id: "L3-TEST-01",
+      type: "auto",
+      modules: ["security_hub_findings"],
+      securityHubControlIds: ["IAM.7", "IAM.10"],
+    };
+    const findings = [
+      makeFinding({ title: "IAM.7 Password policy too weak", module: "security_hub_findings" }),
+    ];
+    const result = evaluateFullCheck(dummyItem, mapping, findings, allModulesPresent);
+    expect(result.status).toBe("fail");
+    expect(result.relatedFindings).toHaveLength(1);
+  });
+
+  it("hybrid: matches Security Hub by control ID and other scanners by module", () => {
+    const mapping: MlpsCheckMapping = {
+      id: "L3-TEST-01",
+      type: "auto",
+      modules: ["network_reachability", "security_hub_findings"],
+      securityHubControlIds: ["EC2.18"],
+    };
+    // Security Hub finding for a DIFFERENT control — should NOT match
+    // network_reachability finding — SHOULD match (module-level)
+    const findings = [
+      makeFinding({ title: "IAM.7 Password issue", module: "security_hub_findings" }),
+      makeFinding({ title: "SG allows SSH from 0.0.0.0/0", module: "network_reachability" }),
+    ];
+    const result = evaluateFullCheck(dummyItem, mapping, findings, allModulesPresent);
+    expect(result.status).toBe("fail");
+    // Only the network_reachability finding should be related (not IAM.7)
+    expect(result.relatedFindings).toHaveLength(1);
+    expect(result.relatedFindings[0].module).toBe("network_reachability");
+  });
+});
+
+describe("evaluateFullCheck — module-level (no patterns, no control IDs)", () => {
+  it("passes when scanner modules have no findings", () => {
+    const mapping: MlpsCheckMapping = {
+      id: "L3-TEST-01",
+      type: "auto",
+      modules: ["guardduty_findings", "waf_coverage"],
+    };
+    const result = evaluateFullCheck(dummyItem, mapping, [], allModulesPresent);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when scanner modules have findings", () => {
+    const mapping: MlpsCheckMapping = {
+      id: "L3-TEST-01",
+      type: "auto",
+      modules: ["guardduty_findings"],
+    };
+    const findings = [
+      makeFinding({ title: "Trojan detected", module: "guardduty_findings" }),
+    ];
+    const result = evaluateFullCheck(dummyItem, mapping, findings, allModulesPresent);
+    expect(result.status).toBe("fail");
+    expect(result.relatedFindings).toHaveLength(1);
+  });
+
+  it("ignores findings from unrelated modules", () => {
+    const mapping: MlpsCheckMapping = {
+      id: "L3-TEST-01",
+      type: "auto",
+      modules: ["guardduty_findings"],
+    };
+    // Finding from a different module should be ignored
+    const findings = [
+      makeFinding({ title: "SG issue", module: "network_reachability" }),
+    ];
+    const result = evaluateFullCheck(dummyItem, mapping, findings, allModulesPresent);
+    expect(result.status).toBe("pass");
+  });
+});
+
+describe("evaluateFullCheck — findingPatterns (legacy)", () => {
+  it("passes when no findings match the patterns", () => {
+    const mapping: MlpsCheckMapping = {
+      id: "L3-TEST-01",
+      type: "auto",
+      modules: ["service_detection"],
+      findingPatterns: ["CloudWatch"],
+    };
+    const findings = [
+      makeFinding({ title: "Security Hub not enabled", module: "service_detection" }),
+    ];
+    const result = evaluateFullCheck(dummyItem, mapping, findings, allModulesPresent);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when a finding matches the pattern", () => {
+    const mapping: MlpsCheckMapping = {
+      id: "L3-TEST-01",
+      type: "auto",
+      modules: ["service_detection"],
+      findingPatterns: ["CloudWatch"],
+    };
+    const findings = [
+      makeFinding({ title: "CloudWatch monitoring not configured", module: "service_detection" }),
+    ];
+    const result = evaluateFullCheck(dummyItem, mapping, findings, allModulesPresent);
+    expect(result.status).toBe("fail");
+    expect(result.relatedFindings).toHaveLength(1);
   });
 });
