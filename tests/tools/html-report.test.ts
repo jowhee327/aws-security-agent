@@ -171,7 +171,7 @@ describe("generateHtmlReport", () => {
     const result = makeResult([{ module: "service_detection", findings: [] }]);
     const html = generateHtmlReport(result);
 
-    expect(html).toContain("AWS Security MCP Server v0.5.0");
+    expect(html).toContain("AWS Security MCP Server v");
     expect(html).toContain("informational purposes only");
   });
 
@@ -289,7 +289,8 @@ describe("generateMlps3HtmlReport", () => {
     const result = makeResult([{ module: "security_hub_findings", findings: [] }]);
     const html = generateMlps3HtmlReport(result);
 
-    expect(html).toContain("本报告为等保预检参考");
+    expect(html).toContain("GB/T 22239-2019");
+    expect(html).toContain("184");
     expect(html).toContain("持证测评机构执行");
   });
 
@@ -305,12 +306,12 @@ describe("generateMlps3HtmlReport", () => {
     ]);
     const html = generateMlps3HtmlReport(result);
 
-    expect(html).toContain("身份鉴别");
-    expect(html).toContain("访问控制");
-    expect(html).toContain("安全审计");
-    expect(html).toContain("入侵防范");
-    expect(html).toContain("数据安全");
-    expect(html).toContain("网络安全");
+    // New GB/T 22239-2019 categories
+    expect(html).toContain("安全物理环境");
+    expect(html).toContain("安全通信网络");
+    expect(html).toContain("安全区域边界");
+    expect(html).toContain("安全计算环境");
+    expect(html).toContain("安全管理中心");
   });
 
   it("includes remediation section for failed checks", () => {

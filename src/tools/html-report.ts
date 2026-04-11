@@ -4,6 +4,11 @@ import {
   CATEGORY_ORDER,
   CATEGORY_SECTION,
   evaluateCheck,
+  evaluateAllFullChecks,
+  MLPS3_CATEGORY_ORDER,
+  MLPS3_CATEGORY_SECTION,
+  type FullCheckResult,
+  type FullCheckStatus,
 } from "./mlps-report.js";
 import { VERSION } from "../version.js";
 
@@ -807,7 +812,7 @@ ${recsHtml}
 }
 
 // ---------------------------------------------------------------------------
-// MLPS Level 3 HTML Report (等保三级)
+// MLPS Level 3 HTML Report (等保三级) — Full GB/T 22239-2019 (184 items)
 // ---------------------------------------------------------------------------
 
 export function generateMlps3HtmlReport(
@@ -818,133 +823,166 @@ export function generateMlps3HtmlReport(
   const date = scanStart.split("T")[0];
   const scanTime = scanStart.replace("T", " ").replace(/\.\d+Z$/, " UTC");
 
-  const allFindings: Finding[] = scanResults.modules.flatMap((m) =>
-    m.findings.map((f) => ({ ...f, module: f.module ?? m.module })),
-  );
+  // Evaluate all 184 checks
+  const results = evaluateAllFullChecks(scanResults);
 
-  const scanModules = scanResults.modules.map((m) => ({
-    module: m.module,
-    status: m.status,
-  }));
-  const results = MLPS_CHECKS.map((check) =>
-    evaluateCheck(check, allFindings, scanModules),
-  );
+  // Summary counts by type
+  const autoResults = results.filter((r) => r.mapping.type === "auto");
+  const autoPass = autoResults.filter((r) => r.status === "pass").length;
+  const autoFail = autoResults.filter((r) => r.status === "fail").length;
+  const autoUnknown = autoResults.filter((r) => r.status === "unknown").length;
+  const cloudCount = results.filter((r) => r.status === "cloud_provider").length;
+  const manualCount = results.filter((r) => r.status === "manual").length;
+  const naCount = results.filter((r) => r.status === "not_applicable").length;
 
-  const passCount = results.filter((r) => r.status === "pass").length;
-  const failCount = results.filter((r) => r.status === "fail").length;
-  const unknownCount = results.filter((r) => r.status === "unknown").length;
-  const checkedTotal = passCount + failCount;
-  const percent =
-    checkedTotal > 0 ? Math.round((passCount / checkedTotal) * 100) : 0;
+  // Pass rate: auto pass / (auto pass + auto fail), excluding unknown
+  const checkedTotal = autoPass + autoFail;
+  const percent = checkedTotal > 0 ? Math.round((autoPass / checkedTotal) * 100) : 0;
 
   // --- Trend Charts ---
   let trendHtml = "";
   if (history && history.length >= 2) {
     trendHtml = `
     <section class="trend-section">
-      <h2>30日趋势</h2>
+      <h2>30\u65e5\u8d8b\u52bf</h2>
       <div class="trend-chart">
-        <div class="trend-title">按严重性分类的发现</div>
+        <div class="trend-title">\u6309\u4e25\u91cd\u6027\u5206\u7c7b\u7684\u53d1\u73b0</div>
         ${findingsTrendChart(history)}
       </div>
       <div class="trend-chart">
-        <div class="trend-title">安全评分</div>
+        <div class="trend-title">\u5b89\u5168\u8bc4\u5206</div>
         ${scoreTrendChart(history)}
       </div>
     </section>`;
   }
 
-  // --- Category sections (folded) ---
-  const categorySections = CATEGORY_ORDER.map((category) => {
-    const sectionTitle = CATEGORY_SECTION[category];
-    const categoryResults = results.filter(
-      (r) => r.check.category === category,
-    );
-    if (categoryResults.length === 0) return "";
+  // --- Group results by categoryCn ---
+  const categoryMap = new Map<string, FullCheckResult[]>();
+  for (const r of results) {
+    if (r.status === "not_applicable") continue; // N/A items excluded from domain sections
+    const cat = r.item.categoryCn;
+    if (!categoryMap.has(cat)) categoryMap.set(cat, []);
+    categoryMap.get(cat)!.push(r);
+  }
 
-    const catPass = categoryResults.filter((r) => r.status === "pass").length;
-    const catFail = categoryResults.filter((r) => r.status === "fail").length;
-    const catUnknown = categoryResults.filter(
-      (r) => r.status === "unknown",
-    ).length;
-    const byId = new Map<string, typeof categoryResults>();
-    for (const r of categoryResults) {
-      const existing = byId.get(r.check.id) ?? [];
-      existing.push(r);
-      byId.set(r.check.id, existing);
-    }
+  // --- Build domain sections ---
+  const categorySections = MLPS3_CATEGORY_ORDER
+    .map((category) => {
+      const sectionTitle = MLPS3_CATEGORY_SECTION[category];
+      const catResults = categoryMap.get(category);
+      if (!catResults || catResults.length === 0) return "";
 
-    const groups = [...byId.entries()]
-      .map(([checkId, checkResults]) => {
-        const grpPass = checkResults.filter((r) => r.status === "pass").length;
-        const grpFail = checkResults.filter((r) => r.status === "fail").length;
-        const grpUnknown = checkResults.filter((r) => r.status === "unknown").length;
+      // Check if ALL results in this category are cloud_provider
+      const allCloud = catResults.every((r) => r.status === "cloud_provider");
+      if (allCloud) {
+        return `<details class="category-fold mlps-cloud-section">
+  <summary>
+    <span class="category-title">${esc(sectionTitle)}</span>
+    <span class="category-stats"><span class="category-stat-cloud">\ud83c\udfe2 ${catResults.length} \u9879\u4e91\u5e73\u53f0\u8d1f\u8d23\uff08\u7b26\u5408\uff09</span></span>
+  </summary>
+  <div class="category-body">
+    <div class="mlps-cloud-note">\u4ee5\u4e0b ${catResults.length} \u9879\u7531 AWS \u4e91\u5e73\u53f0\u8d1f\u8d23\uff0c\u6839\u636e\u5b89\u5168\u8d23\u4efb\u5171\u62c5\u6a21\u578b\u8bc4\u4f30\u4e3a\u7b26\u5408\u3002</div>
+    ${catResults.map((r) => `<div class="check-item check-cloud"><span class="check-icon">\ud83c\udfe2</span><span class="check-name">${esc(r.item.id)} ${esc(r.item.controlCn)}</span><span class="check-note">${esc(r.mapping.note ?? "")}</span></div>`).join("\n")}
+  </div>
+</details>`;
+      }
 
-        const items = checkResults
-          .map((r) => {
-            const icon =
-              r.status === "pass"
-                ? "&#10004;"
-                : r.status === "fail"
-                  ? "&#10008;"
-                  : "&#9888;";
-            const cls = `check-${r.status}`;
-            const label = r.status === "unknown" ? " (未检查)" : "";
-            let findingsHtml = "";
+      // Mixed category — compute stats
+      const catPass = catResults.filter((r) => r.status === "pass").length;
+      const catFail = catResults.filter((r) => r.status === "fail").length;
+      const catUnknown = catResults.filter((r) => r.status === "unknown").length;
+      const catCloud = catResults.filter((r) => r.status === "cloud_provider").length;
+      const catManual = catResults.filter((r) => r.status === "manual").length;
+
+      const statsHtml = [
+        catPass > 0 ? `<span class="category-stat-pass">&#10003; ${catPass}</span>` : "",
+        catFail > 0 ? `<span class="category-stat-fail">&#10007; ${catFail}</span>` : "",
+        catUnknown > 0 ? `<span class="category-stat-unknown">? ${catUnknown}</span>` : "",
+        catCloud > 0 ? `<span class="category-stat-cloud">\ud83c\udfe2 ${catCloud}</span>` : "",
+        catManual > 0 ? `<span class="category-stat-manual">\ud83d\udccb ${catManual}</span>` : "",
+      ].filter(Boolean).join("");
+
+      // Group by controlCn within category
+      const controlMap = new Map<string, FullCheckResult[]>();
+      for (const r of catResults) {
+        const key = r.item.controlCn;
+        if (!controlMap.has(key)) controlMap.set(key, []);
+        controlMap.get(key)!.push(r);
+      }
+
+      const controlGroups = [...controlMap.entries()]
+        .map(([controlName, controlResults]) => {
+          // Cloud provider items in this control
+          const cloudItems = controlResults.filter((r) => r.status === "cloud_provider");
+          const nonCloudItems = controlResults.filter((r) => r.status !== "cloud_provider");
+
+          let itemsHtml = "";
+
+          // Render non-cloud items
+          for (const r of nonCloudItems) {
+            const icon = r.status === "pass" ? "&#10004;"
+              : r.status === "fail" ? "&#10008;"
+              : r.status === "unknown" ? "&#9888;"
+              : r.status === "manual" ? "&#128203;"
+              : "&#127970;";
+            const cls = `check-${r.status === "cloud_provider" ? "cloud" : r.status}`;
+            const suffix = r.status === "unknown" ? " (\u672a\u68c0\u67e5)"
+              : r.status === "manual" ? ` \u2014 ${esc(r.mapping.guidance ?? "\u9700\u4eba\u5de5\u8bc4\u4f30")}`
+              : "";
+
+            let findingsDetail = "";
             if (r.status === "fail" && r.relatedFindings.length > 0) {
-              const items = r.relatedFindings
+              const fItems = r.relatedFindings
                 .slice(0, 3)
-                .map(
-                  (f) =>
-                    `<li>${esc(f.severity)}: ${esc(f.title)}</li>`,
-                );
+                .map((f) => `<li>${esc(f.severity)}: ${esc(f.title)}</li>`);
               if (r.relatedFindings.length > 3) {
-                items.push(
-                  `<li>... 及其他 ${r.relatedFindings.length - 3} 项</li>`,
-                );
+                fItems.push(`<li>... \u53ca\u5176\u4ed6 ${r.relatedFindings.length - 3} \u9879</li>`);
               }
-              findingsHtml = `<ul class="check-findings">${items.join("")}</ul>`;
+              findingsDetail = `<div class="check-findings-wrap"><ul class="check-findings">${fItems.join("")}</ul></div>`;
             }
-            return `<div class="check-item ${cls}"><span class="check-icon">${icon}</span><span class="check-name">${esc(r.check.name)}${label}</span></div>${findingsHtml}`;
-          })
-          .join("\n");
 
-        const statusBadges = [
-          grpPass > 0 ? `<span class="category-stat-pass">&#10003; ${grpPass}</span>` : "",
-          grpFail > 0 ? `<span class="category-stat-fail">&#10007; ${grpFail}</span>` : "",
-          grpUnknown > 0 ? `<span class="category-stat-unknown">? ${grpUnknown}</span>` : "",
-        ].filter(Boolean).join(" ");
+            itemsHtml += `<div class="check-item ${cls}"><span class="check-icon">${icon}</span><span class="check-name">${esc(r.item.id)} ${esc(r.item.requirementCn.slice(0, 60))}${r.item.requirementCn.length > 60 ? "\u2026" : ""}${suffix}</span></div>\n${findingsDetail}`;
+          }
 
-        return `<details class="severity-group-fold"><summary><h4>${esc(checkId)} ${esc(checkResults[0].check.name)} <span class="category-stats">${statusBadges}</span></h4></summary>\n${items}\n</details>`;
-      })
-      .join("\n");
+          // Render cloud items compactly
+          if (cloudItems.length > 0) {
+            for (const r of cloudItems) {
+              itemsHtml += `<div class="check-item check-cloud"><span class="check-icon">\ud83c\udfe2</span><span class="check-name">${esc(r.item.id)} ${esc(r.item.requirementCn.slice(0, 50))}${r.item.requirementCn.length > 50 ? "\u2026" : ""}</span><span class="check-note">\u4e91\u5e73\u53f0\u8d1f\u8d23</span></div>\n`;
+            }
+          }
 
-    const statsHtml = [
-      catPass > 0
-        ? `<span class="category-stat-pass">&#10003; ${catPass}</span>`
-        : "",
-      catFail > 0
-        ? `<span class="category-stat-fail">&#10007; ${catFail}</span>`
-        : "",
-      catUnknown > 0
-        ? `<span class="category-stat-unknown">? ${catUnknown}</span>`
-        : "",
-    ]
-      .filter(Boolean)
-      .join("");
+          const grpPass = controlResults.filter((r) => r.status === "pass").length;
+          const grpFail = controlResults.filter((r) => r.status === "fail").length;
+          const grpUnknown = controlResults.filter((r) => r.status === "unknown").length;
+          const grpCloud = controlResults.filter((r) => r.status === "cloud_provider").length;
+          const grpManual = controlResults.filter((r) => r.status === "manual").length;
 
-    return `<details class="category-fold">
+          const grpStats = [
+            grpPass > 0 ? `<span class="category-stat-pass">&#10003; ${grpPass}</span>` : "",
+            grpFail > 0 ? `<span class="category-stat-fail">&#10007; ${grpFail}</span>` : "",
+            grpUnknown > 0 ? `<span class="category-stat-unknown">? ${grpUnknown}</span>` : "",
+            grpCloud > 0 ? `<span class="category-stat-cloud">\ud83c\udfe2 ${grpCloud}</span>` : "",
+            grpManual > 0 ? `<span class="category-stat-manual">\ud83d\udccb ${grpManual}</span>` : "",
+          ].filter(Boolean).join(" ");
+
+          // Failed items expanded by default, others collapsed
+          const hasFailures = grpFail > 0;
+          return `<details class="severity-group-fold"${hasFailures ? " open" : ""}><summary><h4>${esc(controlName)} <span class="category-stats">${grpStats}</span></h4></summary>\n${itemsHtml}\n</details>`;
+        })
+        .join("\n");
+
+      return `<details class="category-fold">
   <summary>
     <span class="category-title">${esc(sectionTitle)}</span>
     <span class="category-stats">${statsHtml}</span>
   </summary>
-  <div class="category-body">${groups}</div>
+  <div class="category-body">${controlGroups}</div>
 </details>`;
-  })
+    })
     .filter(Boolean)
     .join("\n");
 
-  // --- Remediation (deduplicated) ---
+  // --- Remediation for failed auto checks (deduplicated) ---
   const failedResults = results.filter((r) => r.status === "fail");
   let remediationHtml = "";
   if (failedResults.length > 0) {
@@ -969,63 +1007,95 @@ export function generateMlps3HtmlReport(
       return b.count - a.count;
     });
 
-    const renderMlpsRec = (r: { text: string; severity: Severity; count: number }): string => {
-      const sev = r.severity.toLowerCase();
-      const countLabel = r.count > 1 ? ` (&times; ${r.count})` : "";
-      return `<li><span class="badge badge-${esc(sev)}">${esc(r.severity)}</span> ${esc(r.text)}${countLabel}</li>`;
-    };
+    if (mlpsUniqueRecs.length > 0) {
+      const renderMlpsRec = (r: { text: string; severity: Severity; count: number }): string => {
+        const sev = r.severity.toLowerCase();
+        const countLabel = r.count > 1 ? ` (&times; ${r.count})` : "";
+        return `<li><span class="badge badge-${esc(sev)}">${esc(r.severity)}</span> ${esc(r.text)}${countLabel}</li>`;
+      };
 
-    const MLPS_TOP_N = 10;
-    const mlpsTopItems = mlpsUniqueRecs.slice(0, MLPS_TOP_N).map(renderMlpsRec).join("\n");
-    const mlpsRemaining = mlpsUniqueRecs.slice(MLPS_TOP_N);
-    const mlpsMoreHtml = mlpsRemaining.length > 0
-      ? `\n<details><summary>显示其余 ${mlpsRemaining.length} 项&hellip;</summary>\n${mlpsRemaining.map(renderMlpsRec).join("\n")}\n</details>`
-      : "";
+      const MLPS_TOP_N = 10;
+      const mlpsTopItems = mlpsUniqueRecs.slice(0, MLPS_TOP_N).map(renderMlpsRec).join("\n");
+      const mlpsRemaining = mlpsUniqueRecs.slice(MLPS_TOP_N);
+      const mlpsMoreHtml = mlpsRemaining.length > 0
+        ? `\n<details><summary>\u663e\u793a\u5176\u4f59 ${mlpsRemaining.length} \u9879&hellip;</summary>\n${mlpsRemaining.map(renderMlpsRec).join("\n")}\n</details>`
+        : "";
 
-    remediationHtml = `
-      <details class="rec-fold">
-        <summary><h2 style="margin:0;border:0;display:inline">建议整改项（${mlpsUniqueRecs.length} 项去重）</h2></summary>
-        <div class="rec-body">
-          <ol>${mlpsTopItems}${mlpsMoreHtml}</ol>
-        </div>
-      </details>`;
+      remediationHtml = `
+        <details class="rec-fold" open>
+          <summary><h2 style="margin:0;border:0;display:inline">\u5efa\u8bae\u6574\u6539\u9879\uff08${mlpsUniqueRecs.length} \u9879\u53bb\u91cd\uff09</h2></summary>
+          <div class="rec-body">
+            <ol>${mlpsTopItems}${mlpsMoreHtml}</ol>
+          </div>
+        </details>`;
+    }
   }
+
+  // --- N/A count at bottom ---
+  const naNote = naCount > 0
+    ? `<p style="color:#64748b;font-size:13px;margin-top:24px">\u4e0d\u9002\u7528\u9879: ${naCount} \u9879\uff08\u7269\u8054\u7f51/\u65e0\u7ebf\u7f51\u7edc/\u79fb\u52a8\u7ec8\u7aef/\u5de5\u63a7\u7cfb\u7edf/\u53ef\u4fe1\u9a8c\u8bc1\u7b49\uff09</p>`
+    : "";
 
   const passRateColor =
     percent >= 80 ? "#22c55e" : percent >= 50 ? "#eab308" : "#ef4444";
   const unknownNote =
-    unknownCount > 0
-      ? `<div style="color:#94a3b8;font-size:12px;margin-top:8px">（未检查项不计入通过率）</div>`
+    autoUnknown > 0
+      ? `<div style="color:#94a3b8;font-size:12px;margin-top:8px">\uff08\u672a\u68c0\u67e5\u9879\u4e0d\u8ba1\u5165\u901a\u8fc7\u7387\uff09</div>`
       : "";
+
+  const mlpsCss = `
+    .mlps-cloud-section>summary{color:#94a3b8}
+    .mlps-cloud-note{color:#94a3b8;font-size:13px;margin-bottom:12px;font-style:italic}
+    .check-cloud{background:rgba(148,163,184,0.08)}
+    .check-cloud .check-note{color:#64748b;font-size:12px;margin-left:auto;white-space:nowrap}
+    .check-manual{background:rgba(148,163,184,0.06)}
+    .check-pass{background:rgba(34,197,94,0.1)}
+    .check-fail{background:rgba(239,68,68,0.1)}
+    .check-unknown{background:rgba(148,163,184,0.1)}
+    .check-findings-wrap{margin-left:28px;margin-bottom:4px}
+    .category-stat-cloud{color:#94a3b8}
+    .category-stat-manual{color:#94a3b8}
+    .mlps-summary-cards{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:32px}
+    .mlps-summary-card{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px 20px;text-align:center;min-width:100px;flex:1}
+    .mlps-summary-card .stat-count{font-size:28px;font-weight:700}
+    .mlps-summary-card .stat-label{font-size:12px;color:#94a3b8;margin-top:2px}
+  `;
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>等保三级预检报告 &mdash; ${esc(date)}</title>
-<style>${sharedCss()}</style>
+<title>\u7b49\u4fdd\u4e09\u7ea7\u9884\u68c0\u62a5\u544a &mdash; ${esc(date)}</title>
+<style>${sharedCss()}${mlpsCss}</style>
 </head>
 <body>
 <div class="container">
 
 <header>
-  <h1>&#128737;&#65039; 等保三级预检报告</h1>
-  <div class="disclaimer">本报告为等保预检参考，仅覆盖 AWS 云平台配置检查。完整等保测评需由持证测评机构执行。</div>
-  <div class="meta">账户: ${esc(accountId)} | 区域: ${esc(region)} | 扫描时间: ${esc(scanTime)}</div>
+  <h1>&#128737;&#65039; \u7b49\u4fdd\u4e09\u7ea7\u9884\u68c0\u62a5\u544a</h1>
+  <div class="disclaimer">\u672c\u62a5\u544a\u57fa\u4e8e GB/T 22239-2019 \u5b8c\u6574\u68c0\u67e5\u6e05\u5355\uff08184 \u9879\uff09\uff0c\u4ec5\u8986\u76d6 AWS \u4e91\u5e73\u53f0\u914d\u7f6e\u68c0\u67e5\u3002\u5b8c\u6574\u7b49\u4fdd\u6d4b\u8bc4\u9700\u7531\u6301\u8bc1\u6d4b\u8bc4\u673a\u6784\u6267\u884c\u3002</div>
+  <div class="meta">\u8d26\u6237: ${esc(accountId)} | \u533a\u57df: ${esc(region)} | \u626b\u63cf\u65f6\u95f4: ${esc(scanTime)}</div>
 </header>
 
 <section class="summary">
   <div class="score-card">
     <div class="score-value" style="color:${passRateColor}">${percent}%</div>
-    <div class="score-label">通过率</div>
+    <div class="score-label">\u81ea\u52a8\u68c0\u67e5\u901a\u8fc7\u7387</div>
   </div>
   <div class="severity-stats">
-    <div class="stat-card" style="border-color:#22c55e30"><div class="stat-count" style="color:#22c55e">${passCount}</div><div class="stat-label">通过</div></div>
-    <div class="stat-card" style="border-color:#ef444430"><div class="stat-count" style="color:#ef4444">${failCount}</div><div class="stat-label">不通过</div></div>
-    ${unknownCount > 0 ? `<div class="stat-card" style="border-color:#94a3b830"><div class="stat-count" style="color:#94a3b8">${unknownCount}</div><div class="stat-label">未检查</div></div>` : ""}
+    <div class="stat-card" style="border-color:#22c55e30"><div class="stat-count" style="color:#22c55e">${autoPass}</div><div class="stat-label">\u81ea\u52a8\u901a\u8fc7</div></div>
+    <div class="stat-card" style="border-color:#ef444430"><div class="stat-count" style="color:#ef4444">${autoFail}</div><div class="stat-label">\u81ea\u52a8\u4e0d\u901a\u8fc7</div></div>
+    ${autoUnknown > 0 ? `<div class="stat-card" style="border-color:#94a3b830"><div class="stat-count" style="color:#94a3b8">${autoUnknown}</div><div class="stat-label">\u672a\u68c0\u67e5</div></div>` : ""}
   </div>
 </section>
+
+<div class="mlps-summary-cards">
+  <div class="mlps-summary-card"><div class="stat-count" style="color:#22c55e">${autoResults.length}</div><div class="stat-label">\u81ea\u52a8\u68c0\u67e5 (${autoPass} \u901a\u8fc7 / ${autoFail} \u4e0d\u901a\u8fc7${autoUnknown > 0 ? ` / ${autoUnknown} \u672a\u68c0\u67e5` : ""})</div></div>
+  <div class="mlps-summary-card"><div class="stat-count" style="color:#94a3b8">${cloudCount}</div><div class="stat-label">\u4e91\u5e73\u53f0\u8d1f\u8d23</div></div>
+  <div class="mlps-summary-card"><div class="stat-count" style="color:#eab308">${manualCount}</div><div class="stat-label">\u9700\u4eba\u5de5\u8bc4\u4f30</div></div>
+  <div class="mlps-summary-card"><div class="stat-count" style="color:#64748b">${naCount}</div><div class="stat-label">\u4e0d\u9002\u7528</div></div>
+</div>
 ${unknownNote}
 
 ${trendHtml}
@@ -1036,9 +1106,11 @@ ${categorySections}
 
 ${remediationHtml}
 
+${naNote}
+
 <footer>
-  <p>由 AWS Security MCP Server v${VERSION} 生成</p>
-  <p>本报告仅供参考。完整等保测评需由持证测评机构执行。</p>
+  <p>\u7531 AWS Security MCP Server v${VERSION} \u751f\u6210</p>
+  <p>\u672c\u62a5\u544a\u4ec5\u4f9b\u53c2\u8003\u3002\u5b8c\u6574\u7b49\u4fdd\u6d4b\u8bc4\u9700\u7531\u6301\u8bc1\u6d4b\u8bc4\u673a\u6784\u6267\u884c\u3002</p>
 </footer>
 
 </div>

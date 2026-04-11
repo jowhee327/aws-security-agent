@@ -4300,7 +4300,2900 @@ function generateMarkdownReport(scanResults) {
   return lines.join("\n");
 }
 
+// src/data/mlps3-full-checklist.json
+var mlps3_full_checklist_default = [
+  {
+    id: "L3-PES1-01",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u7269\u7406\u4F4D\u7F6E\u9009\u62E9",
+    controlEn: "Physical Location Alteration",
+    requirementCn: "\u673A\u623F\u573A\u5730\u5E94\u9009\u62E9\u5728\u5177\u6709\u9632\u9707\u3001\u9632\u98CE\u548C\u9632\u96E8\u7B49\u80FD\u529B\u7684\u5EFA\u7B51\u5185",
+    requirementEn: "The computer room should be located in buildings with the ability to be shockproof, windproof and rainproof",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-02",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u7269\u7406\u4F4D\u7F6E\u9009\u62E9",
+    controlEn: "Physical Location Alteration",
+    requirementCn: "\u673A\u623F\u573A\u5730\u5E94\u907F\u514D\u8BBE\u5728\u5EFA\u7B51\u7269\u7684\u9876\u5C42\u6216\u5730\u4E0B\u5BA4\uFF0C\u5426\u5219\u5E94\u52A0\u5F3A\u9632\u6C34\u548C\u9632\u6F6E\u63AA\u65BD",
+    requirementEn: "The computer room should avoid being located at the top of the building or the basement, otherwise waterproof and moisture-proof measures should be strengthened.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-03",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u7269\u7406\u8BBF\u95EE\u63A7\u5236",
+    controlEn: "Physical Access Control",
+    requirementCn: "\u673A\u623F\u51FA\u5165\u53E3\u5E94\u914D\u7F6E\u7535\u5B50\u95E8\u7981\u7CFB\u7EDF\uFF0C\u63A7\u5236\u3001\u9274\u522B\u548C\u8BB0\u5F55\u8FDB\u5165\u7684\u4EBA\u5458",
+    requirementEn: "Entrance and exit of the computer room should be equipped with an electronic access control system to control, identify and record the incoming personnel.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-04",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u9632\u76D7\u7A83\u548C\u9632\u7834\u574F",
+    controlEn: "Anti-theft and Anti-vandalism",
+    requirementCn: "\u5E94\u5C06\u8BBE\u5907\u6216\u4E3B\u8981\u90E8\u4EF6\u8FDB\u884C\u56FA\u5B9A\uFF0C\u5E76\u8BBE\u7F6E\u660E\u663E\u7684\u4E0D\u6613\u9664\u53BB\u7684\u6807\u8BC6",
+    requirementEn: "Device or main components should be fixed and marked with obvious labels that are difficult to remove",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-05",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u9632\u76D7\u7A83\u548C\u9632\u7834\u574F",
+    controlEn: "Anti-theft and Anti-vandalism",
+    requirementCn: "\u5E94\u5C06\u901A\u4FE1\u7EBF\u7F06\u94FA\u8BBE\u5728\u9690\u853D\u5B89\u5168\u5904",
+    requirementEn: "The communication cable should be laid in a safe and concealed place",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-06",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u9632\u76D7\u7A83\u548C\u9632\u7834\u574F",
+    controlEn: "Anti-theft and Anti-vandalism",
+    requirementCn: "\u5E94\u8BBE\u7F6E\u673A\u623F\u9632\u76D7\u62A5\u8B66\u7CFB\u7EDF\u6216\u8BBE\u7F6E\u6709\u4E13\u4EBA\u503C\u5B88\u7684\u89C6\u9891\u76D1\u63A7\u7CFB\u7EDF",
+    requirementEn: "A computer room anti-theft alarm system or a video surveillance system with a special person should be set up.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-07",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u9632\u96F7\u51FB",
+    controlEn: "Lightning Protection",
+    requirementCn: "\u5E94\u5C06\u5404\u7C7B\u673A\u67DC\u3001\u8BBE\u65BD\u548C\u8BBE\u5907\u7B49\u901A\u8FC7\u63A5\u5730\u7CFB\u7EDF\u5B89\u5168\u63A5\u5730",
+    requirementEn: "All types of cabinets, facilities and equipment should be safely grounded through the grounding system",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-08",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u9632\u96F7\u51FB",
+    controlEn: "Lightning Protection",
+    requirementCn: "\u5E94\u91C7\u53D6\u63AA\u65BD\u9632\u6B62\u611F\u5E94\u96F7\uFF0C\u4F8B\u5982\u8BBE\u7F6E\u9632\u96F7\u4FDD\u5B89\u5668\u6216\u8FC7\u538B\u4FDD\u62A4\u88C5\u7F6E\u7B49",
+    requirementEn: "Measures should be taken to prevent inductive lightning, such as set up lightning protection or overvoltage protection devices.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-09",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u9632\u706B",
+    controlEn: "Fire Protection",
+    requirementCn: "\u673A\u623F\u5E94\u8BBE\u7F6E\u706B\u707E\u81EA\u52A8\u6D88\u9632\u7CFB\u7EDF\uFF0C\u80FD\u591F\u81EA\u52A8\u68C0\u6D4B\u706B\u60C5\u3001\u81EA\u52A8\u62A5\u8B66\uFF0C\u5E76\u81EA\u52A8\u706D\u706B",
+    requirementEn: "Automatic fire protection system which can automatically detect, alarm and extinguish should be set up.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-10",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u9632\u706B",
+    controlEn: "Fire Protection",
+    requirementCn: "\u673A\u623F\u53CA\u76F8\u5173\u7684\u5DE5\u4F5C\u623F\u95F4\u548C\u8F85\u52A9\u623F\u5E94\u91C7\u7528\u5177\u6709\u8010\u706B\u7B49\u7EA7\u7684\u5EFA\u7B51\u6750\u6599",
+    requirementEn: "The computer room and related work rooms and auxiliary rooms shall be constructed of fire-resistant building materials",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-11",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u9632\u706B",
+    controlEn: "Fire Protection",
+    requirementCn: "\u5E94\u5BF9\u673A\u623F\u5212\u5206\u533A\u57DF\u8FDB\u884C\u7BA1\u7406\uFF0C\u533A\u57DF\u548C\u533A\u57DF\u4E4B\u95F4\u8BBE\u7F6E\u9694\u79BB\u9632\u706B\u63AA\u65BD",
+    requirementEn: "The computer room should be managed dividedly, and set fire prevention measures for each region",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-12",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u9632\u6C34\u548C\u9632\u6F6E",
+    controlEn: "Waterproof and Moisture Proof",
+    requirementCn: "\u5E94\u91C7\u53D6\u63AA\u65BD\u9632\u6B62\u96E8\u6C34\u901A\u8FC7\u673A\u623F\u7A97\u6237\u3001\u5C4B\u9876\u548C\u5899\u58C1\u6E17\u900F",
+    requirementEn: "Measures should be taken to avoid rainwater penetrating through the windows, roof and walls of the computer room",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-13",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u9632\u6C34\u548C\u9632\u6F6E",
+    controlEn: "Waterproof and Moisture Proof",
+    requirementCn: "\u5E94\u91C7\u53D6\u63AA\u65BD\u9632\u6B62\u673A\u623F\u5185\u6C34\u84B8\u6C14\u7ED3\u9732\u548C\u5730\u4E0B\u79EF\u6C34\u7684\u8F6C\u79FB\u4E0E\u6E17\u900F",
+    requirementEn: "Measures should be taken to prevent water vapor condensation, and to prevent transfer and penetration of underground water in the computer room",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-14",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u9632\u6C34\u548C\u9632\u6F6E",
+    controlEn: "Waterproof and Moisture Proof",
+    requirementCn: "\u5E94\u5B89\u88C5\u5BF9\u6C34\u654F\u611F\u7684\u68C0\u6D4B\u4EEA\u8868\u6216\u5143\u4EF6\uFF0C\u5BF9\u673A\u623F\u8FDB\u884C\u9632\u6C34\u68C0\u6D4B\u548C\u62A5\u8B66",
+    requirementEn: "Water-sensitive detection instruments or components should be installed to conduct waterproof detection and alarm for the computer room.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-15",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u9632\u9759\u7535",
+    controlEn: "Anti-static",
+    requirementCn: "\u5E94\u91C7\u7528\u9632\u9759\u7535\u5730\u677F\u6216\u5730\u9762\u5E76\u91C7\u7528\u5FC5\u8981\u7684\u63A5\u5730\u9632\u9759\u7535\u63AA\u65BD",
+    requirementEn: "Anti-static floor or ground should be used and necessary grounding anti-static measures should be adopted",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-16",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u9632\u9759\u7535",
+    controlEn: "Anti-static",
+    requirementCn: "\u5E94\u91C7\u53D6\u63AA\u65BD\u9632\u6B62\u9759\u7535\u7684\u4EA7\u751F\uFF0C\u4F8B\u5982\u91C7\u7528\u9759\u7535\u6D88\u9664\u5668\u3001\u4F69\u6234\u9632\u9759\u7535\u624B\u73AF\u7B49",
+    requirementEn: "Measures such as use static eliminators and wear anti-static wrist straps should be taken to prevent from generating static electricity.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-17",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u6E29\u6E7F\u5EA6\u63A7\u5236",
+    controlEn: "Temperature and Humidity Control",
+    requirementCn: "\u5E94\u8BBE\u7F6E\u6E29\u6E7F\u5EA6\u81EA\u52A8\u8C03\u8282\u8BBE\u65BD\uFF0C\u4F7F\u673A\u623F\u6E29\u6E7F\u5EA6\u7684\u53D8\u5316\u5728\u8BBE\u5907\u8FD0\u884C\u6240\u5141\u8BB8\u7684\u8303\u56F4\u4E4B\u5185",
+    requirementEn: "Temperature and humidity automatic adjustment facilities should be set up so that the temperature and humidity changes are within the allowable range of equipment operation.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-18",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u7535\u529B\u4F9B\u5E94",
+    controlEn: "Electricity Supply",
+    requirementCn: "\u5E94\u5728\u673A\u623F\u4F9B\u7535\u7EBF\u8DEF\u4E0A\u914D\u7F6E\u7A33\u538B\u5668\u548C\u8FC7\u7535\u538B\u9632\u62A4\u8BBE\u5907",
+    requirementEn: "Voltage stabilizer and overvoltage protection equipment should be configured for the power supply line of the computer room",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-19",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u7535\u529B\u4F9B\u5E94",
+    controlEn: "Electricity Supply",
+    requirementCn: "\u5E94\u63D0\u4F9B\u77ED\u671F\u7684\u5907\u7528\u7535\u529B\u4F9B\u5E94\uFF0C\u81F3\u5C11\u6EE1\u8DB3\u8BBE\u5907\u5728\u65AD\u7535\u60C5\u51B5\u4E0B\u7684\u6B63\u5E38\u8FD0\u884C\u8981\u6C42",
+    requirementEn: "A short-term backup power supply shall be provided to meet the normal operational requirements of the equipment in the event of a power outage",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-20",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u7535\u529B\u4F9B\u5E94",
+    controlEn: "Electricity Supply",
+    requirementCn: "\u5E94\u8BBE\u7F6E\u5197\u4F59\u6216\u5E76\u884C\u7684\u7535\u529B\u7535\u7F06\u7EBF\u8DEF\u4E3A\u8BA1\u7B97\u673A\u7CFB\u7EDF\u4F9B\u7535",
+    requirementEn: "Equip backup or parallel power cable lines to power the computer system when necessary.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-21",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u7535\u78C1\u9632\u62A4",
+    controlEn: "Electromagnetic Protection",
+    requirementCn: "\u7535\u6E90\u7EBF\u548C\u901A\u4FE1\u7EBF\u7F06\u5E94\u9694\u79BB\u94FA\u8BBE\uFF0C\u907F\u514D\u4E92\u76F8\u5E72\u6270",
+    requirementEn: "Power cables and communication cables should be laid isolated to avoid mutual interference",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-PES1-22",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u7535\u78C1\u9632\u62A4",
+    controlEn: "Electromagnetic Protection",
+    requirementCn: "\u5E94\u5BF9\u5173\u952E\u8BBE\u5907\u5B9E\u65BD\u7535\u78C1\u5C4F\u853D",
+    requirementEn: "Electromagnetic shielding should be implemented for critical equipment.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u7269\u7406\u73AF\u5883\u5B89\u5168"
+  },
+  {
+    id: "L3-CNS1-01",
+    categoryCn: "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
+    categoryEn: "Communication Network Security",
+    controlCn: "\u7F51\u7EDC\u67B6\u6784",
+    controlEn: "Network Architecture",
+    requirementCn: "\u5E94\u4FDD\u8BC1\u7F51\u7EDC\u8BBE\u5907\u7684\u4E1A\u52A1\u5904\u7406\u80FD\u529B\u6EE1\u8DB3\u4E1A\u52A1\u9AD8\u5CF0\u671F\u9700\u8981",
+    requirementEn: "Service processing capability of network should be guaranteed to meet the peak business needs",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u4E92\u8054\u7F51\u63A5\u5165\u6EE1\u8DB3\u4E1A\u52A1\u9AD8\u5CF0\u9700\u6C42\uFF1B\u5BA2\u6237\u6570\u636E\u4E2D\u5FC3\u548C\u4E9A\u9A6C\u900A\u4E91\u4E4B\u95F4\u7684\u8FDE\u63A5\u4F8B\u5982VPN\uFF0C\u4E13\u7EBF\u7684\u5904\u7406\u80FD\u529B\u9700\u8981\u5BA2\u6237\u6839\u636E\u4E1A\u52A1\u89C4\u5212\uFF1BVPC\u5185\u90E8\u7F51\u7EDC\u670D\u52A1\u6709\u81EA\u8EAB\u7684\u9650\u5236\uFF0C\u5F00Case\u63D0\u5347\u9650\u5236\uFF1BEC2\u81EA\u8EAB\u7684\u7F51\u7EDC\u5904\u7406\u80FD\u529B\u53EF\u4EE5\u6839\u636E\u4E1A\u52A1\u9700\u6C42\u8FDB\u884C\u9009\u62E9"
+  },
+  {
+    id: "L3-CNS1-02",
+    categoryCn: "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
+    categoryEn: "Communication Network Security",
+    controlCn: "\u7F51\u7EDC\u67B6\u6784",
+    controlEn: "Network Architecture",
+    requirementCn: "\u5E94\u4FDD\u8BC1\u7F51\u7EDC\u5404\u4E2A\u90E8\u5206\u7684\u5E26\u5BBD\u6EE1\u8DB3\u4E1A\u52A1\u9AD8\u5CF0\u671F\u9700\u8981",
+    requirementEn: "Ensure that the bandwidth of each part of the network meets the peak business needs",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4E9A\u9A6C\u900A\u4E91\u79D1\u6280\u8D1F\u8D23Cloud\u672C\u8EAB\u7684\u4E92\u8054\u7F51\u63A5\u5165\u6EE1\u8DB3\u4E1A\u52A1\u9AD8\u5CF0\u9700\u6C42\uFF1B\u5BA2\u6237\u6570\u636E\u4E2D\u5FC3\u548C\u4E9A\u9A6C\u900A\u4E91\u4E4B\u95F4\u7684\u8FDE\u63A5\u4F8B\u5982VPN\uFF0C\u4E13\u7EBF\u7684\u5904\u7406\u80FD\u529B\u9700\u8981\u5BA2\u6237\u6839\u636E\u4E1A\u52A1\u89C4\u5212\uFF1BVPC\u5185\u90E8\u7F51\u7EDC\u670D\u52A1\u6709\u81EA\u8EAB\u7684\u9650\u5236\uFF0C\u5F00Case\u63D0\u5347\u9650\u5236\uFF1BEC2\u81EA\u8EAB\u7684\u7F51\u7EDC\u5904\u7406\u80FD\u529B\u53EF\u4EE5\u6839\u636E\u4E1A\u52A1\u9700\u6C42\u8FDB\u884C\u9009\u62E9"
+  },
+  {
+    id: "L3-CNS1-03",
+    categoryCn: "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
+    categoryEn: "Communication Network Security",
+    controlCn: "\u7F51\u7EDC\u67B6\u6784",
+    controlEn: "Network Architecture",
+    requirementCn: "\u5E94\u5212\u5206\u4E0D\u540C\u7684\u7F51\u7EDC\u533A\u57DF\uFF0C\u5E76\u6309\u7167\u65B9\u4FBF\u7BA1\u7406\u548C\u63A7\u5236\u7684\u539F\u5219\u4E3A\u5404\u7F51\u7EDC\u533A\u57DF\u5206\u914D\u5730\u5740",
+    requirementEn: "Different network areas should be divided, and addresses should be assigned to each network area in accordance with the principle of convenient management and control",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u5229\u7528VPC\u8FDB\u884C\u533A\u57DF\u548C\u5730\u5740\u5212\u5206"
+  },
+  {
+    id: "L3-CNS1-04",
+    categoryCn: "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
+    categoryEn: "Communication Network Security",
+    controlCn: "\u7F51\u7EDC\u67B6\u6784",
+    controlEn: "Network Architecture",
+    requirementCn: "\u5E94\u907F\u514D\u5C06\u91CD\u8981\u7F51\u7EDC\u533A\u57DF\u90E8\u7F72\u5728\u8FB9\u754C\u5904\uFF0C\u91CD\u8981\u7F51\u7EDC\u533A\u57DF\u4E0E\u5176\u4ED6\u7F51\u7EDC\u533A\u57DF\u4E4B\u95F4\u5E94\u91C7\u53D6\u53EF\u9760\u7684\u6280\u672F\u9694\u79BB\u624B\u6BB5",
+    requirementEn: "Critical network areas should not be deployed at the network boundaries or without border protection, and reliable technical isolation should be used between important network areas and other network areas",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: "1. AWS\u4FA7\u91C7\u7528\u9632\u706B\u5899\u6216\u8005Network ACL\uFF08\u5EFA\u8BAE\u786E\u8BA4global region\u8BBE\u8BA1\uFF09\n2. On-premise\u91C7\u7528\u9632\u706B\u5899"
+  },
+  {
+    id: "L3-CNS1-05",
+    categoryCn: "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
+    categoryEn: "Communication Network Security",
+    controlCn: "\u7F51\u7EDC\u67B6\u6784",
+    controlEn: "Network Architecture",
+    requirementCn: "\u5E94\u63D0\u4F9B\u901A\u4FE1\u7EBF\u8DEF\u3001\u5173\u952E\u7F51\u7EDC\u8BBE\u5907\u548C\u5173\u952E\u8BA1\u7B97\u8BBE\u5907\u7684\u786C\u4EF6\u5197\u4F59\uFF0C\u4FDD\u8BC1\u7CFB\u7EDF\u7684\u53EF\u7528\u6027",
+    requirementEn: "The communication lines and hardware of critical network equipment should be adequately backed up to ensure system availability.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u670D\u52A1\u786E\u4FDD\u591A\u53EF\u7528\u533A\u90E8\u7F72\u4EE5\u53CA\u591A\u533A\u57DF\u90E8\u7F72\uFF1B\u591A\u6761\u4E13\u7EBF\u63A5\u5165\u5230\u4E0D\u540C\u7684\u4E13\u7EBF\u63A5\u5165\u70B9\u786E\u4FDD\u9AD8\u53EF\u7528"
+  },
+  {
+    id: "L3-CNS1-06",
+    categoryCn: "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
+    categoryEn: "Communication Network Security",
+    controlCn: "\u901A\u4FE1\u4F20\u8F93",
+    controlEn: "Communication",
+    requirementCn: "\u5E94\u91C7\u7528\u6821\u9A8C\u6280\u672F\u6216\u5BC6\u7801\u6280\u672F\u4FDD\u8BC1\u901A\u4FE1\u8FC7\u7A0B\u4E2D\u6570\u636E\u7684\u5B8C\u6574\u6027",
+    requirementEn: "Verification techniques or cryptographic techniques should be used to ensure the integrity of the data during communication",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u5F00\u542F\u4F20\u8F93\u52A0\u5BC6"
+  },
+  {
+    id: "L3-CNS1-07",
+    categoryCn: "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
+    categoryEn: "Communication Network Security",
+    controlCn: "\u901A\u4FE1\u4F20\u8F93",
+    controlEn: "Communication",
+    requirementCn: "\u5E94\u91C7\u7528\u5BC6\u7801\u6280\u672F\u4FDD\u8BC1\u901A\u4FE1\u8FC7\u7A0B\u4E2D\u6570\u636E\u7684\u4FDD\u5BC6\u6027",
+    requirementEn: "Cryptographic techniques should be used to ensure the   confidentiality of the data during communication",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u542F\u7528SSL/TLS\u4F20\u8F93\u52A0\u5BC6\uFF0C\u5229\u7528ACM\u7BA1\u7406\u4F20\u8F93\u52A0\u5BC6\u7684\u5BC6\u94A5"
+  },
+  {
+    id: "L3-CNS1-08",
+    categoryCn: "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
+    categoryEn: "Communication Network Security",
+    controlCn: "\u53EF\u4FE1\u9A8C\u8BC1",
+    controlEn: "Trusted Verification",
+    requirementCn: "\u53EF\u57FA\u4E8E\u53EF\u4FE1\u6839\u5BF9\u901A\u4FE1\u8BBE\u5907\u7684\u7CFB\u7EDF\u5F15\u5BFC\u7A0B\u5E8F\u3001\u7CFB\u7EDF\u7A0B\u5E8F\u3001\u91CD\u8981\u914D\u7F6E\u53C2\u6570\u548C\u901A\u4FE1\u5E94\u7528\u7A0B\u5E8F\u7B49\u8FDB\u884C\u53EF\u4FE1\u9A8C\u8BC1\uFF0C\u5E76\u5728\u5E94\u7528\u7A0B\u5E8F\u7684\u5173\u952E\u6267\u884C\u73AF\u8282\u8FDB\u884C\u52A8\u6001\u53EF\u4FE1\u9A8C\u8BC1\uFF0C\u5728\u68C0\u6D4B\u5230\u5176\u53EF\u4FE1\u6027\u53D7\u5230\u7834\u574F\u540E\u8FDB\u884C\u62A5\u8B66\uFF0C\u5E76\u5C06\u9A8C\u8BC1\u7ED3\u679C\u5F62\u6210\u5BA1\u8BA1\u8BB0\u5F55\u9001\u81F3\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3",
+    requirementEn: "Trusted verification, based on the trusted root, can be applied to system boot program, system program, important configuration parameters, and communication applications of the communication device, and dynamic trusted verification can be used in the key execution of the application, and when detecting the credibility thereof. After being damaged, an alarm is issued, and after detecting that its credibility has been damaged, an alarm should be issued and the verification result should be sent to the Security Management Center.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS1-01",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u8FB9\u754C\u9632\u62A4",
+    controlEn: "Border Protection",
+    requirementCn: "\u5E94\u4FDD\u8BC1\u8DE8\u8D8A\u8FB9\u754C\u7684\u8BBF\u95EE\u548C\u6570\u636E\u6D41\u901A\u8FC7\u8FB9\u754C\u9632\u62A4\u8BBE\u5907\u63D0\u4F9B\u7684\u53D7\u63A7\u63A5\u53E3\u8FDB\u884C\u901A\u4FE1",
+    requirementEn: "It should be ensured that access and data flows across the boundary are communicated through a controlled interface provided by the border protection device.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. \u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\n2. \u542F\u7528WAF\n3. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72"
+  },
+  {
+    id: "L3-ABS1-02",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u8FB9\u754C\u9632\u62A4",
+    controlEn: "Border Protection",
+    requirementCn: "\u5E94\u80FD\u591F\u5BF9\u975E\u6388\u6743\u8BBE\u5907\u79C1\u81EA\u8054\u5230\u5185\u90E8\u7F51\u7EDC\u7684\u884C\u4E3A\u8FDB\u884C\u9650\u5236\u6216\u68C0\u67E5",
+    requirementEn: "It should be able to restrict or check the behavior of unauthorized devices connected to the internal network",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\n2. \u542F\u7528WAF\n3. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72"
+  },
+  {
+    id: "L3-ABS1-03",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u8FB9\u754C\u9632\u62A4",
+    controlEn: "Border Protection",
+    requirementCn: "\u5E94\u80FD\u591F\u5BF9\u5185\u90E8\u7528\u6237\u975E\u6388\u6743\u8054\u5230\u5916\u90E8\u7F51\u7EDC\u7684\u884C\u4E3A\u8FDB\u884C\u9650\u5236\u6216\u68C0\u67E5",
+    requirementEn: "It should be able to restrict or inspect the behavior of internal users who are privately linked to the external network",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: "1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\n2. \u5229\u7528NAT \u6216\u8005 NAT Gateway\n3. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72\n4. \u542F\u7528VPC Endpoint \u4FDD\u8BC1\u901A\u8FC7\u79C1\u6709\u7F51\u7EDC\u8BBF\u95EEAWS\u670D\u52A1"
+  },
+  {
+    id: "L3-ABS1-04",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u8FB9\u754C\u9632\u62A4",
+    controlEn: "Border Protection",
+    requirementCn: "\u5E94\u9650\u5236\u65E0\u7EBF\u7F51\u7EDC\u7684\u4F7F\u7528\uFF0C\u786E\u4FDD\u65E0\u7EBF\u7F51\u7EDC\u901A\u8FC7\u53D7\u63A7\u7684\u8FB9\u754C\u9632\u62A4\u8BBE\u5907\u63A5\u5165\u5185\u90E8\u7F51\u7EDC",
+    requirementEn: "The use of the wireless network should be limited to ensure that the wireless network accesses the internal network through controlled border protection equipment.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS1-05",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u8BBF\u95EE\u63A7\u5236",
+    controlEn: "Access Control",
+    requirementCn: "\u5E94\u5728\u7F51\u7EDC\u8FB9\u754C\u6216\u533A\u57DF\u4E4B\u95F4\u6839\u636E\u8BBF\u95EE\u63A7\u5236\u7B56\u7565\u8BBE\u7F6E\u8BBF\u95EE\u63A7\u5236\u89C4\u5219\uFF0C\u9ED8\u8BA4\u60C5\u51B5\u4E0B\u9664\u5141\u8BB8\u901A\u4FE1\u5916\u53D7\u63A7\u63A5\u53E3\u62D2\u7EDD\u6240\u6709\u901A\u4FE1",
+    requirementEn: "Access control rules should be set between network boundaries or regions based on access control policies, and the controlled interfaces should reject any communication by default except for those that allow communication",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\uFF0C\u6309\u7167\u6700\u5C0F\u66B4\u9732\u539F\u5219\u8BBE\u7F6E"
+  },
+  {
+    id: "L3-ABS1-06",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u8BBF\u95EE\u63A7\u5236",
+    controlEn: "Access Control",
+    requirementCn: "\u5E94\u5220\u9664\u591A\u4F59\u6216\u65E0\u6548\u7684\u8BBF\u95EE\u63A7\u5236\u89C4\u5219\uFF0C\u4F18\u5316\u8BBF\u95EE\u63A7\u5236\u5217\u8868\uFF0C\u5E76\u4FDD\u8BC1\u8BBF\u95EE\u63A7\u5236\u89C4\u5219\u6570\u91CF\u6700\u5C0F\u5316",
+    requirementEn: "Extra or invalid access control rules should be removed to optimize the access control lists, and the number of access control rules should be minimized",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\uFF0C\u6309\u7167\u6700\u5C0F\u66B4\u9732\u539F\u5219\u8BBE\u7F6E"
+  },
+  {
+    id: "L3-ABS1-07",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u8BBF\u95EE\u63A7\u5236",
+    controlEn: "Access Control",
+    requirementCn: "\u5E94\u5BF9\u6E90\u5730\u5740\u3001\u76EE\u7684\u5730\u5740\u3001\u6E90\u7AEF\u53E3\u3001\u76EE\u7684\u7AEF\u53E3\u548C\u534F\u8BAE\u7B49\u8FDB\u884C\u68C0\u67E5\uFF0C\u4EE5\u5141\u8BB8/\u62D2\u7EDD\u6570\u636E\u5305\u8FDB\u51FA",
+    requirementEn: "Check the source address, destination address, source port, destination port, protocol, etc. to allow/deny packets in and out",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\n2. \u542F\u7528WAF\n3. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72\n4. \u5229\u7528VPC Flow log \u5BF9\u8FDB\u51FAVPC\u7684\u901A\u8BAF\u8FDB\u884C\u5206\u6790\n5. \u5FC5\u8981\u65F6\u53EF\u4EE5\u542F\u7528VPC Traffic Mirror\uFF0C\u5E76\u5229\u7528\u4E13\u4E1A\u5206\u6790\u8F6F\u4EF6\u8FDB\u884C\u6D41\u91CF\u5206\u6790"
+  },
+  {
+    id: "L3-ABS1-08",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u8BBF\u95EE\u63A7\u5236",
+    controlEn: "Access Control",
+    requirementCn: "\u5E94\u80FD\u6839\u636E\u4F1A\u8BDD\u72B6\u6001\u4FE1\u606F\u4E3A\u8FDB\u51FA\u6570\u636E\u6D41\u63D0\u4F9B\u660E\u786E\u7684\u5141\u8BB8/\u62D2\u7EDD\u8BBF\u95EE\u7684\u80FD\u529B",
+    requirementEn: "Explicit ability to allow/deny access to incoming and outgoing data streams should be provided based on session state information",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: "1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\n2. \u542F\u7528WAF\n3. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72"
+  },
+  {
+    id: "L3-ABS1-09",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u8BBF\u95EE\u63A7\u5236",
+    controlEn: "Access Control",
+    requirementCn: "\u5E94\u5BF9\u8FDB\u51FA\u7F51\u7EDC\u7684\u6570\u636E\u6D41\u5B9E\u73B0\u57FA\u4E8E\u5E94\u7528\u534F\u8BAE\u548C\u5E94\u7528\u5185\u5BB9\u7684\u8BBF\u95EE\u63A7\u5236",
+    requirementEn: "Access control based on application protocols and application content should be applied to data flows to and from the network.",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: '"1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\n2. \u542F\u7528WAF\n3. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72"'
+  },
+  {
+    id: "L3-ABS1-10",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u5728\u5173\u952E\u7F51\u7EDC\u8282\u70B9\u5904\u68C0\u6D4B\u3001\u9632\u6B62\u6216\u9650\u5236\u4ECE\u5916\u90E8\u53D1\u8D77\u7684\u7F51\u7EDC\u653B\u51FB\u884C\u4E3A",
+    requirementEn: "Externally initiated cyber attacks should be detected, prevented or restricted at critical network nodes",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: "1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\n2. \u542F\u7528WAF\n3. \u542F\u7528GuardDuty\n4. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72"
+  },
+  {
+    id: "L3-ABS1-11",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u5728\u5173\u952E\u7F51\u7EDC\u8282\u70B9\u5904\u68C0\u6D4B\u3001\u9632\u6B62\u6216\u9650\u5236\u4ECE\u5185\u90E8\u53D1\u8D77\u7684\u7F51\u7EDC\u653B\u51FB\u884C\u4E3A",
+    requirementEn: "Internally initiated cyber attacks should be detected, prevented or restricted at critical network nodes",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: "1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\n2. \u542F\u7528GuardDuty\n3. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72"
+  },
+  {
+    id: "L3-ABS1-12",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u91C7\u53D6\u6280\u672F\u63AA\u65BD\u5BF9\u7F51\u7EDC\u884C\u4E3A\u8FDB\u884C\u5206\u6790\uFF0C\u5B9E\u73B0\u5BF9\u7F51\u7EDC\u653B\u51FB\u7279\u522B\u662F\u65B0\u578B\u7F51\u7EDC\u653B\u51FB\u884C\u4E3A\u7684\u5206\u6790",
+    requirementEn: "Technical measures should be taken to analyze the network behavior, as well as analyze network attacks, especially the new types of attacks.",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: "1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\n2. \u542F\u7528WAF\n3. \u542F\u7528GuardDuty\n4. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72\n5. \u7B2C\u4E09\u65B9\u5165\u4FB5\u9632\u8303\u4EA7\u54C1"
+  },
+  {
+    id: "L3-ABS1-13",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5F53\u68C0\u6D4B\u5230\u653B\u51FB\u884C\u4E3A\u65F6\uFF0C\u8BB0\u5F55\u653B\u51FB\u6E90IP\u3001\u653B\u51FB\u7C7B\u578B\u3001\u653B\u51FB\u76EE\u7684\u3001\u653B\u51FB\u65F6\u95F4\uFF0C\u5728\u53D1\u751F\u4E25\u91CD\u5165\u4FB5\u4E8B\u4EF6\u65F6\u5E94\u63D0\u4F9B\u62A5\u8B66",
+    requirementEn: "When an attack is detected, the attack source IP, attack type, attack purpose, and attack time should be recorded, and alarm when a serious intrusion occurs.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\n2. \u542F\u7528WAF\n3. \u542F\u7528GuardDuty\n4. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72"
+  },
+  {
+    id: "L3-ABS1-14",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u6076\u610F\u4EE3\u7801\u548C\u5783\u573E\u90AE\u4EF6\u9632\u8303",
+    controlEn: "Malicious Code and Spam Prevention",
+    requirementCn: "\u5E94\u5728\u5173\u952E\u7F51\u7EDC\u8282\u70B9\u5904\u5BF9\u6076\u610F\u4EE3\u7801\u8FDB\u884C\u68C0\u6D4B\u548C\u6E05\u9664\uFF0C\u5E76\u7EF4\u62A4\u6076\u610F\u4EE3\u7801\u9632\u62A4\u673A\u5236\u7684\u5347\u7EA7\u548C\u66F4\u65B0",
+    requirementEn: "Malicious code should be detected and purged at key network nodes, and the upgrade and update of malicious code protection mechanism should be maintained.",
+    referenceStatus: "\u4E0D\u7B26\u5408 Gap Exist",
+    referenceComment: "1.\u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72\n2.\u5728\u64CD\u4F5C\u7CFB\u7EDF\u5B89\u88C5\u7B2C\u4E09\u65B9\u5B89\u5168\u9632\u62A4\u548C\u6740\u6BD2\u8F6F\u4EF6"
+  },
+  {
+    id: "L3-ABS1-15",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u6076\u610F\u4EE3\u7801\u548C\u5783\u573E\u90AE\u4EF6\u9632\u8303",
+    controlEn: "Malicious Code and Spam Prevention",
+    requirementCn: "\u5E94\u5728\u5173\u952E\u7F51\u7EDC\u8282\u70B9\u5904\u5BF9\u5783\u573E\u90AE\u4EF6\u8FDB\u884C\u68C0\u6D4B\u548C\u9632\u62A4\uFF0C\u5E76\u7EF4\u62A4\u5783\u573E\u90AE\u4EF6\u9632\u62A4\u673A\u5236\u7684\u5347\u7EA7\u548C\u66F4\u65B0",
+    requirementEn: "Spam should be detected and protect at critical network nodes and upgrades and update of spam protection mechanisms should be maintained.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS1-16",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5B89\u5168\u5BA1\u8BA1",
+    controlEn: "Security Audit",
+    requirementCn: "\u5E94\u5728\u7F51\u7EDC\u8FB9\u754C\u3001\u91CD\u8981\u7F51\u7EDC\u8282\u70B9\u8FDB\u884C\u5B89\u5168\u5BA1\u8BA1\uFF0C\u5BA1\u8BA1\u8986\u76D6\u5230\u6BCF\u4E2A\u7528\u6237\uFF0C\u5BF9\u91CD\u8981\u7684\u7528\u6237\u884C\u4E3A\u548C\u91CD\u8981\u5B89\u5168\u4E8B\u4EF6\u8FDB\u884C\u5BA1\u8BA1",
+    requirementEn: "Security audits should be conducted at network borders and important network nodes, and audits should be covered to each user to audit important user behaviors and important security incidents",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: "1. IAM\n2,\u5821\u5792\u673A\uFF08session manager\u6216\u8005\u7B2C\u4E09\u65B9\u7684\u5821\u5792\u673A)"
+  },
+  {
+    id: "L3-ABS1-17",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5B89\u5168\u5BA1\u8BA1",
+    controlEn: "Security Audit",
+    requirementCn: "\u5BA1\u8BA1\u8BB0\u5F55\u5E94\u5305\u62EC\u4E8B\u4EF6\u7684\u65E5\u671F\u548C\u65F6\u95F4\u3001\u7528\u6237\u3001\u4E8B\u4EF6\u7C7B\u578B\u3001\u4E8B\u4EF6\u662F\u5426\u6210\u529F\u53CA\u5176\u4ED6\u4E0E\u5BA1\u8BA1\u76F8\u5173\u7684\u4FE1\u606F",
+    requirementEn: "The audit record should include the event date and time, user, event type, success or failure of the event, and other audit-related information",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "CloudTrail"
+  },
+  {
+    id: "L3-ABS1-18",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5B89\u5168\u5BA1\u8BA1",
+    controlEn: "Security Audit",
+    requirementCn: "\u5E94\u5BF9\u5BA1\u8BA1\u8BB0\u5F55\u8FDB\u884C\u4FDD\u62A4\uFF0C\u5B9A\u671F\u5907\u4EFD\uFF0C\u907F\u514D\u53D7\u5230\u672A\u9884\u671F\u7684\u5220\u9664\u3001\u4FEE\u6539\u6216\u8986\u76D6\u7B49",
+    requirementEn: "Audit records should be protected and backed up regularly to avoid unintended deletions, modifications or overwrites.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "CloudTrail"
+  },
+  {
+    id: "L3-ABS1-19",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5B89\u5168\u5BA1\u8BA1",
+    controlEn: "Security Audit",
+    requirementCn: "\u5E94\u80FD\u5BF9\u8FDC\u7A0B\u8BBF\u95EE\u7684\u7528\u6237\u884C\u4E3A\u3001\u8BBF\u95EE\u4E92\u8054\u7F51\u7684\u7528\u6237\u884C\u4E3A\u7B49\u5355\u72EC\u8FDB\u884C\u884C\u4E3A\u5BA1\u8BA1\u548C\u6570\u636E\u5206\u6790",
+    requirementEn: "It should be possible to conduct separate behavioral audits and data analysis on user behaviors of remote access, user behaviors of accessing the Internet, and so on.",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: "1. CloudTraiil\n2. S3\u548CALB Access Logs\n3.\u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72\u6216\u8005\u4E0A\u7F51\u884C\u4E3A\u7BA1\u7406\u4EA7\u54C1"
+  },
+  {
+    id: "L3-ABS1-20",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u53EF\u4FE1\u9A8C\u8BC1",
+    controlEn: "Trusted Verification",
+    requirementCn: "\u53EF\u57FA\u4E8E\u53EF\u4FE1\u6839\u5BF9\u8FB9\u754C\u8BBE\u5907\u7684\u7CFB\u7EDF\u5F15\u5BFC\u7A0B\u5E8F\u3001\u7CFB\u7EDF\u7A0B\u5E8F\u3001\u91CD\u8981\u914D\u7F6E\u53C2\u6570\u548C\u8FB9\u754C\u9632\u62A4\u5E94\u7528\u7A0B\u5E8F\u7B49\u8FDB\u884C\u53EF\u4FE1\u9A8C\u8BC1\uFF0C\u5E76\u5728\u5E94\u7528\u7A0B\u5E8F\u7684\u5173\u952E\u6267\u884C\u73AF\u8282\u8FDB\u884C\u52A8\u6001\u53EF\u4FE1\u9A8C\u8BC1\uFF0C\u5728\u68C0\u6D4B\u5230\u5176\u53EF\u4FE1\u6027\u53D7\u5230\u7834\u574F\u540E\u8FDB\u884C\u62A5\u8B66\uFF0C \u5E76\u5C06\u9A8C\u8BC1\u7ED3\u679C\u5F62\u6210\u5BA1\u8BA1\u8BB0\u5F55\u9001\u81F3\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3",
+    requirementEn: "Trusted verification, based on the trusted root, can be applied to system boot program, system program, important configuration parameters, and network border protection applications of the network border devices, and dynamic trusted verification can be used in the key execution of the application, and when detecting the credibility thereof. After being damaged, an alarm is issued, and after detecting that its credibility has been damaged, an alarm should be issued and the verification result should be sent to the Security Management Center.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES1-01",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u8EAB\u4EFD\u9274\u522B",
+    controlEn: "Identification and Authentication",
+    requirementCn: "\u5E94\u5BF9\u767B\u5F55\u7684\u7528\u6237\u8FDB\u884C\u8EAB\u4EFD\u6807\u8BC6\u548C\u9274\u522B\uFF0C\u8EAB\u4EFD\u6807\u8BC6\u5177\u6709\u552F\u4E00\u6027\uFF0C\u8EAB\u4EFD\u9274\u522B\u4FE1\u606F\u5177\u6709\u590D\u6742\u5EA6\u8981\u6C42\u5E76\u5B9A\u671F\u66F4\u6362",
+    requirementEn: "The logged-in user should be identified and authenticated. And the identity shall be unique. The identity authentication information should have complexity requirements and be replaced periodically.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. IAM\n2. \u5355\u70B9\u767B\u5F55\uFF08Tesla Bounce\u4EA7\u54C1\u6216\u8005AWS SSO \u670D\u52A1\u5C06\u4E8EQ2,2022\u63A8\u51FA\uFF09"
+  },
+  {
+    id: "L3-CES1-02",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u8EAB\u4EFD\u9274\u522B",
+    controlEn: "Identification and Authentication",
+    requirementCn: "\u5E94\u5177\u6709\u767B\u5F55\u5931\u8D25\u5904\u7406\u529F\u80FD\uFF0C\u5E94\u914D\u7F6E\u5E76\u542F\u7528\u7ED3\u675F\u4F1A\u8BDD\u3001\u9650\u5236\u975E\u6CD5\u767B\u5F55\u6B21\u6570\u548C\u5F53\u767B\u5F55\u8FDE\u63A5\u8D85\u65F6\u81EA\u52A8\u9000\u51FA\u7B49\u76F8\u5173\u63AA\u65BD",
+    requirementEn: "It should have the login failure processing function, and configure and enable the functions of end session, limit the number of illegal logins, and automatically exit when the login connection times out",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: "1. \u7B2C\u4E09\u65B9\u7684\u5821\u5792\u673A\n2.AWS\u5E73\u53F0\u53EF\u8003\u8651\u57FA\u4E8ECLoudTrail\u65E5\u5FD7+Cloudwatch Alarm + Lambda\u5B9E\u73B0"
+  },
+  {
+    id: "L3-CES1-03",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u8EAB\u4EFD\u9274\u522B",
+    controlEn: "Identification and Authentication",
+    requirementCn: "\u5F53\u8FDB\u884C\u8FDC\u7A0B\u7BA1\u7406\u65F6\uFF0C\u5E94\u91C7\u53D6\u5FC5\u8981\u63AA\u65BD\u9632\u6B62\u9274\u522B\u4FE1\u606F\u5728\u7F51\u7EDC\u4F20\u8F93\u8FC7\u7A0B\u4E2D\u88AB\u7A83\u542C",
+    requirementEn: "Necessary measures should be taken to prevent the authentication information from being eavesdropped during network transmission when performing remote management.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. \u542F\u7528\u4F20\u8F93\u5C42\u52A0\u5BC6\n2. \u5229\u7528SSH\u548C\u52A0\u5BC6\u7684RDP\u8FDB\u884C\u8BBF\u95EEEC2"
+  },
+  {
+    id: "L3-CES1-04",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u8EAB\u4EFD\u9274\u522B",
+    controlEn: "Identification and Authentication",
+    requirementCn: "\u5E94\u91C7\u7528\u53E3\u4EE4\u3001\u5BC6\u7801\u6280\u672F\u3001\u751F\u7269\u6280\u672F\u7B49\u4E24\u79CD\u6216\u4E24\u79CD\u4EE5\u4E0A\u7EC4\u5408\u7684\u9274\u522B\u6280\u672F\u5BF9\u7528\u6237\u8FDB\u884C\u8EAB\u4EFD\u9274\u522B\uFF0C \u4E14\u5176\u4E2D\u4E00\u79CD\u9274\u522B\u6280\u672F\u81F3\u5C11\u5E94\u4F7F\u7528\u5BC6\u7801\u6280\u672F\u6765\u5B9E\u73B0",
+    requirementEn: "Two or more authentication technologies, e.g. password, cryptography, biotechnology and etc., should be used to identify users, and at least one of them should be implemented by cryptography.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u542F\u7528MFA"
+  },
+  {
+    id: "L3-CES1-05",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u8BBF\u95EE\u63A7\u5236",
+    controlEn: "Access Control",
+    requirementCn: "\u5E94\u5BF9\u767B\u5F55\u7684\u7528\u6237\u5206\u914D\u8D26\u53F7\u548C\u6743\u9650",
+    requirementEn: "Accounts and permissions should be assigned to the logged in user",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: '"1. IAM\n2. \u5355\u70B9\u767B\u5F55\uFF08Tesla Bounce\u4EA7\u54C1\u6216\u8005AWS SSO \u670D\u52A1\u5C06\u4E8EQ2,2022\u63A8\u51FA\uFF09"'
+  },
+  {
+    id: "L3-CES1-06",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u8BBF\u95EE\u63A7\u5236",
+    controlEn: "Access Control",
+    requirementCn: "\u5E94\u91CD\u547D\u540D\u6216\u5220\u9664\u9ED8\u8BA4\u8D26\u6237\uFF0C\u4FEE\u6539\u9ED8\u8BA4\u8D26\u6237\u7684\u9ED8\u8BA4\u53E3\u4EE4",
+    requirementEn: "The default account should be renamed or deleted, and the default password of the default account should be changed.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u7BA1\u7406\u6D41\u7A0B"
+  },
+  {
+    id: "L3-CES1-07",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u8BBF\u95EE\u63A7\u5236",
+    controlEn: "Access Control",
+    requirementCn: "\u5E94\u53CA\u65F6\u5220\u9664\u6216\u505C\u7528\u591A\u4F59\u7684\u3001\u8FC7\u671F\u7684\u8D26\u53F7\uFF0C\u907F\u514D\u5171\u4EAB\u8D26\u53F7\u7684\u5B58\u5728",
+    requirementEn: "The redundant and expired accounts should be deleted or deactivated in time and share accounts is not allowed",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. IAM\n2. \u5355\u70B9\u767B\u5F55\uFF08Tesla Bounce\u4EA7\u54C1\u6216\u8005AWS SSO \u670D\u52A1\u5C06\u4E8EQ2,2022\u63A8\u51FA\uFF09"
+  },
+  {
+    id: "L3-CES1-08",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u8BBF\u95EE\u63A7\u5236",
+    controlEn: "Access Control",
+    requirementCn: "\u5E94\u6388\u4E88\u7BA1\u7406\u7528\u6237\u6240\u9700\u7684\u6700\u5C0F\u6743\u9650\uFF0C\u5B9E\u73B0\u7BA1\u7406\u7528\u6237\u7684\u6743\u9650\u5206\u79BB",
+    requirementEn: "Administrator access should be reduced to an absolute minimum to achieve separation of administrator privileges",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. IAM\n2. \u5355\u70B9\u767B\u5F55\uFF08Tesla Bounce\u4EA7\u54C1\u6216\u8005AWS SSO \u670D\u52A1\u5C06\u4E8EQ2,2022\u63A8\u51FA\uFF09"
+  },
+  {
+    id: "L3-CES1-09",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u8BBF\u95EE\u63A7\u5236",
+    controlEn: "Access Control",
+    requirementCn: "\u5E94\u7531\u6388\u6743\u4E3B\u4F53\u914D\u7F6E\u8BBF\u95EE\u63A7\u5236\u7B56\u7565\uFF0C\u8BBF\u95EE\u63A7\u5236\u7B56\u7565\u89C4\u5B9A\u4E3B\u4F53\u5BF9\u5BA2\u4F53\u7684\u8BBF\u95EE\u89C4\u5219",
+    requirementEn: "The access control policy should be configured by the authorized subject, and the access control policy stipulates the access rules of the subject to the object",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u652F\u6301\u57FA\u4E8E\u4EBA\u5458\u548C\u57FA\u4E8E\u8D44\u6E90\u7684\u6743\u9650\u5206\u914D"
+  },
+  {
+    id: "L3-CES1-10",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u8BBF\u95EE\u63A7\u5236",
+    controlEn: "Access Control",
+    requirementCn: "\u8BBF\u95EE\u63A7\u5236\u7684\u7C92\u5EA6\u5E94\u8FBE\u5230\u4E3B\u4F53\u4E3A\u7528\u6237\u7EA7\u6216\u8FDB\u7A0B\u7EA7\uFF0C\u5BA2\u4F53\u4E3A\u6587\u4EF6\u3001\u6570\u636E\u5E93\u8868\u7EA7",
+    requirementEn: "The granularity of access control should be at the user level or process level, and the object is at the file and database table level",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. IAM\n2. \u5355\u70B9\u767B\u5F55\uFF08Tesla Bounce\u4EA7\u54C1\u6216\u8005AWS SSO \u670D\u52A1\u5C06\u4E8EQ2,2022\u63A8\u51FA\uFF09"
+  },
+  {
+    id: "L3-CES1-11",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u8BBF\u95EE\u63A7\u5236",
+    controlEn: "Access Control",
+    requirementCn: "\u5E94\u5BF9\u654F\u611F\u4FE1\u606F\u8D44\u6E90\u8BBE\u7F6E\u5B89\u5168\u6807\u8BB0\uFF0C\u5E76\u63A7\u5236\u4E3B\u4F53\u5BF9\u6709\u5B89\u5168\u6807\u8BB0\u4FE1\u606F\u8D44\u6E90\u7684\u8BBF\u95EE",
+    requirementEn: "Set security tokens for sensitive information resources and control the subject's access to resources with security-tagged information.",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: "\u9700\u8981\u5E94\u7528\u5C42\u9762\u5148\u8FDB\u884C\u654F\u611F\u4FE1\u606F\u7684\u5206\u7C7B\uFF0C\u7136\u540E\u5229\u7528Tag\u6216\u8005Metadata\u5BF9\u6570\u636E\u8FDB\u884C\u6807\u8BB0\uFF0C\u7136\u540E\u5229\u7528\u63A7\u5236\u8BBF\u95EE\u7B56\u7565\u8FDB\u884C\u7BA1\u63A7"
+  },
+  {
+    id: "L3-CES1-12",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u5B89\u5168\u5BA1\u8BA1",
+    controlEn: "Security Audit",
+    requirementCn: "\u5E94\u542F\u7528\u5B89\u5168\u5BA1\u8BA1\u529F\u80FD\uFF0C\u5BA1\u8BA1\u8986\u76D6\u5230\u6BCF\u4E2A\u7528\u6237\uFF0C\u5BF9\u91CD\u8981\u7684\u7528\u6237\u884C\u4E3A\u548C\u91CD\u8981\u5B89\u5168\u4E8B\u4EF6\u8FDB\u884C\u5BA1\u8BA1",
+    requirementEn: "Security auditing should be enabled, and covers each user, important user behaviors and security incidents",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. CloudTrail \n2. CloudWatch\n3. AWS Config \u6216\u8005 Palo Alto\u7684Prisma Cloud"
+  },
+  {
+    id: "L3-CES1-13",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u5B89\u5168\u5BA1\u8BA1",
+    controlEn: "Security Audit",
+    requirementCn: "\u5BA1\u8BA1\u8BB0\u5F55\u5E94\u5305\u62EC\u4E8B\u4EF6\u7684\u65E5\u671F\u548C\u65F6\u95F4\u3001\u7528\u6237\u3001\u4E8B\u4EF6\u7C7B\u578B\u3001\u4E8B\u4EF6\u662F\u5426\u6210\u529F\u53CA\u5176\u4ED6\u4E0E\u5BA1\u8BA1\u76F8\u5173\u7684\u4FE1\u606F",
+    requirementEn: "The audit record should include the event date and time, user, event type, success or failure of the event, and other audit-related information",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. CloudTrail \n2. CloudWatch\n3. AWS Config \u6216\u8005 Palo Alto\u7684Prisma Cloud"
+  },
+  {
+    id: "L3-CES1-14",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u5B89\u5168\u5BA1\u8BA1",
+    controlEn: "Security Audit",
+    requirementCn: "\u5E94\u5BF9\u5BA1\u8BA1\u8BB0\u5F55\u8FDB\u884C\u4FDD\u62A4\uFF0C\u5B9A\u671F\u5907\u4EFD\uFF0C\u907F\u514D\u53D7\u5230\u672A\u9884\u671F\u7684\u5220\u9664\u3001\u4FEE\u6539\u6216\u8986\u76D6\u7B49",
+    requirementEn: "Audit records should be protected and backed up regularly to avoid unintended deletions, modifications or overwrites.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. CloudTrail \n2. CloudWatch\n3. AWS Config \u6216\u8005 Palo Alto\u7684Prisma Cloud"
+  },
+  {
+    id: "L3-CES1-15",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u5B89\u5168\u5BA1\u8BA1",
+    controlEn: "Security Audit",
+    requirementCn: "\u5E94\u5BF9\u5BA1\u8BA1\u8FDB\u7A0B\u8FDB\u884C\u4FDD\u62A4\uFF0C\u9632\u6B62\u672A\u7ECF\u6388\u6743\u7684\u4E2D\u65AD",
+    requirementEn: "The audit record time shall be synchronized with an accurate time source within the system to ensure the correctness of the audit analysis.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. CloudTrail \n2. CloudWatch\n3. AWS Config \u6216\u8005 Palo Alto\u7684Prisma Cloud"
+  },
+  {
+    id: "L3-CES1-17",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u9075\u5FAA\u6700\u5C0F\u5B89\u88C5\u7684\u539F\u5219\uFF0C\u4EC5\u5B89\u88C5\u9700\u8981\u7684\u7EC4\u4EF6\u548C\u5E94\u7528\u7A0B\u5E8F",
+    requirementEn: "Follow the principle of minimum installation, and install only the required components and applications.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\n2. \u542F\u7528WAF\n3. \u542F\u7528GuardDuty\n4. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72\n5. \u7B2C\u4E09\u65B9\u5165\u4FB5\u9632\u8303\u4EA7\u54C1"
+  },
+  {
+    id: "L3-CES1-18",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u5173\u95ED\u4E0D\u9700\u8981\u7684\u7CFB\u7EDF\u670D\u52A1\u3001\u9ED8\u8BA4\u5171\u4EAB\u548C\u9AD8\u5371\u7AEF\u53E3",
+    requirementEn: "Unneeded system services, default shares, and high-risk ports should be turned off",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\uFF0C\u5E76\u6309\u7167\u6700\u5C0F\u5316\u539F\u5219\u673A\u8FDB\u884C\u914D\u7F6E\n2. \u542F\u7528WAF\n3. \u542F\u7528GuardDuty\n4. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72\n5. \u7B2C\u4E09\u65B9\u5165\u4FB5\u9632\u8303\u4EA7\u54C1"
+  },
+  {
+    id: "L3-CES1-19",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u901A\u8FC7\u8BBE\u5B9A\u7EC8\u7AEF\u63A5\u5165\u65B9\u5F0F\u6216\u7F51\u7EDC\u5730\u5740\u8303\u56F4\u5BF9\u901A\u8FC7\u7F51\u7EDC\u8FDB\u884C\u7BA1\u7406\u7684\u7BA1\u7406\u7EC8\u7AEF\u8FDB\u884C\u9650\u5236",
+    requirementEn: "The management terminal managed through the network should be restricted by setting the terminal access mode or network address range",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: '1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\uFF0C\u5E76\u6309\u7167\u6700\u5C0F\u5316\u539F\u5219\u673A\u8FDB\u884C\u914D\u7F6E\n2. \u542F\u7528WAF\n3. \u542F\u7528GuardDuty\n4. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72\n5. \u7B2C\u4E09\u65B9\u5165\u4FB5\u9632\u8303\u4EA7\u54C1"'
+  },
+  {
+    id: "L3-CES1-20",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u63D0\u4F9B\u6570\u636E\u6709\u6548\u6027\u68C0\u9A8C\u529F\u80FD\uFF0C\u4FDD\u8BC1\u901A\u8FC7\u4EBA\u673A\u63A5\u53E3\u8F93\u5165\u6216\u901A\u8FC7\u901A\u4FE1\u63A5\u53E3\u8F93\u5165\u7684\u5185\u5BB9\u7B26\u5408\u7CFB\u7EDF\u8BBE\u5B9A\u8981\u6C42",
+    requirementEn: "The data validity check function shall be provided to ensure that the content input through the human machine interface or input through the communication interface complies with the system setting requirements",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: '"1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\uFF0C\u5E76\u6309\u7167\u6700\u5C0F\u5316\u539F\u5219\u673A\u8FDB\u884C\u914D\u7F6E\n2. \u542F\u7528WAF\n3. \u542F\u7528GuardDuty\n4. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72\n5. \u7B2C\u4E09\u65B9\u5165\u4FB5\u9632\u8303\u4EA7\u54C1"'
+  },
+  {
+    id: "L3-CES1-21",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u80FD\u53D1\u73B0\u53EF\u80FD\u5B58\u5728\u7684\u6F0F\u6D1E\uFF0C\u5E76\u5728\u7ECF\u8FC7\u5145\u5206\u6D4B\u8BD5\u8BC4\u4F30\u540E\uFF0C\u53CA\u65F6\u4FEE\u8865\u6F0F\u6D1E",
+    requirementEn: "It should be able to identify possible vulnerabilities and fix the vulnerabilities in time after thorough testing and evaluation",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: '1. \u542F\u7528WAF\n2. \u542F\u7528GuardDuty\n3. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72\n4. \u7B2C\u4E09\u65B9\u5165\u4FB5\u9632\u8303\u4EA7\u54C1"'
+  },
+  {
+    id: "L3-CES1-22",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u80FD\u591F\u68C0\u6D4B\u5230\u5BF9\u91CD\u8981\u8282\u70B9\u8FDB\u884C\u5165\u4FB5\u7684\u884C\u4E3A\uFF0C\u5E76\u5728\u53D1\u751F\u4E25\u91CD\u5165\u4FB5\u4E8B\u4EF6\u65F6\u63D0\u4F9B\u62A5\u8B66",
+    requirementEn: "It should be able to detect intrusions on important nodes and alert when there is serious intrusion.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. \u542F\u7528WAF\n2. \u542F\u7528GuardDuty\n3. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72\n4. \u64CD\u4F5C\u7CFB\u7EDF\u5C42\u5B89\u88C5\u7B2C\u4E09\u65B9\u5B89\u5168\u9632\u62A4\u8F6F\u4EF6"
+  },
+  {
+    id: "L3-CES1-23",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u6076\u610F\u4EE3\u7801\u9632\u8303",
+    controlEn: "Malicious Code Prevention",
+    requirementCn: "\u5E94\u91C7\u7528\u514D\u53D7\u6076\u610F\u4EE3\u7801\u653B\u51FB\u7684\u6280\u672F\u63AA\u65BD\u6216\u4E3B\u52A8\u514D\u75AB\u53EF\u4FE1\u9A8C\u8BC1\u673A\u5236\u53CA\u65F6\u8BC6\u522B\u5165\u4FB5\u548C\u75C5\u6BD2\u884C\u4E3A\uFF0C\u5E76\u5C06\u5176\u6709\u6548\u963B\u65AD",
+    requirementEn: "Intrusion and virus behavior should be identified and effectively blocked by technical measures against malicious code attacks or active immune trusted authentication mechanisms.",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: "1. \u542F\u7528WAF\n2. \u542F\u7528GuardDuty\n3. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72\n4. \u64CD\u4F5C\u7CFB\u7EDF\u5C42\u5B89\u88C5\u7B2C\u4E09\u65B9\u6740\u6BD2\u4EA7\u54C1"
+  },
+  {
+    id: "L3-CES1-24",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u53EF\u4FE1\u9A8C\u8BC1",
+    controlEn: "Trusted Verification",
+    requirementCn: "\u53EF\u57FA\u4E8E\u53EF\u4FE1\u6839\u5BF9\u8BA1\u7B97\u8BBE\u5907\u7684\u7CFB\u7EDF\u5F15\u5BFC\u7A0B\u5E8F\u3001\u7CFB\u7EDF\u7A0B\u5E8F\u3001\u91CD\u8981\u914D\u7F6E\u53C2\u6570\u548C\u5E94\u7528\u7A0B\u5E8F\u7B49\u8FDB\u884C\u53EF\u4FE1\u9A8C\u8BC1\uFF0C \u5E76\u5728\u5E94\u7528\u7A0B\u5E8F\u7684\u5173\u952E\u6267\u884C\u73AF\u8282\u8FDB\u884C\u52A8\u6001\u53EF\u4FE1\u9A8C\u8BC1\uFF0C\u5728\u68C0\u6D4B\u5230\u5176\u53EF\u4FE1\u6027\u53D7\u5230\u7834\u574F\u540E\u8FDB\u884C\u62A5\u8B66\uFF0C\u5E76\u5C06\u9A8C\u8BC1 \u7ED3\u679C\u5F62\u6210\u5BA1\u8BA1\u8BB0\u5F55\u9001\u81F3\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3",
+    requirementEn: "Trusted verification, based on the trusted root, can be applied to system boot program, system program, important configuration parameters, and applications of the computing devices, and dynamic trusted verification can be used in the key execution of the application, and when detecting the credibility thereof. After being damaged, an alarm is issued, and after detecting that its credibility has been damaged, an alarm should be issued and the verification result should be sent to the Security Management Center.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES1-25",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u6570\u636E\u5B8C\u6574\u6027",
+    controlEn: "Data Confidentiality",
+    requirementCn: "\u5E94\u91C7\u7528\u6821\u9A8C\u6280\u672F\u6216\u5BC6\u7801\u6280\u672F\u4FDD\u8BC1\u91CD\u8981\u6570\u636E\u5728\u4F20\u8F93\u8FC7\u7A0B\u4E2D\u7684\u5B8C\u6574\u6027\uFF0C\u5305\u62EC\u4F46\u4E0D\u9650\u4E8E\u9274\u522B\u6570\u636E\u3001\u91CD\u8981\u4E1A\u52A1\u6570\u636E\u3001\u91CD\u8981\u5BA1\u8BA1\u6570\u636E\u3001\u91CD\u8981\u914D\u7F6E\u6570\u636E\u3001\u91CD\u8981\u89C6\u9891\u6570\u636E\u548C\u91CD\u8981\u4E2A\u4EBA\u4FE1\u606F\u7B49",
+    requirementEn: "Verification techniques or cryptographic techniques should be used to ensure the integrity of important data during transmission, including but not limited to authentication data, important business data, important audit data, important configuration data, important video data and important personal information",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: "1. \u542F\u7528\u4F20\u8F93\u52A0\u5BC6\uFF0C\u5E76\u4E14\u53EF\u4EE5\u5229\u7528Amazon ACM\u7BA1\u7406\u5BC6\u94A5\n2. S3 \u4F1A\u9A8C\u8BC1\u5DF2\u4E0A\u4F20\u5BF9\u8C61\u7684\u5B8C\u6574\u6027\n3. \u6309\u7167\u7B2C\u4E09\u65B9\u9632\u7BE1\u6539\u8F6F\u4EF6"
+  },
+  {
+    id: "L3-CES1-26",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u6570\u636E\u5B8C\u6574\u6027",
+    controlEn: "Data Confidentiality",
+    requirementCn: "\u5E94\u91C7\u7528\u6821\u9A8C\u6280\u672F\u6216\u5BC6\u7801\u6280\u672F\u4FDD\u8BC1\u91CD\u8981\u6570\u636E\u5728\u5B58\u50A8\u8FC7\u7A0B\u4E2D\u7684\u5B8C\u6574\u6027\uFF0C\u5305\u62EC\u4F46\u4E0D\u9650\u4E8E\u9274\u522B\u6570\u636E\u3001\u91CD\u8981\u4E1A\u52A1\u6570\u636E\u3001\u91CD\u8981\u5BA1\u8BA1\u6570\u636E\u3001\u91CD\u8981\u914D\u7F6E\u6570\u636E\u3001\u91CD\u8981\u89C6\u9891\u6570\u636E\u548C\u91CD\u8981\u4E2A\u4EBA\u4FE1\u606F\u7B49",
+    requirementEn: "Verification techniques or cryptographic techniques should be used to ensure the integrity of important data when stored including but not limited to authentication data, important business data, important audit data, important configuration data, important video data and important personal information",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: "1. \u542F\u7528\u4F20\u8F93\u52A0\u5BC6\uFF0C\u5E76\u4E14\u53EF\u4EE5\u5229\u7528Amazon ACM\u7BA1\u7406\u5BC6\u94A5\n2. S3 \u4F1A\u9A8C\u8BC1\u5DF2\u4E0A\u4F20\u5BF9\u8C61\u7684\u5B8C\u6574\u6027\n3. \u6309\u7167\u7B2C\u4E09\u65B9\u9632\u7BE1\u6539\u8F6F\u4EF6"
+  },
+  {
+    id: "L3-CES1-27",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u6570\u636E\u4FDD\u5BC6\u6027",
+    controlEn: "Data Integrity",
+    requirementCn: "\u5E94\u91C7\u7528\u5BC6\u7801\u6280\u672F\u4FDD\u8BC1\u91CD\u8981\u6570\u636E\u5728\u4F20\u8F93\u8FC7\u7A0B\u4E2D\u7684\u4FDD\u5BC6\u6027\uFF0C\u5305\u62EC\u4F46\u4E0D\u9650\u4E8E\u9274\u522B\u6570\u636E\u3001\u91CD\u8981\u4E1A\u52A1\u6570\u636E\u548C\u91CD\u8981\u4E2A\u4EBA\u4FE1\u606F\u7B49",
+    requirementEn: "Cryptographic technology should be used to ensure the confidentiality of important data during transmission, including but not limited to authentication data, important business data and important personal information",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u542F\u7528KMS"
+  },
+  {
+    id: "L3-CES1-28",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u6570\u636E\u4FDD\u5BC6\u6027",
+    controlEn: "Data Integrity",
+    requirementCn: "\u5E94\u91C7\u7528\u5BC6\u7801\u6280\u672F\u4FDD\u8BC1\u91CD\u8981\u6570\u636E\u5728\u5B58\u50A8\u8FC7\u7A0B\u4E2D\u7684\u4FDD\u5BC6\u6027\uFF0C\u5305\u62EC\u4F46\u4E0D\u9650\u4E8E\u9274\u522B\u6570\u636E\u3001\u91CD\u8981\u4E1A\u52A1\u6570\u636E\u548C\u91CD\u8981\u4E2A\u4EBA\u4FE1\u606F\u7B49",
+    requirementEn: "Cryptographic technology should be used to ensure the confidentiality of important data when stored, including but not limited to authentication data, important business data and important personal information",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u542F\u7528KMS"
+  },
+  {
+    id: "L3-CES1-29",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u6570\u636E\u5907\u4EFD\u6062\u590D",
+    controlEn: "Data Backup and Recovery",
+    requirementCn: "\u5E94\u63D0\u4F9B\u91CD\u8981\u6570\u636E\u7684\u672C\u5730\u6570\u636E\u5907\u4EFD\u4E0E\u6062\u590D\u529F\u80FD",
+    requirementEn: "Local data backup and recovery functions for important data should be provided",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. \u5B58\u50A8\u670D\u52A1\u539F\u751F\u652F\u6301\u591A\u526F\u672C\uFF0C\u5BA2\u6237\u53EF\u4EE5\u901A\u8FC7\u5FEB\u7167\u7684\u65B9\u5F0F\u5BF9\u6570\u636E\u8FDB\u884C\u989D\u5916\u5907\u4EFD\n2. \u5229\u7528AWS Backup \u4E2D\u5FC3\u5316\u7BA1\u7406\u5907\u4EFD\u7684\u5DE5\u5177\u3002\u4E5F\u53EF\u4EE5\u4F7F\u7528AWS\u5404\u670D\u52A1\u4E2D\u76F8\u5E94\u7684\u5907\u4EFD\u529F\u80FD\uFF0C\u5355\u72EC\u7BA1\u7406"
+  },
+  {
+    id: "L3-CES1-30",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u6570\u636E\u5907\u4EFD\u6062\u590D",
+    controlEn: "Data Backup and Recovery",
+    requirementCn: "\u5E94\u63D0\u4F9B\u5F02\u5730\u5B9E\u65F6\u5907\u4EFD\u529F\u80FD\uFF0C\u5229\u7528\u901A\u4FE1\u7F51\u7EDC\u5C06\u91CD\u8981\u6570\u636E\u5B9E\u65F6\u5907\u4EFD\u81F3\u5907\u4EFD\u573A\u5730",
+    requirementEn: "Remote real-time backup function should be provided, and use the communication network to back up important data to the backup site in real time",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. \u5B58\u50A8\u670D\u52A1\u539F\u751F\u652F\u6301\u591A\u526F\u672C\uFF0C\u5BA2\u6237\u53EF\u4EE5\u901A\u8FC7\u5FEB\u7167\u7684\u65B9\u5F0F\u5BF9\u6570\u636E\u8FDB\u884C\u989D\u5916\u5907\u4EFD\n2. \u5229\u7528AWS Backup \u4E2D\u5FC3\u5316\u7BA1\u7406\u5907\u4EFD\u7684\u5DE5\u5177\u3002\u4E5F\u53EF\u4EE5\u4F7F\u7528AWS\u5404\u670D\u52A1\u4E2D\u76F8\u5E94\u7684\u5907\u4EFD\u529F\u80FD\uFF0C\u5355\u72EC\u7BA1\u7406\n3. \u914D\u7F6E\u5FEB\u7167\u548CS3\u8DE8\u533A\u57DF\u6570\u636E\u590D\u5236"
+  },
+  {
+    id: "L3-CES1-31",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u6570\u636E\u5907\u4EFD\u6062\u590D",
+    controlEn: "Data Backup and Recovery",
+    requirementCn: "\u5E94\u63D0\u4F9B\u91CD\u8981\u6570\u636E\u5904\u7406\u7CFB\u7EDF\u7684\u70ED\u5197\u4F59\uFF0C\u4FDD\u8BC1\u7CFB\u7EDF\u7684\u9AD8\u53EF\u7528\u6027",
+    requirementEn: "Redundancy of critical data processing systems should be provided to ensure high system availability.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: '"1. \u5B58\u50A8\u670D\u52A1\u539F\u751F\u652F\u6301\u591A\u526F\u672C\uFF0C\u5BA2\u6237\u53EF\u4EE5\u901A\u8FC7\u5FEB\u7167\u7684\u65B9\u5F0F\u5BF9\u6570\u636E\u8FDB\u884C\u989D\u5916\u5907\u4EFD\n2. \u5229\u7528AWS Backup \u4E2D\u5FC3\u5316\u7BA1\u7406\u5907\u4EFD\u7684\u5DE5\u5177\u3002\u4E5F\u53EF\u4EE5\u4F7F\u7528AWS\u5404\u670D\u52A1\u4E2D\u76F8\u5E94\u7684\u5907\u4EFD\u529F\u80FD\uFF0C\u5355\u72EC\u7BA1\u7406"'
+  },
+  {
+    id: "L3-CES1-32",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u5269\u4F59\u4FE1\u606F\u4FDD\u62A4",
+    controlEn: "Residual Information Protection",
+    requirementCn: "\u5E94\u4FDD\u8BC1\u9274\u522B\u4FE1\u606F\u6240\u5728\u7684\u5B58\u50A8\u7A7A\u95F4\u88AB\u91CA\u653E\u6216\u91CD\u65B0\u5206\u914D\u524D\u5F97\u5230\u5B8C\u5168\u6E05\u9664",
+    requirementEn: "Ensure that the storage space where the authentication information is located is completely cleared before being released or redistributed",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. AWS \u5B58\u50A8\u670D\u52A1\u7684\u6570\u636E\u6E05\u9664\u7B56\u7565\u5728\u7B49\u4FDD\u4E91\u6269\u5C55\u8981\u6C42\u4E2D\u8986\u76D6"
+  },
+  {
+    id: "L3-CES1-33",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u5269\u4F59\u4FE1\u606F\u4FDD\u62A4",
+    controlEn: "Residual Information Protection",
+    requirementCn: "\u5E94\u4FDD\u8BC1\u5B58\u6709\u654F\u611F\u6570\u636E\u7684\u5B58\u50A8\u7A7A\u95F4\u88AB\u91CA\u653E\u6216\u91CD\u65B0\u5206\u914D\u524D\u5F97\u5230\u5B8C\u5168\u6E05\u9664",
+    requirementEn: "Ensure that the storage space containing sensitive data is completely cleared before being released or redistributed.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. AWS \u5B58\u50A8\u670D\u52A1\u7684\u6570\u636E\u6E05\u9664\u7B56\u7565\u5728\u7B49\u4FDD\u4E91\u6269\u5C55\u8981\u6C42\u4E2D\u8986\u76D6"
+  },
+  {
+    id: "L3-CES1-34",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u4E2A\u4EBA\u4FE1\u606F\u4FDD\u62A4",
+    controlEn: "Personal Information Protection",
+    requirementCn: "\u5E94\u4EC5\u91C7\u96C6\u548C\u4FDD\u5B58\u4E1A\u52A1\u5FC5\u9700\u7684\u7528\u6237\u4E2A\u4EBA\u4FE1\u606F",
+    requirementEn: "Only personal information necessary for the business should be collected and stored",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u5E94\u7528\u4FA7\u884C\u4E3A\uFF0CAWS\u4E0D\u4E3B\u52A8\u91C7\u96C6\u548C\u4FDD\u5B58\u7528\u6237\u4E2A\u4EBA\u4FE1\u606F"
+  },
+  {
+    id: "L3-CES1-35",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u4E2A\u4EBA\u4FE1\u606F\u4FDD\u62A4",
+    controlEn: "Personal Information Protection",
+    requirementCn: "\u5E94\u7981\u6B62\u672A\u6388\u6743\u8BBF\u95EE\u548C\u975E\u6CD5\u4F7F\u7528\u7528\u6237\u4E2A\u4EBA\u4FE1\u606F",
+    requirementEn: "Unauthorized access and illegal use of user's personal information should be prohibited.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u5E94\u7528\u4FA7\u884C\u4E3A\uFF0CAWS\u4E0D\u4E3B\u52A8\u91C7\u96C6\u548C\u4FDD\u5B58\u7528\u6237\u4E2A\u4EBA\u4FE1\u606F"
+  },
+  {
+    id: "L3-SMC1-01",
+    categoryCn: "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3",
+    categoryEn: "Security Management Center",
+    controlCn: "\u7CFB\u7EDF\u7BA1\u7406",
+    controlEn: "System Management",
+    requirementCn: "\u5E94\u5BF9\u7CFB\u7EDF\u7BA1\u7406\u5458\u8FDB\u884C\u8EAB\u4EFD\u9274\u522B\uFF0C\u53EA\u5141\u8BB8\u5176\u901A\u8FC7\u7279\u5B9A\u7684\u547D\u4EE4\u6216\u64CD\u4F5C\u754C\u9762\u8FDB\u884C\u7CFB\u7EDF\u7BA1\u7406\u64CD\u4F5C\uFF0C\u5E76\u5BF9\u8FD9\u4E9B\u64CD\u4F5C\u8FDB\u884C\u5BA1\u8BA1",
+    requirementEn: "The system administrator should be authenticated and only allowed to perform system management operations through specific commands or operation interfaces. These operations need to be audited",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. IAM\n2. \u5355\u70B9\u767B\u5F55\uFF08Tesla Bounce\u4EA7\u54C1\u6216\u8005AWS SSO \u670D\u52A1\u5C06\u4E8EQ2,2022\u63A8\u51FA\uFF09"
+  },
+  {
+    id: "L3-SMC1-02",
+    categoryCn: "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3",
+    categoryEn: "Security Management Center",
+    controlCn: "\u7CFB\u7EDF\u7BA1\u7406",
+    controlEn: "System Management",
+    requirementCn: "\u5E94\u901A\u8FC7\u7CFB\u7EDF\u7BA1\u7406\u5458\u5BF9\u7CFB\u7EDF\u7684\u8D44\u6E90\u548C\u8FD0\u884C\u8FDB\u884C\u914D\u7F6E\u3001\u63A7\u5236\u548C\u7BA1\u7406\uFF0C\u5305\u62EC\u7528\u6237\u8EAB\u4EFD\u3001\u7CFB\u7EDF\u8D44\u6E90\u914D\u7F6E\u3001\u7CFB\u7EDF\u52A0\u8F7D\u548C\u542F\u52A8\u3001\u7CFB\u7EDF\u8FD0\u884C\u7684\u5F02\u5E38\u5904\u7406\u3001\u6570\u636E\u548C\u8BBE\u5907\u7684\u5907\u4EFD\u4E0E\u6062\u590D\u7B49",
+    requirementEn: "The configuration, control, and management of system resources and operations should be performed by system administrators, including user identity, system resource configuration, system loading and startup, system operation exception handling, data and device backup and recovery.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. IAM\n2. \u5355\u70B9\u767B\u5F55\uFF08Tesla Bounce\u4EA7\u54C1\u6216\u8005AWS SSO \u670D\u52A1\u5C06\u4E8EQ2,2022\u63A8\u51FA\uFF09"
+  },
+  {
+    id: "L3-SMC1-03",
+    categoryCn: "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3",
+    categoryEn: "Security Management Center",
+    controlCn: "\u5BA1\u8BA1\u7BA1\u7406",
+    controlEn: "Audit Management",
+    requirementCn: "\u5E94\u5BF9\u5BA1\u8BA1\u7BA1\u7406\u5458\u8FDB\u884C\u8EAB\u4EFD\u9274\u522B\uFF0C\u53EA\u5141\u8BB8\u5176\u901A\u8FC7\u7279\u5B9A\u7684\u547D\u4EE4\u6216\u64CD\u4F5C\u754C\u9762\u8FDB\u884C\u5B89\u5168\u5BA1\u8BA1\u64CD\u4F5C\uFF0C\u5E76\u5BF9\u8FD9\u4E9B\u64CD\u4F5C\u8FDB\u884C\u5BA1\u8BA1",
+    requirementEn: "The audit administrator should be authenticated and only allowed to perform security audit operations through specific commands or operation interfaces. These operations need to be audited",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. IAM\n2. \u5355\u70B9\u767B\u5F55\uFF08Tesla Bounce\u4EA7\u54C1\u6216\u8005AWS SSO \u670D\u52A1\u5C06\u4E8EQ2,2022\u63A8\u51FA\uFF09"
+  },
+  {
+    id: "L3-SMC1-04",
+    categoryCn: "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3",
+    categoryEn: "Security Management Center",
+    controlCn: "\u5BA1\u8BA1\u7BA1\u7406",
+    controlEn: "Audit Management",
+    requirementCn: "\u5E94\u901A\u8FC7\u5BA1\u8BA1\u7BA1\u7406\u5458\u5BF9\u5BA1\u8BA1\u8BB0\u5F55\u5E94\u8FDB\u884C\u5206\u6790\uFF0C\u5E76\u6839\u636E\u5206\u6790\u7ED3\u679C\u8FDB\u884C\u5904\u7406\uFF0C\u5305\u62EC\u6839\u636E\u5B89\u5168\u5BA1\u8BA1\u7B56\u7565\u5BF9\u5BA1\u8BA1\u8BB0\u5F55\u8FDB\u884C\u5B58\u50A8\u3001\u7BA1\u7406\u548C\u67E5\u8BE2\u7B49",
+    requirementEn: "The audit administrator should analyze the audit records and dispose them according to the analysis results. The disposals include storage, management and query of the audit records according to the security audit policy.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. IAM\n2. \u5355\u70B9\u767B\u5F55\uFF08Tesla Bounce\u4EA7\u54C1\u6216\u8005AWS SSO \u670D\u52A1\u5C06\u4E8EQ2,2022\u63A8\u51FA\uFF09"
+  },
+  {
+    id: "L3-SMC1-05",
+    categoryCn: "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3",
+    categoryEn: "Security Management Center",
+    controlCn: "\u5B89\u5168\u7BA1\u7406",
+    controlEn: "Security Management",
+    requirementCn: "\u5E94\u5BF9\u5B89\u5168\u7BA1\u7406\u5458\u8FDB\u884C\u8EAB\u4EFD\u9274\u522B\uFF0C\u53EA\u5141\u8BB8\u5176\u901A\u8FC7\u7279\u5B9A\u7684\u547D\u4EE4\u6216\u64CD\u4F5C\u754C\u9762\u8FDB\u884C\u5B89\u5168\u7BA1\u7406\u64CD\u4F5C\uFF0C\u5E76\u5BF9\u8FD9\u4E9B\u64CD\u4F5C\u8FDB\u884C\u5BA1\u8BA1",
+    requirementEn: "The security administrator should be authenticated and only allowed to perform security management operations through specific commands or operation interfaces. These operations need to be audited",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. IAM\n2. \u5355\u70B9\u767B\u5F55\uFF08Tesla Bounce\u4EA7\u54C1\u6216\u8005AWS SSO \u670D\u52A1\u5C06\u4E8EQ2,2022\u63A8\u51FA\uFF09"
+  },
+  {
+    id: "L3-SMC1-06",
+    categoryCn: "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3",
+    categoryEn: "Security Management Center",
+    controlCn: "\u5B89\u5168\u7BA1\u7406",
+    controlEn: "Security Management",
+    requirementCn: "\u5E94\u901A\u8FC7\u5B89\u5168\u7BA1\u7406\u5458\u5BF9\u7CFB\u7EDF\u4E2D\u7684\u5B89\u5168\u7B56\u7565\u8FDB\u884C\u914D\u7F6E\uFF0C\u5305\u62EC\u5B89\u5168\u53C2\u6570\u7684\u8BBE\u7F6E\uFF0C\u4E3B\u4F53\u3001\u5BA2\u4F53\u8FDB\u884C\u7EDF\u4E00\u5B89\u5168\u6807\u8BB0\uFF0C\u5BF9\u4E3B\u4F53\u8FDB\u884C\u6388\u6743\uFF0C\u914D\u7F6E\u53EF\u4FE1\u9A8C\u8BC1\u7B56\u7565\u7B49",
+    requirementEn: "The security policy should be configured by the security administrator, including the setting of security parameters, the unified security mark of the subject and the object, the authorization and trusted authentication policy configuration of the subject.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. IAM\n2. \u5355\u70B9\u767B\u5F55\uFF08Tesla Bounce\u4EA7\u54C1\u6216\u8005AWS SSO \u670D\u52A1\u5C06\u4E8EQ2,2022\u63A8\u51FA\uFF09"
+  },
+  {
+    id: "L3-SMC1-07",
+    categoryCn: "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3",
+    categoryEn: "Security Management Center",
+    controlCn: "\u96C6\u4E2D\u7BA1\u63A7",
+    controlEn: "Centralized Management and Control",
+    requirementCn: "\u5E94\u5212\u5206\u51FA\u7279\u5B9A\u7684\u7BA1\u7406\u533A\u57DF\uFF0C\u5BF9\u5206\u5E03\u5728\u7F51\u7EDC\u4E2D\u7684\u5B89\u5168\u8BBE\u5907\u6216\u5B89\u5168\u7EC4\u4EF6\u8FDB\u884C\u7BA1\u63A7",
+    requirementEn: "A specific network management area should be divided to control the security devices or security components distributed in the network",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u5229\u7528Firewall Manager\u53EF\u4EE5\u5BF9WAF\u8FDB\u884C\u7EDF\u4E00\u7BA1\u7406\nGuardDuty\u53EF\u4EE5\u8DE8\u8D26\u53F7\u7EDF\u4E00\u7BA1\u7406\u5B89\u5168\u53D1\u73B0\nCloudTrail\u53EF\u4EE5\u96C6\u4E2D\u5BF9\u8DE8\u8D26\u53F7\u8FDB\u884C\u5206\u6790\nSecurityHub\u53EF\u4EE5\u8DE8\u8D26\u53F7\u7EDF\u4E00\u8FDB\u884C\u5B89\u5168\u53D1\u73B0"
+  },
+  {
+    id: "L3-SMC1-08",
+    categoryCn: "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3",
+    categoryEn: "Security Management Center",
+    controlCn: "\u96C6\u4E2D\u7BA1\u63A7",
+    controlEn: "Centralized Management and Control",
+    requirementCn: "\u5E94\u80FD\u591F\u5EFA\u7ACB\u4E00\u6761\u5B89\u5168\u7684\u4FE1\u606F\u4F20\u8F93\u8DEF\u5F84\uFF0C\u5BF9\u7F51\u7EDC\u4E2D\u7684\u5B89\u5168\u8BBE\u5907\u6216\u5B89\u5168\u7EC4\u4EF6\u8FDB\u884C\u7BA1\u7406",
+    requirementEn: "A secure information transmission channel should be established to manage security devices or security components in the network",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u5229\u7528Firewall Manager\u53EF\u4EE5\u5BF9WAF\u8FDB\u884C\u7EDF\u4E00\u7BA1\u7406\nGuardDuty\u53EF\u4EE5\u8DE8\u8D26\u53F7\u7EDF\u4E00\u7BA1\u7406\u5B89\u5168\u53D1\u73B0\nCloudTrail\u53EF\u4EE5\u96C6\u4E2D\u5BF9\u8DE8\u8D26\u53F7\u8FDB\u884C\u5206\u6790\nSecurityHub\u53EF\u4EE5\u8DE8\u8D26\u53F7\u7EDF\u4E00\u8FDB\u884C\u5B89\u5168\u53D1\u73B0"
+  },
+  {
+    id: "L3-SMC1-09",
+    categoryCn: "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3",
+    categoryEn: "Security Management Center",
+    controlCn: "\u96C6\u4E2D\u7BA1\u63A7",
+    controlEn: "Centralized Management and Control",
+    requirementCn: "\u5E94\u5BF9\u7F51\u7EDC\u94FE\u8DEF\u3001\u5B89\u5168\u8BBE\u5907\u3001\u7F51\u7EDC\u8BBE\u5907\u548C\u670D\u52A1\u5668\u7B49\u7684\u8FD0\u884C\u72B6\u51B5\u8FDB\u884C\u96C6\u4E2D\u76D1\u6D4B",
+    requirementEn: "Centralized monitoring of network links, security devices, network devices and servers should be carried out.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "CloudWatch\u548CSplunk\u8FDB\u884C\u7EDF\u4E00\u76D1\u6D4B"
+  },
+  {
+    id: "L3-SMC1-10",
+    categoryCn: "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3",
+    categoryEn: "Security Management Center",
+    controlCn: "\u96C6\u4E2D\u7BA1\u63A7",
+    controlEn: "Centralized Management and Control",
+    requirementCn: "\u5E94\u5BF9\u5206\u6563\u5728\u5404\u4E2A\u8BBE\u5907\u4E0A\u7684\u5BA1\u8BA1\u6570\u636E\u8FDB\u884C\u6536\u96C6\u6C47\u603B\u548C\u96C6\u4E2D\u5206\u6790\uFF0C\u5E76\u4FDD\u8BC1\u5BA1\u8BA1\u8BB0\u5F55\u7684\u7559\u5B58\u65F6\u95F4\u7B26\u5408\u6CD5\u5F8B\u6CD5\u89C4\u8981\u6C42",
+    requirementEn: "The audit data scattered on various equipment should be collected, summarized and centralized analyzed, and the retention time of audit records should be guaranteed to meet the requirements of laws and regulations.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "CloudTrail"
+  },
+  {
+    id: "L3-SMC1-11",
+    categoryCn: "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3",
+    categoryEn: "Security Management Center",
+    controlCn: "\u96C6\u4E2D\u7BA1\u63A7",
+    controlEn: "Centralized Management and Control",
+    requirementCn: "\u5E94\u5BF9\u5B89\u5168\u7B56\u7565\u3001\u6076\u610F\u4EE3\u7801\u3001\u8865\u4E01\u5347\u7EA7\u7B49\u5B89\u5168\u76F8\u5173\u4E8B\u9879\u8FDB\u884C\u96C6\u4E2D\u7BA1\u7406",
+    requirementEn: "Security policy, malicious code, patch upgrade and other security related matters should be centrally managed.",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: "\u9700\u8981\u7B2C\u4E09\u65B9\u9632\u5165\u4FB5\u548C\u9632\u75C5\u6BD2\u652F\u6301"
+  },
+  {
+    id: "L3-SMC1-12",
+    categoryCn: "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3",
+    categoryEn: "Security Management Center",
+    controlCn: "\u96C6\u4E2D\u7BA1\u63A7",
+    controlEn: "Centralized Management and Control",
+    requirementCn: "\u5E94\u80FD\u5BF9\u7F51\u7EDC\u4E2D\u53D1\u751F\u7684\u5404\u7C7B\u5B89\u5168\u4E8B\u4EF6\u8FDB\u884C\u8BC6\u522B\u3001\u62A5\u8B66\u548C\u5206\u6790",
+    requirementEn: "Various types of security incidents occurring in the network can be identified, alerted, and analyzed.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "CloudWatch\u548CSplunk\u8FDB\u884C\u7EDF\u4E00\u62A5\u8B66\u548C\u5206\u6790"
+  },
+  {
+    id: "L3-PES2-01",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u57FA\u7840\u8BBE\u65BD\u4F4D\u7F6E",
+    controlEn: "Location of Infrastructure",
+    requirementCn: "\u5E94\u4FDD\u8BC1\u4E91\u8BA1\u7B97\u57FA\u7840\u8BBE\u65BD\u4F4D\u4E8E\u4E2D\u56FD\u5883\u5185",
+    requirementEn: "Ensure that the cloud computing infrastructure is located in China.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1.\u53C2\u8003\u5B89\u5168\u8D23\u4EFB\u5171\u62C5\u6A21\u578B\n2. AWS\u81EA\u8EAB\u7684\u7B49\u4FDD\u6DB5\u76D6"
+  },
+  {
+    id: "L3-CNS2-01",
+    categoryCn: "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
+    categoryEn: "Communication Network Security",
+    controlCn: "\u7F51\u7EDC\u67B6\u6784",
+    controlEn: "Network Architecture",
+    requirementCn: "\u5E94\u4FDD\u8BC1\u4E91\u8BA1\u7B97\u5E73\u53F0\u4E0D\u627F\u8F7D\u9AD8\u4E8E\u5176\u5B89\u5168\u4FDD\u62A4\u7B49\u7EA7\u7684\u4E1A\u52A1\u5E94\u7528\u7CFB\u7EDF",
+    requirementEn: "Ensure that the cloud computing platform shall not carry business application systems higher than its security protection level.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1.\u53C2\u8003\u5B89\u5168\u8D23\u4EFB\u5171\u62C5\u6A21\u578B\n2. AWS\u81EA\u8EAB\u7684\u7B49\u4FDD\u6DB5\u76D6"
+  },
+  {
+    id: "L3-CNS2-02",
+    categoryCn: "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
+    categoryEn: "Communication Network Security",
+    controlCn: "\u7F51\u7EDC\u67B6\u6784",
+    controlEn: "Network Architecture",
+    requirementCn: "\u5E94\u5B9E\u73B0\u4E0D\u540C\u4E91\u670D\u52A1\u5BA2\u6237\u865A\u62DF\u7F51\u7EDC\u4E4B\u95F4\u7684\u9694\u79BB",
+    requirementEn: "It should implement the independence between different cloud service customer virtual networks.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "AWS\u81EA\u8EAB\u7684\u7B49\u4FDD\u6DB5\u76D6"
+  },
+  {
+    id: "L3-CNS2-03",
+    categoryCn: "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
+    categoryEn: "Communication Network Security",
+    controlCn: "\u7F51\u7EDC\u67B6\u6784",
+    controlEn: "Network Architecture",
+    requirementCn: "\u5E94\u5177\u6709\u6839\u636E\u4E91\u670D\u52A1\u5BA2\u6237\u4E1A\u52A1\u9700\u6C42\u63D0\u4F9B\u901A\u4FE1\u4F20\u8F93\u3001\u8FB9\u754C\u9632\u62A4\u3001\u5165\u4FB5\u9632\u8303\u7B49\u5B89\u5168\u673A\u5236\u7684\u80FD\u529B",
+    requirementEn: "It should have the ability to provide security mechanisms, such as communication transmission, border protection and intrusion prevention, based on the business requirements of cloud service customers.",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: "1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\uFF0C\u5E76\u6309\u7167\u6700\u5C0F\u5316\u539F\u5219\u673A\u8FDB\u884C\u914D\u7F6E\n2. \u542F\u7528WAF\n3. \u542F\u7528GuardDuty\n4. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72\n5. \u7B2C\u4E09\u65B9\u5165\u4FB5\u9632\u8303\u4EA7\u54C1"
+  },
+  {
+    id: "L3-CNS2-04",
+    categoryCn: "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
+    categoryEn: "Communication Network Security",
+    controlCn: "\u7F51\u7EDC\u67B6\u6784",
+    controlEn: "Network Architecture",
+    requirementCn: "\u5E94\u5177\u6709\u6839\u636E\u4E91\u670D\u52A1\u5BA2\u6237\u4E1A\u52A1\u9700\u6C42\u81EA\u4E3B\u8BBE\u7F6E\u5B89\u5168\u7B56\u7565\u7684\u80FD\u529B\uFF0C\u5305\u62EC\u5B9A\u4E49\u8BBF\u95EE\u8DEF\u5F84\u3001\u9009\u62E9\u5B89\u5168\u7EC4\u4EF6\u3001\u914D\u7F6E\u5B89\u5168\u7B56\u7565",
+    requirementEn: "It should have the ability to independently set security policies based on the business requirements of cloud service customers, including defining access paths, selecting security components and configuring security policies.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "AWS\u81EA\u8EAB\u7684\u7B49\u4FDD\u6DB5\u76D6"
+  },
+  {
+    id: "L3-CNS2-05",
+    categoryCn: "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
+    categoryEn: "Communication Network Security",
+    controlCn: "\u7F51\u7EDC\u67B6\u6784",
+    controlEn: "Network Architecture",
+    requirementCn: "\u5E94\u63D0\u4F9B\u5F00\u653E\u63A5\u53E3\u6216\u5F00\u653E\u6027\u5B89\u5168\u670D\u52A1\uFF0C\u5141\u8BB8\u4E91\u670D\u52A1\u5BA2\u6237\u63A5\u5165\u7B2C\u4E09\u65B9\u5B89\u5168\u4EA7\u54C1\u6216\u5728\u4E91\u8BA1\u7B97\u5E73\u53F0\u9009\u62E9\u7B2C\u4E09\u65B9\u5B89\u5168\u670D\u52A1",
+    requirementEn: "It should provide open interfaces or open security services to allow cloud service customers to access third-party security products or select third-party security services on cloud computing platforms.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "AWS\u81EA\u8EAB\u7684\u7B49\u4FDD\u6DB5\u76D6"
+  },
+  {
+    id: "L3-ABS2-01",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u8BBF\u95EE\u63A7\u5236",
+    controlEn: "Access Control",
+    requirementCn: "\u5E94\u5728\u865A\u62DF\u5316\u7F51\u7EDC\u8FB9\u754C\u90E8\u7F72\u8BBF\u95EE\u63A7\u5236\u673A\u5236\uFF0C\u5E76\u8BBE\u7F6E\u8BBF\u95EE\u63A7\u5236\u89C4\u5219",
+    requirementEn: "It should deploy access control mechanisms at the boundaries of the virtualized network and set access control rules.",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: "1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\uFF0C\u5E76\u6309\u7167\u6700\u5C0F\u5316\u539F\u5219\u673A\u8FDB\u884C\u914D\u7F6E\n2. \u542F\u7528WAF\n3. \u542F\u7528GuardDuty\n4. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72\n5. \u7B2C\u4E09\u65B9\u5165\u4FB5\u9632\u8303\u4EA7\u54C1"
+  },
+  {
+    id: "L3-ABS2-02",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u8BBF\u95EE\u63A7\u5236",
+    controlEn: "Access Control",
+    requirementCn: "\u5E94\u5728\u4E0D\u540C\u7B49\u7EA7\u7684\u7F51\u7EDC\u533A\u57DF\u8FB9\u754C\u90E8\u7F72\u8BBF\u95EE\u63A7\u5236\u673A\u5236\uFF0C\u8BBE\u7F6E\u8BBF\u95EE\u63A7\u5236\u89C4\u5219",
+    requirementEn: "It should deploy access control mechanisms at different levels of network area boundaries and set access control rules.",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: "1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\uFF0C\u5E76\u6309\u7167\u6700\u5C0F\u5316\u539F\u5219\u673A\u8FDB\u884C\u914D\u7F6E\n2. \u542F\u7528WAF\n3. \u542F\u7528GuardDuty\n4. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72\n5. \u7B2C\u4E09\u65B9\u5165\u4FB5\u9632\u8303\u4EA7\u54C1"
+  },
+  {
+    id: "L3-ABS2-03",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u80FD\u68C0\u6D4B\u5230\u4E91\u670D\u52A1\u5BA2\u6237\u53D1\u8D77\u7684\u7F51\u7EDC\u653B\u51FB\u884C\u4E3A\uFF0C\u5E76\u80FD\u8BB0\u5F55\u653B\u51FB\u7C7B\u578B\u3001\u653B\u51FB\u65F6\u95F4\u3001\u653B\u51FB\u6D41\u91CF\u7B49",
+    requirementEn: "It should be able to detect the network attack behavior initiated by cloud service customers, and record the attack type, attack time, attack traffic, etc.",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: "1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\uFF0C\u5E76\u6309\u7167\u6700\u5C0F\u5316\u539F\u5219\u673A\u8FDB\u884C\u914D\u7F6E\n2. \u542F\u7528WAF\n3. \u542F\u7528GuardDuty\n4. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72\n5. \u7B2C\u4E09\u65B9\u5165\u4FB5\u9632\u8303\u4EA7\u54C1"
+  },
+  {
+    id: "L3-ABS2-04",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u80FD\u68C0\u6D4B\u5230\u5BF9\u865A\u62DF\u7F51\u7EDC\u8282\u70B9\u7684\u7F51\u7EDC\u653B\u51FB\u884C\u4E3A\uFF0C\u5E76\u80FD\u8BB0\u5F55\u653B\u51FB\u7C7B\u578B\u3001\u653B\u51FB\u65F6\u95F4\u3001\u653B\u51FB\u6D41\u91CF\u7B49",
+    requirementEn: "It should be able to detect the network attack behavior of virtual network nodes and record the attack type, attack time, attack traffic, etc.",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: '"1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\uFF0C\u5E76\u6309\u7167\u6700\u5C0F\u5316\u539F\u5219\u673A\u8FDB\u884C\u914D\u7F6E\n2. \u542F\u7528WAF\n3. \u542F\u7528GuardDuty\n4. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72\n5. \u7B2C\u4E09\u65B9\u5165\u4FB5\u9632\u8303\u4EA7\u54C1"'
+  },
+  {
+    id: "L3-ABS2-05",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u80FD\u68C0\u6D4B\u5230\u865A\u62DF\u673A\u4E0E\u5BBF\u4E3B\u673A\u3001\u865A\u62DF\u673A\u4E0E\u865A\u62DF\u673A\u4E4B\u95F4\u7684\u5F02\u5E38\u6D41\u91CF",
+    requirementEn: "It should be able to detect abnormal traffic between virtual machines and hosts, and between virtual machines and virtual machines.",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: '"1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\uFF0C\u5E76\u6309\u7167\u6700\u5C0F\u5316\u539F\u5219\u673A\u8FDB\u884C\u914D\u7F6E\n2. \u542F\u7528WAF\n3. \u542F\u7528GuardDuty\n4. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72\n5. \u7B2C\u4E09\u65B9\u5165\u4FB5\u9632\u8303\u4EA7\u54C1"'
+  },
+  {
+    id: "L3-ABS2-06",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u5728\u68C0\u6D4B\u5230\u7F51\u7EDC\u653B\u51FB\u884C\u4E3A\u3001\u5F02\u5E38\u6D41\u91CF\u60C5\u51B5\u65F6\u8FDB\u884C\u544A\u8B66",
+    requirementEn: "It should give an alarm when network attack and abnormal traffic are detected.",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: '"1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\uFF0C\u5E76\u6309\u7167\u6700\u5C0F\u5316\u539F\u5219\u673A\u8FDB\u884C\u914D\u7F6E\n2. \u542F\u7528WAF\n3. \u542F\u7528GuardDuty\n4. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72\n5. \u7B2C\u4E09\u65B9\u5165\u4FB5\u9632\u8303\u4EA7\u54C1"'
+  },
+  {
+    id: "L3-ABS2-07",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5B89\u5168\u5BA1\u8BA1",
+    controlEn: "Security Audit",
+    requirementCn: "\u5E94\u5BF9\u4E91\u670D\u52A1\u5546\u548C\u4E91\u670D\u52A1\u5BA2\u6237\u5728\u8FDC\u7A0B\u7BA1\u7406\u65F6\u6267\u884C\u7684\u7279\u6743\u547D\u4EE4\u8FDB\u884C\u5BA1\u8BA1\uFF0C\u81F3\u5C11\u5305\u62EC\u865A\u62DF\u673A\u5220\u9664\u3001\u865A\u62DF\u673A\u91CD\u542F",
+    requirementEn: "Audit the privileged commands executed by the cloud service provider and cloud service customers while remote administration, including at least virtual machine deletion and virtual machine restart.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "CloudTrail and CloudWatch"
+  },
+  {
+    id: "L3-ABS2-08",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5B89\u5168\u5BA1\u8BA1",
+    controlEn: "Security Audit",
+    requirementCn: "\u5E94\u4FDD\u8BC1\u4E91\u670D\u52A1\u5546\u5BF9\u4E91\u670D\u52A1\u5BA2\u6237\u7CFB\u7EDF\u548C\u6570\u636E\u7684\u64CD\u4F5C\u53EF\u88AB\u4E91\u670D\u52A1\u5BA2\u6237\u5BA1\u8BA1",
+    requirementEn: "Ensure that operations of cloud service providers on cloud service customer systems and data can be audited by cloud service customers.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "CloudTrail"
+  },
+  {
+    id: "L3-CES2-01",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u8EAB\u4EFD\u9274\u522B",
+    controlEn: "Identification and Authentication",
+    requirementCn: "\u5F53\u8FDC\u7A0B\u7BA1\u7406\u4E91\u8BA1\u7B97\u5E73\u53F0\u4E2D\u8BBE\u5907\u65F6\uFF0C\u7BA1\u7406\u7EC8\u7AEF\u548C\u4E91\u8BA1\u7B97\u5E73\u53F0\u4E4B\u95F4\u5E94\u5EFA\u7ACB\u53CC\u5411\u8EAB\u4EFD\u9A8C\u8BC1\u673A\u5236",
+    requirementEn: "It should establish a mutual authentication mechanism between the management terminal and the cloud computing platform, when remotely managing devices in a cloud computing platform.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. IAM\n2. \u5355\u70B9\u767B\u5F55\uFF08Tesla Bounce\u4EA7\u54C1\u6216\u8005AWS SSO \u670D\u52A1\u5C06\u4E8EQ2,2022\u63A8\u51FA\uFF09\n3. \u5229\u7528SSH\u548C\u52A0\u5BC6\u7684RDP\u8FDB\u884C\u8BBF\u95EEEC2\n4. \u5821\u5792\u673A"
+  },
+  {
+    id: "L3-CES2-02",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u8BBF\u95EE\u63A7\u5236",
+    controlEn: "Access Control",
+    requirementCn: "\u5E94\u4FDD\u8BC1\u5F53\u865A\u62DF\u673A\u8FC1\u79FB\u65F6\uFF0C\u8BBF\u95EE\u63A7\u5236\u7B56\u7565\u968F\u5176\u8FC1\u79FB",
+    requirementEn: "Ensure that access control policies migrate with the virtual machine as it migrates.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. IAM\n2. \u5355\u70B9\u767B\u5F55\uFF08Tesla Bounce\u4EA7\u54C1\u6216\u8005AWS SSO \u670D\u52A1\u5C06\u4E8EQ2,2022\u63A8\u51FA\uFF09\n3. \u5229\u7528SSH\u548C\u52A0\u5BC6\u7684RDP\u8FDB\u884C\u8BBF\u95EEEC2\n4. \u5821\u5792\u673A"
+  },
+  {
+    id: "L3-CES2-03",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u8BBF\u95EE\u63A7\u5236",
+    controlEn: "Access Control",
+    requirementCn: "\u5E94\u5141\u8BB8\u4E91\u670D\u52A1\u5BA2\u6237\u8BBE\u7F6E\u4E0D\u540C\u865A\u62DF\u673A\u4E4B\u95F4\u7684\u8BBF\u95EE\u63A7\u5236\u7B56\u7565",
+    requirementEn: "It should allow cloud service customers to set access control policies between different virtual machines.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1. IAM\n2. \u5355\u70B9\u767B\u5F55\uFF08Tesla Bounce\u4EA7\u54C1\u6216\u8005AWS SSO \u670D\u52A1\u5C06\u4E8EQ2,2022\u63A8\u51FA\uFF09\n3. \u5229\u7528SSH\u548C\u52A0\u5BC6\u7684RDP\u8FDB\u884C\u8BBF\u95EEEC2\n4. \u5821\u5792\u673A"
+  },
+  {
+    id: "L3-CES2-04",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u80FD\u68C0\u6D4B\u865A\u62DF\u673A\u4E4B\u95F4\u7684\u8D44\u6E90\u9694\u79BB\u5931\u6548\uFF0C\u5E76\u8FDB\u884C\u544A\u8B66",
+    requirementEn: "It should be able to detect and alert resource isolation failures between virtual machines.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "AWS\u81EA\u8EAB\u7684\u7B49\u4FDD\u6DB5\u76D6"
+  },
+  {
+    id: "L3-CES2-05",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u80FD\u68C0\u6D4B\u975E\u6388\u6743\u65B0\u5EFA\u865A\u62DF\u673A\u6216\u8005\u91CD\u65B0\u542F\u7528\u865A\u62DF\u673A\uFF0C\u5E76\u8FDB\u884C\u544A\u8B66",
+    requirementEn: "It should be able to detect and alert unauthorized new or re-enabled virtual machines.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u53EF\u901A\u8FC7cloudtrail\u68C0\u6D4B\u975E\u6388\u6743\u7684\u65B0\u5EFA\u673A\u5668\u884C\u4E3A\uFF0C\u5E76\u8FDB\u884C\u544A\u8B66"
+  },
+  {
+    id: "L3-CES2-06",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u80FD\u591F\u68C0\u6D4B\u6076\u610F\u4EE3\u7801\u611F\u67D3\u53CA\u5728\u865A\u62DF\u673A\u95F4\u8513\u5EF6\u7684\u60C5\u51B5\uFF0C\u5E76\u8FDB\u884C\u544A\u8B66",
+    requirementEn: "It should be able to detect and alert malicious code infections and spread between virtual machines.",
+    referenceStatus: "\u90E8\u5206\u7B26\u5408 Partially",
+    referenceComment: "1. \u6309\u7167\u4E0D\u540C\u5B50\u7F51\u8BBE\u7F6E\uFF0C\u91C7\u7528\u5B89\u5168\u7EC4\u6216\u8005Network ACL\uFF0C\u5E76\u6309\u7167\u6700\u5C0F\u5316\u539F\u5219\u673A\u8FDB\u884C\u914D\u7F6E\n2. \u542F\u7528WAF\n3. \u542F\u7528GuardDuty\n4. \u4F7F\u7528\u7B2C\u4E09\u65B9\u7684\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\uFF0C\u5E76\u7ED3\u5408GLWB\u8FDB\u884C\u9AD8\u53EF\u7528\u90E8\u7F72\n5. \u7B2C\u4E09\u65B9\u5165\u4FB5\u9632\u8303\u548C\u6740\u6BD2\u4EA7\u54C1"
+  },
+  {
+    id: "L3-CES2-07",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u955C\u50CF\u548C\u5FEB\u7167\u4FDD\u62A4",
+    controlEn: "Image and Snapshot Protection",
+    requirementCn: "\u5E94\u9488\u5BF9\u91CD\u8981\u4E1A\u52A1\u7CFB\u7EDF\u63D0\u4F9B\u52A0\u56FA\u7684\u64CD\u4F5C\u7CFB\u7EDF\u955C\u50CF\u6216\u64CD\u4F5C\u7CFB\u7EDF\u5B89\u5168\u52A0\u56FA\u670D\u52A1",
+    requirementEn: "It should provide hardened operating system mirroring or operating system security hardening services for critical business systems.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u82E5\u4E0D\u4F7F\u7528AWS\u955C\u50CF\uFF0C\u9700\u8981\u81EA\u884C\u52A0\u56FA"
+  },
+  {
+    id: "L3-CES2-08",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u955C\u50CF\u548C\u5FEB\u7167\u4FDD\u62A4",
+    controlEn: "Image and Snapshot Protection",
+    requirementCn: "\u5E94\u63D0\u4F9B\u865A\u62DF\u673A\u955C\u50CF\u3001\u5FEB\u7167\u5B8C\u6574\u6027\u6821\u9A8C\u529F\u80FD\uFF0C\u9632\u6B62\u865A\u62DF\u673A\u955C\u50CF\u88AB\u6076\u610F\u7BE1\u6539",
+    requirementEn: "It should provide virtual machine image and snapshot integrity check function to prevent malicious tampering of virtual machine image.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u82E5\u4E0D\u4F7F\u7528AWS\u955C\u50CF\uFF0C\u9700\u8981\u81EA\u884C\u52A0\u56FA"
+  },
+  {
+    id: "L3-CES2-09",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u955C\u50CF\u548C\u5FEB\u7167\u4FDD\u62A4",
+    controlEn: "Image and Snapshot Protection",
+    requirementCn: "\u5E94\u91C7\u53D6\u5BC6\u7801\u6280\u672F\u6216\u5176\u4ED6\u6280\u672F\u624B\u6BB5\u9632\u6B62\u865A\u62DF\u673A\u955C\u50CF\u3001\u5FEB\u7167\u4E2D\u53EF\u80FD\u5B58\u5728\u7684\u654F\u611F\u8D44\u6E90\u88AB\u975E\u6CD5\u8BBF\u95EE",
+    requirementEn: "It should adopt cryptography or other techniques to prevent unauthorized access to sensitive resources that may exist in virtual machine images and snapshots.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u5229\u7528KMS\u5BF9\u5FEB\u7167\u8FDB\u884C\u52A0\u5BC6"
+  },
+  {
+    id: "L3-CES2-10",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u6570\u636E\u5B8C\u6574\u6027\u548C\u4FDD\u5BC6\u6027",
+    controlEn: "Data Integrity and Confidentiality",
+    requirementCn: "\u5E94\u786E\u4FDD\u4E91\u670D\u52A1\u5BA2\u6237\u6570\u636E\u3001\u7528\u6237\u4E2A\u4EBA\u4FE1\u606F\u7B49\u5B58\u50A8\u4E8E\u4E2D\u56FD\u5883\u5185\uFF0C\u5982\u9700\u51FA\u5883\u5E94\u9075\u5FAA\u56FD\u5BB6\u76F8\u5173\u89C4\u5B9A",
+    requirementEn: "Ensure that cloud service customer data and user personal information are stored in China, and follow relevant national regulations when cross-border transferring.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "AWS\u81EA\u8EAB\u7684\u7B49\u4FDD\u6DB5\u76D6"
+  },
+  {
+    id: "L3-CES2-11",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u6570\u636E\u5B8C\u6574\u6027\u548C\u4FDD\u5BC6\u6027",
+    controlEn: "Data Integrity and Confidentiality",
+    requirementCn: "\u5E94\u786E\u4FDD\u53EA\u6709\u5728\u4E91\u670D\u52A1\u5BA2\u6237\u6388\u6743\u4E0B\uFF0C\u4E91\u670D\u52A1\u5546\u6216\u7B2C\u4E09\u65B9\u624D\u5177\u6709\u4E91\u670D\u52A1\u5BA2\u6237\u6570\u636E\u7684\u7BA1\u7406\u6743\u9650",
+    requirementEn: "Ensure that the cloud service provider or a third party has the right to manage the cloud service customer data only under the authorization of the cloud service customer.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "AWS\u81EA\u8EAB\u7684\u7B49\u4FDD\u6DB5\u76D6"
+  },
+  {
+    id: "L3-CES2-12",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u6570\u636E\u5B8C\u6574\u6027\u548C\u4FDD\u5BC6\u6027",
+    controlEn: "Data Integrity and Confidentiality",
+    requirementCn: "\u5E94\u4F7F\u7528\u6821\u9A8C\u7801\u6216\u5BC6\u7801\u6280\u672F\u786E\u4FDD\u865A\u62DF\u673A\u8FC1\u79FB\u8FC7\u7A0B\u4E2D\u91CD\u8981\u6570\u636E\u7684\u5B8C\u6574\u6027\uFF0C\u5E76\u5728\u68C0\u6D4B\u5230\u5B8C\u6574\u6027\u53D7\u5230\u7834\u574F\u65F6\u91C7\u53D6\u5FC5\u8981\u7684\u6062\u590D\u63AA\u65BD",
+    requirementEn: "It should adopt checksum or cryptographic techniques to ensure the integrity of important data during virtual machine migration and take necessary recovery measures when integrity is detected to be compromised.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4F20\u8F93\u52A0\u5BC6 - ACM\n\u5B58\u50A8\u9759\u6001\u52A0\u5BC6 - KMS\n\u5FEB\u7167\u5907\u4EFD\u670D\u52A1"
+  },
+  {
+    id: "L3-CES2-13",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u6570\u636E\u5B8C\u6574\u6027\u548C\u4FDD\u5BC6\u6027",
+    controlEn: "Data Integrity and Confidentiality",
+    requirementCn: "\u5E94\u652F\u6301\u4E91\u670D\u52A1\u5BA2\u6237\u90E8\u7F72\u5BC6\u94A5\u7BA1\u7406\u89E3\u51B3\u65B9\u6848\uFF0C\u4FDD\u8BC1\u4E91\u670D\u52A1\u5BA2\u6237\u81EA\u884C\u5B9E\u73B0\u6570\u636E\u7684\u52A0\u89E3\u5BC6\u8FC7\u7A0B",
+    requirementEn: "It should support cloud service customers to deploy key management solutions to ensure that cloud service customers can implement the data encryption and decryption process by themselves.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "\u4F20\u8F93\u52A0\u5BC6 - ACM\n\u5B58\u50A8\u9759\u6001\u52A0\u5BC6 - KMS"
+  },
+  {
+    id: "L3-CES2-14",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u6570\u636E\u5907\u4EFD\u6062\u590D",
+    controlEn: "Data Backup and Recovery",
+    requirementCn: "\u4E91\u670D\u52A1\u5BA2\u6237\u5E94\u5728\u672C\u5730\u4FDD\u5B58\u5176\u4E1A\u52A1\u6570\u636E\u7684\u5907\u4EFD",
+    requirementEn: "Ensure cloud service customers keep a backup of their business data locally.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: "\u8BF7\u786E\u8BA4\u662F\u5426\u5FC5\u987B"
+  },
+  {
+    id: "L3-CES2-15",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u6570\u636E\u5907\u4EFD\u6062\u590D",
+    controlEn: "Data Backup and Recovery",
+    requirementCn: "\u5E94\u63D0\u4F9B\u67E5\u8BE2\u4E91\u670D\u52A1\u5BA2\u6237\u6570\u636E\u53CA\u5907\u4EFD\u5B58\u50A8\u4F4D\u7F6E\u7684\u80FD\u529B",
+    requirementEn: "It should provide the ability to query cloud service customer data and back up storage locations.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "AWS\u81EA\u8EAB\u7684\u7B49\u4FDD\u6DB5\u76D6"
+  },
+  {
+    id: "L3-CES2-16",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u6570\u636E\u5907\u4EFD\u6062\u590D",
+    controlEn: "Data Backup and Recovery",
+    requirementCn: "\u4E91\u670D\u52A1\u5546\u7684\u4E91\u5B58\u50A8\u670D\u52A1\u5E94\u4FDD\u8BC1\u4E91\u670D\u52A1\u5BA2\u6237\u6570\u636E\u5B58\u5728\u82E5\u5E72\u4E2A\u53EF\u7528\u7684\u526F\u672C\uFF0C\u5404\u526F\u672C\u4E4B\u95F4\u7684\u5185\u5BB9\u5E94\u4FDD\u6301\u4E00\u81F4",
+    requirementEn: "The cloud storage service of the cloud service provider It should ensure that there are several available copies of the customer data of the cloud service, and the contents of each copy It should be consistent.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "AWS\u81EA\u8EAB\u7684\u7B49\u4FDD\u6DB5\u76D6"
+  },
+  {
+    id: "L3-CES2-17",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u6570\u636E\u5907\u4EFD\u6062\u590D",
+    controlEn: "Data Backup and Recovery",
+    requirementCn: "\u5E94\u4E3A\u4E91\u670D\u52A1\u5BA2\u6237\u5C06\u4E1A\u52A1\u7CFB\u7EDF\u53CA\u6570\u636E\u8FC1\u79FB\u5230\u5176\u4ED6\u4E91\u8BA1\u7B97\u5E73\u53F0\u548C\u672C\u5730\u7CFB\u7EDF\u63D0\u4F9B\u6280\u672F\u624B\u6BB5\uFF0C\u5E76\u534F\u52A9\u5B8C\u6210\u8FC1\u79FB\u8FC7\u7A0B",
+    requirementEn: "It should provide technical means for cloud service customers to migrate business systems and data to other cloud computing platforms and local systems and assist in the migration process.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: "\u8BF7\u786E\u8BA4\u662F\u5426\u5FC5\u987B"
+  },
+  {
+    id: "L3-CES2-18",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u5269\u4F59\u4FE1\u606F\u4FDD\u62A4",
+    controlEn: "Residual Information Protection",
+    requirementCn: "\u5E94\u4FDD\u8BC1\u865A\u62DF\u673A\u6240\u4F7F\u7528\u7684\u5185\u5B58\u548C\u5B58\u50A8\u7A7A\u95F4\u56DE\u6536\u65F6\u5F97\u5230\u5B8C\u5168\u6E05\u9664",
+    requirementEn: "Ensure that the memory and storage space used by the virtual machine is completely cleared when reclaimed.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "AWS\u81EA\u8EAB\u7684\u7B49\u4FDD\u6DB5\u76D6\uFF0C\u4E0D\u540C\u5B58\u50A8\u670D\u52A1\u5747\u63D0\u4F9B\u6570\u636E\u5B8C\u5168\u5220\u9664\u6216\u8005\u64E6\u9664\u7684\u65B9\u6CD5"
+  },
+  {
+    id: "L3-CES2-19",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u5269\u4F59\u4FE1\u606F\u4FDD\u62A4",
+    controlEn: "Residual Information Protection",
+    requirementCn: "\u4E91\u670D\u52A1\u5BA2\u6237\u5220\u9664\u4E1A\u52A1\u5E94\u7528\u6570\u636E\u65F6\uFF0C\u4E91\u8BA1\u7B97\u5E73\u53F0\u5E94\u5C06\u4E91\u5B58\u50A8\u4E2D\u6240\u6709\u526F\u672C\u5220\u9664",
+    requirementEn: "The cloud computing platform It should delete all copies in the cloud storage, when a cloud service customer deletes business application data.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "AWS\u81EA\u8EAB\u7684\u7B49\u4FDD\u6DB5\u76D6\uFF0C\u4E0D\u540C\u5B58\u50A8\u670D\u52A1\u5747\u63D0\u4F9B\u6570\u636E\u5B8C\u5168\u5220\u9664\u6216\u8005\u64E6\u9664\u7684\u65B9\u6CD5"
+  },
+  {
+    id: "L3-SMC2-01",
+    categoryCn: "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3",
+    categoryEn: "Security Management Center",
+    controlCn: "\u96C6\u4E2D\u7BA1\u63A7",
+    controlEn: "Centralized Management and Control",
+    requirementCn: "\u5E94\u80FD\u5BF9\u7269\u7406\u8D44\u6E90\u548C\u865A\u62DF\u8D44\u6E90\u6309\u7167\u7B56\u7565\u505A\u7EDF\u4E00\u7BA1\u7406\u8C03\u5EA6\u4E0E\u5206\u914D",
+    requirementEn: "It should be able to uniformly manage and allocate physical resources and virtual resources according to the policy.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "AWS\u81EA\u8EAB\u7684\u7B49\u4FDD\u6DB5\u76D6"
+  },
+  {
+    id: "L3-SMC2-02",
+    categoryCn: "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3",
+    categoryEn: "Security Management Center",
+    controlCn: "\u96C6\u4E2D\u7BA1\u63A7",
+    controlEn: "Centralized Management and Control",
+    requirementCn: "\u5E94\u4FDD\u8BC1\u4E91\u8BA1\u7B97\u5E73\u53F0\u7BA1\u7406\u6D41\u91CF\u4E0E\u4E91\u670D\u52A1\u5BA2\u6237\u4E1A\u52A1\u6D41\u91CF\u5206\u79BB",
+    requirementEn: "Ensure the separation of cloud computing platform management traffic and cloud service customer business traffic.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "AWS\u81EA\u8EAB\u7684\u7B49\u4FDD\u6DB5\u76D6"
+  },
+  {
+    id: "L3-SMC2-03",
+    categoryCn: "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3",
+    categoryEn: "Security Management Center",
+    controlCn: "\u96C6\u4E2D\u7BA1\u63A7",
+    controlEn: "Centralized Management and Control",
+    requirementCn: "\u5E94\u6839\u636E\u4E91\u670D\u52A1\u5546\u548C\u4E91\u670D\u52A1\u5BA2\u6237\u7684\u804C\u8D23\u5212\u5206\uFF0C\u6536\u96C6\u5404\u81EA\u63A7\u5236\u90E8\u5206\u7684\u5BA1\u8BA1\u6570\u636E\u5E76\u5B9E\u73B0\u5404\u81EA\u7684\u96C6\u4E2D\u5BA1\u8BA1",
+    requirementEn: "It should collect the audit data of each control part and implement centralized audit of each control part, according to the responsibilities of cloud service providers and cloud service customers.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1.\u53C2\u8003\u5B89\u5168\u8D23\u4EFB\u5171\u62C5\u6A21\u578B\n2. AWS\u81EA\u8EAB\u7684\u7B49\u4FDD\u6DB5\u76D6"
+  },
+  {
+    id: "L3-SMC2-04",
+    categoryCn: "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3",
+    categoryEn: "Security Management Center",
+    controlCn: "\u96C6\u4E2D\u7BA1\u63A7",
+    controlEn: "Centralized Management and Control",
+    requirementCn: "\u5E94\u6839\u636E\u4E91\u670D\u52A1\u5546\u548C\u4E91\u670D\u52A1\u5BA2\u6237\u7684\u804C\u8D23\u5212\u5206\uFF0C\u5B9E\u73B0\u5404\u81EA\u63A7\u5236\u90E8\u5206\uFF0C\u5305\u62EC\u865A\u62DF\u5316\u7F51\u7EDC\u3001\u865A\u62DF\u673A\u3001\u865A\u62DF\u5316\u5B89\u5168\u8BBE\u5907\u7B49\u7684\u8FD0\u884C\u72B6\u51B5\u7684\u96C6\u4E2D\u76D1\u6D4B",
+    requirementEn: "According to the responsibilities of cloud service providers and cloud service customers, It should realize centralized monitoring of the operation status of their respective control parts, including virtualized networks, virtual machines and virtualized security devices.",
+    referenceStatus: "\u7B26\u5408 No Gap",
+    referenceComment: "1.\u53C2\u8003\u5B89\u5168\u8D23\u4EFB\u5171\u62C5\u6A21\u578B\n2. AWS\u81EA\u8EAB\u7684\u7B49\u4FDD\u6DB5\u76D6"
+  },
+  {
+    id: "L3-PES3-01",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u65E0\u7EBF\u63A5\u5165\u70B9\u7684\u7269\u7406\u4F4D\u7F6E",
+    controlEn: "Location of Wireless Access Point",
+    requirementCn: "\u5E94\u4E3A\u65E0\u7EBF\u63A5\u5165\u8BBE\u5907\u7684\u5B89\u88C5\u9009\u62E9\u5408\u7406\u4F4D\u7F6E\uFF0C\u907F\u514D\u8FC7\u5EA6\u8986\u76D6\u548C\u7535\u78C1\u5E72\u6270",
+    requirementEn: "Choose a reasonable location for the installation of wireless access equipment to avoid excessive coverage and electromagnetic interference",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS3-01",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u8FB9\u754C\u9632\u62A4",
+    controlEn: "Border Protection",
+    requirementCn: "\u5E94\u4FDD\u8BC1\u6709\u7EBF\u7F51\u7EDC\u4E0E\u65E0\u7EBF\u7F51\u7EDC\u8FB9\u754C\u4E4B\u95F4\u7684\u8BBF\u95EE\u548C\u6570\u636E\u6D41\u901A\u8FC7\u65E0\u7EBF\u63A5\u5165\u7F51\u5173\u8BBE\u5907",
+    requirementEn: "Ensure access and data flow between the wired network and the wireless network boundary pass through the wireless access gateway device",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS3-02",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u8BBF\u95EE\u63A7\u5236",
+    controlEn: "Access Control",
+    requirementCn: "\u65E0\u7EBF\u63A5\u5165\u8BBE\u5907\u5E94\u5F00\u542F\u63A5\u5165\u8BA4\u8BC1\u529F\u80FD\uFF0C\u5E76\u652F\u6301\u91C7\u7528\u8BA4\u8BC1\u670D\u52A1\u5668\u8BA4\u8BC1\u6216\u56FD\u5BB6\u5BC6\u7801\u7BA1\u7406\u673A\u6784\u6279\u51C6\u7684\u5BC6\u7801\u6A21\u5757\u8FDB\u884C\u8BA4\u8BC1",
+    requirementEn: "Wireless access devices should turn on access authentication function and support to use the authentication server or cryptographic module approved by the State Cryptography Authority of China (SCA).",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS3-03",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u80FD\u591F\u68C0\u6D4B\u5230\u975E\u6388\u6743\u65E0\u7EBF\u63A5\u5165\u8BBE\u5907\u548C\u975E\u6388\u6743\u79FB\u52A8\u7EC8\u7AEF\u7684\u63A5\u5165\u884C\u4E3A",
+    requirementEn: "Unauthorized wireless access devices and unauthorized mobile terminals should be detected",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS3-04",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u80FD\u591F\u68C0\u6D4B\u5230\u9488\u5BF9\u65E0\u7EBF\u63A5\u5165\u8BBE\u5907\u7684\u7F51\u7EDC\u626B\u63CF\u3001DDoS \u653B\u51FB\u3001\u5BC6\u94A5\u7834\u89E3\u3001\u4E2D\u95F4\u4EBA\u653B\u51FB\u548C\u6B3A\u9A97\u653B\u51FB\u7B49\u884C\u4E3A",
+    requirementEn: "It should be able to detect network scanning, DDoS attacks, key cracking, man-in-the-middle attacks and deception attacks against wireless access devices.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS3-05",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u80FD\u591F\u68C0\u6D4B\u5230\u65E0\u7EBF\u63A5\u5165\u8BBE\u5907\u7684 SSID \u5E7F\u64AD\u3001WPS \u7B49\u9AD8\u98CE\u9669\u529F\u80FD\u7684\u5F00\u542F\u72B6\u6001",
+    requirementEn: "It should be able to detect the use status of high-risk functions such as SSID broadcast and WPS of the wireless access device.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS3-06",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u7981\u7528\u65E0\u7EBF\u63A5\u5165\u8BBE\u5907\u548C\u65E0\u7EBF\u63A5\u5165\u7F51\u5173\u5B58\u5728\u98CE\u9669\u7684\u529F\u80FD\uFF0C\u5982\uFF1ASSID \u5E7F\u64AD\u3001WEP \u8BA4\u8BC1\u7B49",
+    requirementEn: "Disable high risk functions of the wireless access device and the wireless access gateway, such as SSID broadcast, WEP authentication, etc.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS3-07",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u7981\u6B62\u591A\u4E2A AP \u4F7F\u7528\u540C\u4E00\u4E2A\u8BA4\u8BC1\u5BC6\u94A5",
+    requirementEn: "Multiple APs should be prohibited from using the same authentication key",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS3-08",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u80FD\u591F\u963B\u65AD\u975E\u6388\u6743\u65E0\u7EBF\u63A5\u5165\u8BBE\u5907\u6216\u975E\u6388\u6743\u79FB\u52A8\u7EC8\u7AEF",
+    requirementEn: "It should be able to block the unauthorized wireless access devices or unauthorized mobile terminals",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES3-01",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u79FB\u52A8\u7EC8\u7AEF\u7BA1\u63A7",
+    controlEn: "Mobile Terminal Control",
+    requirementCn: "\u5E94\u4FDD\u8BC1\u79FB\u52A8\u7EC8\u7AEF\u5B89\u88C5\u3001\u6CE8\u518C\u5E76\u8FD0\u884C\u7EC8\u7AEF\u7BA1\u7406\u5BA2\u6237\u7AEF\u8F6F\u4EF6",
+    requirementEn: "The mobile terminal should be guaranteed to install, register and run the terminal management client software.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES3-02",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u79FB\u52A8\u7EC8\u7AEF\u7BA1\u63A7",
+    controlEn: "Mobile Terminal Control",
+    requirementCn: "\u79FB\u52A8\u7EC8\u7AEF\u5E94\u63A5\u53D7\u79FB\u52A8\u7EC8\u7AEF\u7BA1\u7406\u670D\u52A1\u7AEF\u7684\u8BBE\u5907\u751F\u547D\u5468\u671F\u7BA1\u7406\u3001\u8BBE\u5907\u8FDC\u7A0B\u63A7\u5236\uFF0C\u5982\uFF1A\u8FDC\u7A0B\u9501\u5B9A\u3001\u8FDC\u7A0B\u64E6\u9664\u7B49",
+    requirementEn: "The mobile terminal shall accept the device lifecycle management and remote control from the mobile terminal management server, such as remote locking, remote erasing, etc.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES3-03",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u79FB\u52A8\u5E94\u7528\u7BA1\u63A7",
+    controlEn: "Mobile Application Control",
+    requirementCn: "\u5E94\u5177\u6709\u9009\u62E9\u5E94\u7528\u8F6F\u4EF6\u5B89\u88C5\u3001\u8FD0\u884C\u7684\u529F\u80FD",
+    requirementEn: "It should provide the function which allows to select application software to install and run",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES3-04",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u79FB\u52A8\u5E94\u7528\u7BA1\u63A7",
+    controlEn: "Mobile Application Control",
+    requirementCn: "\u5E94\u53EA\u5141\u8BB8\u6307\u5B9A\u8BC1\u4E66\u7B7E\u540D\u7684\u5E94\u7528\u8F6F\u4EF6\u5B89\u88C5\u548C\u8FD0\u884C",
+    requirementEn: "Only applications that have specify certificate and signature should be allowed to install and run",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES3-05",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u79FB\u52A8\u5E94\u7528\u7BA1\u63A7",
+    controlEn: "Mobile Application Control",
+    requirementCn: "\u5E94\u5177\u6709\u8F6F\u4EF6\u767D\u540D\u5355\u529F\u80FD\uFF0C\u5E94\u80FD\u6839\u636E\u767D\u540D\u5355\u63A7\u5236\u5E94\u7528\u8F6F\u4EF6\u5B89\u88C5\u3001\u8FD0\u884C",
+    requirementEn: "It should provide the software whitelist function, and the installation and operation of applications should be controlled according to the whitelist",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-PES4-01",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u611F\u77E5\u8282\u70B9\u8BBE\u5907\u7269\u7406\u9632\u62A4",
+    controlEn: "Physical Protection of Sensor Node",
+    requirementCn: "\u611F\u77E5\u8282\u70B9\u8BBE\u5907\u6240\u5904\u7684\u7269\u7406\u73AF\u5883\u5E94\u4E0D\u5BF9\u611F\u77E5\u8282\u70B9\u8BBE\u5907\u9020\u6210\u7269\u7406\u7834\u574F\uFF0C\u5982\u6324\u538B\u3001\u5F3A\u632F\u52A8",
+    requirementEn: "The physical environment in which the sensor node is located should not cause physical damage to the sensor node, such as extrusion and strong vibration.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-PES4-02",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u611F\u77E5\u8282\u70B9\u8BBE\u5907\u7269\u7406\u9632\u62A4",
+    controlEn: "Physical Protection of Sensor Node",
+    requirementCn: "\u611F\u77E5\u8282\u70B9\u8BBE\u5907\u5728\u5DE5\u4F5C\u72B6\u6001\u6240\u5904\u7269\u7406\u73AF\u5883\u5E94\u80FD\u6B63\u786E\u53CD\u6620\u73AF\u5883\u72B6\u6001\uFF08\u5982\u6E29\u6E7F\u5EA6\u4F20\u611F\u5668\u4E0D\u80FD\u5B89\u88C5\u5728\u9633\u5149\u76F4\u5C04\u533A\u57DF\uFF09",
+    requirementEn: "The physical environment in which the sensor node is in working status should correctly reflect the environmental state (for example, the temperature and humidity sensor cannot be installed in a direct sunlight area)",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-PES4-03",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u611F\u77E5\u8282\u70B9\u8BBE\u5907\u7269\u7406\u9632\u62A4",
+    controlEn: "Physical Protection of Sensor Node",
+    requirementCn: "\u611F\u77E5\u8282\u70B9\u8BBE\u5907\u5728\u5DE5\u4F5C\u72B6\u6001\u6240\u5904\u7269\u7406\u73AF\u5883\u5E94\u4E0D\u5BF9\u611F\u77E5\u8282\u70B9\u8BBE\u5907\u7684\u6B63\u5E38\u5DE5\u4F5C\u9020\u6210\u5F71\u54CD\uFF0C\u5982\u5F3A\u5E72\u6270\u3001\u963B\u6321\u5C4F\u853D\u7B49",
+    requirementEn: "The physical environment in which the sensor node is located should not affect the normal operation of the sensor node, such as strong interference, blocking shielding, etc.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-PES4-04",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u611F\u77E5\u8282\u70B9\u8BBE\u5907\u7269\u7406\u9632\u62A4",
+    controlEn: "Physical Protection of Sensor Node",
+    requirementCn: "\u5173\u952E\u611F\u77E5\u8282\u70B9\u8BBE\u5907\u5E94\u5177\u6709\u53EF\u4F9B\u957F\u65F6\u95F4\u5DE5\u4F5C\u7684\u7535\u529B\u4F9B\u5E94\uFF08\u5173\u952E\u7F51\u5173\u8282\u70B9\u8BBE\u5907\u5E94\u5177\u6709\u6301\u4E45\u7A33\u5B9A\u7684\u7535\u529B\u4F9B\u5E94\u80FD\u529B\uFF09",
+    requirementEn: "Critical sensor nodes should have a power supply for long periods of time (critical gateway node should have a durable and stable power supply capability)",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS4-01",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u63A5\u5165\u63A7\u5236",
+    controlEn: "Access Control",
+    requirementCn: "\u5E94\u4FDD\u8BC1\u53EA\u6709\u6388\u6743\u7684\u611F\u77E5\u8282\u70B9\u53EF\u4EE5\u63A5\u5165",
+    requirementEn: "Ensured that only authorized sensor nodes can access",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS4-02",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u80FD\u591F\u9650\u5236\u4E0E\u611F\u77E5\u8282\u70B9\u901A\u4FE1\u7684\u76EE\u6807\u5730\u5740\uFF0C\u4EE5\u907F\u514D\u5BF9\u964C\u751F\u5730\u5740\u7684\u653B\u51FB\u884C\u4E3A",
+    requirementEn: "The target address to communicate with the sensor node should be restricted, thus avoiding attacks to unfamiliar addresses",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS4-03",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u5165\u4FB5\u9632\u8303",
+    controlEn: "Intrusion Prevention",
+    requirementCn: "\u5E94\u80FD\u591F\u9650\u5236\u4E0E\u7F51\u5173\u8282\u70B9\u901A\u4FE1\u7684\u76EE\u6807\u5730\u5740\uFF0C\u4EE5\u907F\u514D\u5BF9\u964C\u751F\u5730\u5740\u7684\u653B\u51FB\u884C\u4E3A",
+    requirementEn: "The target address to communicate with the gateway node should be restricted, thus avoiding attacks to unfamiliar addresses",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES4-01",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u611F\u77E5\u8282\u70B9\u8BBE\u5907\u5B89\u5168",
+    controlEn: "Sensor Node Security",
+    requirementCn: "\u5E94\u4FDD\u8BC1\u53EA\u6709\u6388\u6743\u7684\u7528\u6237\u53EF\u4EE5\u5BF9\u611F\u77E5\u8282\u70B9\u8BBE\u5907\u4E0A\u7684\u8F6F\u4EF6\u5E94\u7528\u8FDB\u884C\u914D\u7F6E\u6216\u53D8\u66F4",
+    requirementEn: "Ensured that only authorized users can configure or change software applications on the sensor node device.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES4-02",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u611F\u77E5\u8282\u70B9\u8BBE\u5907\u5B89\u5168",
+    controlEn: "Sensor Node Security",
+    requirementCn: "\u5E94\u5177\u6709\u5BF9\u5176\u8FDE\u63A5\u7684\u7F51\u5173\u8282\u70B9\u8BBE\u5907\uFF08\u5305\u62EC\u8BFB\u5361\u5668\uFF09\u8FDB\u884C\u8EAB\u4EFD\u6807\u8BC6\u548C\u9274\u522B\u7684\u80FD\u529B",
+    requirementEn: "It should be able to identify and authenticate the gateway nodes (including card readers) to which they are connected",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES4-03",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u611F\u77E5\u8282\u70B9\u8BBE\u5907\u5B89\u5168",
+    controlEn: "Sensor Node Security",
+    requirementCn: "\u5E94\u5177\u6709\u5BF9\u5176\u8FDE\u63A5\u7684\u5176\u4ED6\u611F\u77E5\u8282\u70B9\u8BBE\u5907\uFF08\u5305\u62EC\u8DEF\u7531\u8282\u70B9\uFF09\u8FDB\u884C\u8EAB\u4EFD\u6807\u8BC6\u548C\u9274\u522B\u7684\u80FD\u529B",
+    requirementEn: "It should be able to identify and authenticate other connected node (including routing nodes) to which they are connected",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES4-04",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u7F51\u5173\u8282\u70B9\u8BBE\u5907\u5B89\u5168",
+    controlEn: "Gateway Node Security",
+    requirementCn: "\u5E94\u8BBE\u7F6E\u6700\u5927\u5E76\u53D1\u8FDE\u63A5\u6570",
+    requirementEn: "The maximum number of concurrent connections of the gateway node should be set.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES4-05",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u7F51\u5173\u8282\u70B9\u8BBE\u5907\u5B89\u5168",
+    controlEn: "Gateway Node Security",
+    requirementCn: "\u5E94\u5177\u5907\u5BF9\u5408\u6CD5\u8FDE\u63A5\u8BBE\u5907\uFF08\u5305\u62EC\u7EC8\u7AEF\u8282\u70B9\u3001\u8DEF\u7531\u8282\u70B9\u3001\u6570\u636E\u5904\u7406\u4E2D\u5FC3\uFF09\u8FDB\u884C\u6807\u8BC6\u548C\u9274\u522B\u7684\u80FD\u529B",
+    requirementEn: "Ability to identify and authenticate legitimate connected devices (including endpoints, routing nodes, data processing centers)",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES4-06",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u7F51\u5173\u8282\u70B9\u8BBE\u5907\u5B89\u5168",
+    controlEn: "Gateway Node Security",
+    requirementCn: "\u5E94\u5177\u5907\u8FC7\u6EE4\u975E\u6CD5\u8282\u70B9\u548C\u4F2A\u9020\u8282\u70B9\u6240\u53D1\u9001\u7684\u6570\u636E\u7684\u80FD\u529B",
+    requirementEn: "It should be able to filter data sent by illegal and forged nodes",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES4-07",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u7F51\u5173\u8282\u70B9\u8BBE\u5907\u5B89\u5168",
+    controlEn: "Gateway Node Security",
+    requirementCn: "\u6388\u6743\u7528\u6237\u5E94\u80FD\u591F\u5728\u8BBE\u5907\u4F7F\u7528\u8FC7\u7A0B\u4E2D\u5BF9\u5173\u952E\u5BC6\u94A5\u8FDB\u884C\u5728\u7EBF\u66F4\u65B0",
+    requirementEn: "Authorized users should be able to update critical keys online during device use",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES4-08",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u7F51\u5173\u8282\u70B9\u8BBE\u5907\u5B89\u5168",
+    controlEn: "Gateway Node Security",
+    requirementCn: "\u6388\u6743\u7528\u6237\u5E94\u80FD\u591F\u5728\u8BBE\u5907\u4F7F\u7528\u8FC7\u7A0B\u4E2D\u5BF9\u5173\u952E\u914D\u7F6E\u53C2\u6570\u8FDB\u884C\u5728\u7EBF\u66F4\u65B0",
+    requirementEn: "Authorized users should be able to update critical configuration parameters online while the device is in use",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES4-09",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u6297\u6570\u636E\u91CD\u653E",
+    controlEn: "Anti-data Playback",
+    requirementCn: "\u5E94\u80FD\u591F\u9274\u522B\u6570\u636E\u7684\u65B0\u9C9C\u6027\uFF0C\u907F\u514D\u5386\u53F2\u6570\u636E\u7684\u91CD\u653E\u653B\u51FB",
+    requirementEn: "Identify the freshness of data and avoid replay attacks of historical data",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES4-10",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u6297\u6570\u636E\u91CD\u653E",
+    controlEn: "Anti-data Playback",
+    requirementCn: "\u5E94\u80FD\u591F\u9274\u522B\u5386\u53F2\u6570\u636E\u7684\u975E\u6CD5\u4FEE\u6539\uFF0C\u907F\u514D\u6570\u636E\u7684\u4FEE\u6539\u91CD\u653E\u653B\u51FB",
+    requirementEn: "Identifies illegal modification of historical data to avoid data modification and replay attacks",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES4-11",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u6570\u636E\u878D\u5408\u5904\u7406",
+    controlEn: "Data Aggregation Processing",
+    requirementCn: "\u5E94\u5BF9\u6765\u81EA\u4F20\u611F\u7F51\u7684\u6570\u636E\u8FDB\u884C\u6570\u636E\u878D\u5408\u5904\u7406\uFF0C\u4F7F\u4E0D\u540C\u79CD\u7C7B\u7684\u6570\u636E\u53EF\u4EE5\u5728\u540C\u4E00\u4E2A\u5E73\u53F0\u88AB\u4F7F\u7528",
+    requirementEn: "Data from the sensor network should be aggregated to make different types of data be used on the same platform",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-PES5-01",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u5BA4\u5916\u63A7\u5236\u8BBE\u5907\u7269\u7406\u9632\u62A4",
+    controlEn: "Physical Protection of Outdoor Control Equipment",
+    requirementCn: "\u5BA4\u5916\u63A7\u5236\u8BBE\u5907\u5E94\u653E\u7F6E\u4E8E\u91C7\u7528\u94C1\u677F\u6216\u5176\u4ED6\u9632\u706B\u6750\u6599\u5236\u4F5C\u7684\u7BB1\u4F53\u6216\u88C5\u7F6E\u4E2D\u5E76\u7D27\u56FA\u7BB1\u4F53\u6216\u88C5\u7F6E\u5177\u6709\u900F\u98CE\u3001\u6563\u70ED\u3001\u9632\u76D7\u3001\u9632\u96E8\u548C\u9632\u706B\u80FD\u529B\u7B49",
+    requirementEn: "The outdoor control equipment shall be placed in a box or device made of iron plates or other fireproof materials and fastened to the cabinet or device to have ventilation, heat dissipation, anti-theft, rainproof and fireproof capabilities, etc.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-PES5-02",
+    categoryCn: "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    categoryEn: "Physical Environment Security",
+    controlCn: "\u5BA4\u5916\u63A7\u5236\u8BBE\u5907\u7269\u7406\u9632\u62A4",
+    controlEn: "Physical Protection of Outdoor Control Equipment",
+    requirementCn: "\u5BA4\u5916\u63A7\u5236\u8BBE\u5907\u653E\u7F6E\u5E94\u8FDC\u79BB\u5F3A\u7535\u78C1\u5E72\u6270\u3001\u5F3A\u70ED\u6E90\u7B49\u73AF\u5883\uFF0C\u5982\u65E0\u6CD5\u907F\u514D\u5E94\u53CA\u65F6\u505A\u597D\u5E94\u6025\u5904\u7F6E\u53CA\u68C0\u4FEE\uFF0C \u4FDD\u8BC1\u8BBE\u5907\u6B63\u5E38\u8FD0\u884C",
+    requirementEn: "The outdoor control equipment should be placed away from strong electromagnetic interference, strong heat source and other extreme environments. If it is unavoidable, emergency treatment and maintenance should be done in time to ensure the normal operation of the equipment.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CNS5-01",
+    categoryCn: "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
+    categoryEn: "Communication Network Security",
+    controlCn: "\u7F51\u7EDC\u67B6\u6784",
+    controlEn: "Network Architecture",
+    requirementCn: "\u5DE5\u4E1A\u63A7\u5236\u7CFB\u7EDF\u4E0E\u4F01\u4E1A\u5176\u4ED6\u7CFB\u7EDF\u4E4B\u95F4\u5E94\u5212\u5206\u4E3A\u4E24\u4E2A\u533A\u57DF\uFF0C\u533A\u57DF\u95F4\u5E94\u91C7\u7528\u5355\u5411\u7684\u6280\u672F\u9694\u79BB\u624B\u6BB5",
+    requirementEn: "The industrial control system and other systems of the enterprise should be divided into two areas, and one-way technical isolation should be adopted between the areas.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CNS5-02",
+    categoryCn: "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
+    categoryEn: "Communication Network Security",
+    controlCn: "\u7F51\u7EDC\u67B6\u6784",
+    controlEn: "Network Architecture",
+    requirementCn: "\u5DE5\u4E1A\u63A7\u5236\u7CFB\u7EDF\u5185\u90E8\u5E94\u6839\u636E\u4E1A\u52A1\u7279\u70B9\u5212\u5206\u4E3A\u4E0D\u540C\u7684\u5B89\u5168\u57DF\uFF0C\u5B89\u5168\u57DF\u4E4B\u95F4\u5E94\u91C7\u7528\u6280\u672F\u9694\u79BB\u624B\u6BB5",
+    requirementEn: "The industrial control system should be intenally divided into different security domains according to the business feature. Technical isolation should be adopted between different security domains.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CNS5-03",
+    categoryCn: "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
+    categoryEn: "Communication Network Security",
+    controlCn: "\u7F51\u7EDC\u67B6\u6784",
+    controlEn: "Network Architecture",
+    requirementCn: "\u6D89\u53CA\u5B9E\u65F6\u63A7\u5236\u548C\u6570\u636E\u4F20\u8F93\u7684\u5DE5\u4E1A\u63A7\u5236\u7CFB\u7EDF\uFF0C\u5E94\u4F7F\u7528\u72EC\u7ACB\u7684\u7F51\u7EDC\u8BBE\u5907\u7EC4\u7F51\uFF0C\u5728\u7269\u7406\u5C42\u9762\u4E0A\u5B9E\u73B0\u4E0E\u5176\u5B83\u6570\u636E\u7F51\u53CA\u5916\u90E8\u516C\u5171\u4FE1\u606F\u7F51\u7684\u5B89\u5168\u9694\u79BB",
+    requirementEn: "Industrial control systems involving real-time control and data transmission should use independent network equipment to set up a network to achieve secure isolation from other data networks and external public information networks at physical level.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CNS5-04",
+    categoryCn: "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
+    categoryEn: "Communication Network Security",
+    controlCn: "\u901A\u4FE1\u4F20\u8F93",
+    controlEn: "Communication Transmission",
+    requirementCn: "\u5728\u5DE5\u4E1A\u63A7\u5236\u7CFB\u7EDF\u5185\u4F7F\u7528\u5E7F\u57DF\u7F51\u8FDB\u884C\u63A7\u5236\u6307\u4EE4\u6216\u76F8\u5173\u6570\u636E\u4EA4\u6362\u7684\u5E94\u91C7\u7528\u52A0\u5BC6\u8BA4\u8BC1\u6280\u672F\u624B\u6BB5\u5B9E\u73B0\u8EAB\u4EFD\u8BA4\u8BC1\u3001\u8BBF\u95EE\u63A7\u5236\u548C\u6570\u636E\u52A0\u5BC6\u4F20\u8F93",
+    requirementEn: "If WAN is used in industrial control system to control instructions or exchange related data, encryption and authentication technology should be adopted to realize identity authentication, access control and data encryption transmission",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS5-01",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u8BBF\u95EE\u63A7\u5236",
+    controlEn: "Access Control",
+    requirementCn: "\u5E94\u5728\u5DE5\u4E1A\u63A7\u5236\u7CFB\u7EDF\u4E0E\u4F01\u4E1A\u5176\u4ED6\u7CFB\u7EDF\u4E4B\u95F4\u90E8\u7F72\u8BBF\u95EE\u63A7\u5236\u8BBE\u5907\uFF0C\u914D\u7F6E\u8BBF\u95EE\u63A7\u5236\u7B56\u7565\uFF0C\u7981\u6B62\u4EFB\u4F55\u7A7F\u8D8A\u533A\u57DF\u8FB9\u754C\u7684 E-Mail\u3001Web\u3001Telnet\u3001Rlogin\u3001FTP \u7B49\u901A\u7528\u7F51\u7EDC\u670D\u52A1",
+    requirementEn: "The access control device should be deployed between the industrial control system and other enterprise systems, and the access control policy should be configured to prohibit any common network services such as E-Mail, Web, Telnet, Rlogin, and FTP that traverse the boundary of the area.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS5-02",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u8BBF\u95EE\u63A7\u5236",
+    controlEn: "Access Control",
+    requirementCn: "\u5E94\u5728\u5DE5\u4E1A\u63A7\u5236\u7CFB\u7EDF\u5185\u5B89\u5168\u57DF\u548C\u5B89\u5168\u57DF\u4E4B\u95F4\u7684\u8FB9\u754C\u9632\u62A4\u673A\u5236\u5931\u6548\u65F6\uFF0C\u53CA\u65F6\u8FDB\u884C\u62A5\u8B66",
+    requirementEn: "The alarm should be promptly issued when the boundary protection mechanism between different security domains fails in the industrial control system.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS5-03",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u62E8\u53F7\u4F7F\u7528\u63A7\u5236",
+    controlEn: "Dail-up Use Control",
+    requirementCn: "\u5DE5\u4E1A\u63A7\u5236\u7CFB\u7EDF\u786E\u9700\u4F7F\u7528\u62E8\u53F7\u8BBF\u95EE\u670D\u52A1\u7684\uFF0C\u5E94\u9650\u5236\u5177\u6709\u62E8\u53F7\u8BBF\u95EE\u6743\u9650\u7684\u7528\u6237\u6570\u91CF\uFF0C\u5E76\u91C7\u53D6\u7528\u6237\u8EAB\u4EFD\u9274\u522B\u548C\u8BBF\u95EE\u63A7\u5236\u7B49\u63AA\u65BD",
+    requirementEn: "If the industrial control system needs to use the dial-up access service, it should limit the number of users with dial-up access rights, and take measures such as user identity authentication and access control.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS5-04",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u62E8\u53F7\u4F7F\u7528\u63A7\u5236",
+    controlEn: "Dail-up Use Control",
+    requirementCn: "\u62E8\u53F7\u670D\u52A1\u5668\u548C\u5BA2\u6237\u7AEF\u5747\u5E94\u4F7F\u7528\u7ECF\u5B89\u5168\u52A0\u56FA\u7684\u64CD\u4F5C\u7CFB\u7EDF\uFF0C\u5E76\u91C7\u53D6\u6570\u5B57\u8BC1\u4E66\u8BA4\u8BC1\u3001\u4F20\u8F93\u52A0\u5BC6\u548C\u8BBF\u95EE\u63A7\u5236\u7B49\u63AA\u65BD",
+    requirementEn: "Both the dial-up server and the client should use a security-hardened operating system and take measures such as digital certificate authentication, transport encryption, and access control.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS5-05",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u65E0\u7EBF\u4F7F\u7528\u63A7\u5236",
+    controlEn: "Wireless Use Control",
+    requirementCn: "\u5E94\u5BF9\u6240\u6709\u53C2\u4E0E\u65E0\u7EBF\u901A\u4FE1\u7684\u7528\u6237\uFF08\u4EBA\u5458\u3001\u8F6F\u4EF6\u8FDB\u7A0B\u6216\u8005\u8BBE\u5907\uFF09\u63D0\u4F9B\u552F\u4E00\u6027\u6807\u8BC6\u548C\u9274\u522B",
+    requirementEn: "Provide unique identification and authentication to all users (personnel, software processes or devices) involved in wireless communications",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS5-06",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u65E0\u7EBF\u4F7F\u7528\u63A7\u5236",
+    controlEn: "Wireless Use Control",
+    requirementCn: "\u5E94\u5BF9\u6240\u6709\u53C2\u4E0E\u65E0\u7EBF\u901A\u4FE1\u7684\u7528\u6237\uFF08\u4EBA\u5458\u3001\u8F6F\u4EF6\u8FDB\u7A0B\u6216\u8005\u8BBE\u5907\uFF09\u8FDB\u884C\u6388\u6743\u4EE5\u53CA\u6267\u884C\u4F7F\u7528\u8FDB\u884C\u9650\u5236",
+    requirementEn: "Restrictions on the authorization and execution of all users (personnel, software processes or devices) involved in wireless communication",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS5-07",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u65E0\u7EBF\u4F7F\u7528\u63A7\u5236",
+    controlEn: "Wireless Use Control",
+    requirementCn: "\u5E94\u5BF9\u65E0\u7EBF\u901A\u4FE1\u91C7\u53D6\u4F20\u8F93\u52A0\u5BC6\u7684\u5B89\u5168\u63AA\u65BD\uFF0C\u5B9E\u73B0\u4F20\u8F93\u62A5\u6587\u7684\u673A\u5BC6\u6027\u4FDD\u62A4",
+    requirementEn: "Security measures for transmission encryption should be adopted for wireless communication to achieve confidentiality protection of transmitted messages.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-ABS5-08",
+    categoryCn: "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    categoryEn: "Area Boundary Security",
+    controlCn: "\u65E0\u7EBF\u4F7F\u7528\u63A7\u5236",
+    controlEn: "Wireless Use Control",
+    requirementCn: "\u5BF9\u91C7\u7528\u65E0\u7EBF\u901A\u4FE1\u6280\u672F\u8FDB\u884C\u63A7\u5236\u7684\u5DE5\u4E1A\u63A7\u5236\u7CFB\u7EDF\uFF0C\u5E94\u80FD\u8BC6\u522B\u5176\u7269\u7406\u73AF\u5883\u4E2D\u53D1\u5C04\u7684\u672A\u7ECF\u6388\u6743\u7684\u65E0\u7EBF\u8BBE\u5907\uFF0C\u62A5\u544A\u672A\u7ECF\u6388\u6743\u8BD5\u56FE\u63A5\u5165\u6216\u5E72\u6270\u63A7\u5236\u7CFB\u7EDF\u7684\u884C\u4E3A",
+    requirementEn: "Industrial control systems that use wireless communication technology should be able to identify unauthorized wireless devices transmitted in their physical environment and report unauthorized attempts to access or interfere with control systems.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES5-01",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u63A7\u5236\u8BBE\u5907\u5B89\u5168",
+    controlEn: "Control Equipment Security",
+    requirementCn: "\u63A7\u5236\u8BBE\u5907\u81EA\u8EAB\u5E94\u5B9E\u73B0\u76F8\u5E94\u7EA7\u522B\u5B89\u5168\u901A\u7528\u8981\u6C42\u63D0\u51FA\u7684\u8EAB\u4EFD\u9274\u522B\u3001\u8BBF\u95EE\u63A7\u5236\u548C\u5B89\u5168\u5BA1\u8BA1\u7B49\u5B89\u5168\u8981\u6C42\uFF0C\u5982\u53D7\u6761\u4EF6\u9650\u5236\u63A7\u5236\u8BBE\u5907\u65E0\u6CD5\u5B9E\u73B0\u4E0A\u8FF0\u8981\u6C42\uFF0C\u5E94\u7531\u5176\u4E0A\u4F4D\u63A7\u5236\u6216\u7BA1\u7406\u8BBE\u5907\u5B9E\u73B0\u540C\u7B49\u529F\u80FD\u6216\u901A\u8FC7\u7BA1\u7406\u624B\u6BB5\u63A7\u5236",
+    requirementEn: "The control device itself shall implement the security requirements such as identity authentication, access control and security audit proposed by the corresponding level of security general requirements. If the above requirements cannot be implemented by restricted conditions, the equivalent function should be implemented by its upper class control or controlled by management means",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES5-02",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u63A7\u5236\u8BBE\u5907\u5B89\u5168",
+    controlEn: "Control Equipment Security",
+    requirementCn: "\u5E94\u5728\u7ECF\u8FC7\u5145\u5206\u6D4B\u8BD5\u8BC4\u4F30\u540E\uFF0C\u5728\u4E0D\u5F71\u54CD\u7CFB\u7EDF\u5B89\u5168\u7A33\u5B9A\u8FD0\u884C\u7684\u60C5\u51B5\u4E0B\u5BF9\u63A7\u5236\u8BBE\u5907\u8FDB\u884C\u8865\u4E01\u66F4\u65B0\u3001\u56FA\u4EF6\u66F4\u65B0\u7B49\u5DE5\u4F5C",
+    requirementEn: "After sufficient testing and evaluation,  patches and firmware update can be applied to the control equipment which should not affect the safe and stable operation of the system.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES5-03",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u63A7\u5236\u8BBE\u5907\u5B89\u5168",
+    controlEn: "Control Equipment Security",
+    requirementCn: "\u5E94\u5173\u95ED\u6216\u62C6\u9664\u63A7\u5236\u8BBE\u5907\u7684\u8F6F\u76D8\u9A71\u52A8\u3001\u5149\u76D8\u9A71\u52A8\u3001USB \u63A5\u53E3\u3001\u4E32\u884C\u53E3\u6216\u591A\u4F59\u7F51\u53E3\u7B49\uFF0C\u786E\u9700\u4FDD\u7559\u7684\u5FC5\u987B\u901A\u8FC7\u76F8\u5173\u7684\u6280\u672F\u63AA\u65BD\u5B9E\u65BD\u4E25\u683C\u7684\u76D1\u63A7\u7BA1\u7406",
+    requirementEn: "The floppy disk drive, CD-ROM drive, USB interface, serial port or redundant network port of the control device should be turned off or removed. It should be strictly monitored and managed through relevant technical measures if any of them are indeed to retain.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES5-04",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u63A7\u5236\u8BBE\u5907\u5B89\u5168",
+    controlEn: "Control Equipment Security",
+    requirementCn: "\u5E94\u4F7F\u7528\u4E13\u7528\u8BBE\u5907\u548C\u4E13\u7528\u8F6F\u4EF6\u5BF9\u63A7\u5236\u8BBE\u5907\u8FDB\u884C\u66F4\u65B0",
+    requirementEn: "Control equipment should be updated with dedicated equipment and software",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  },
+  {
+    id: "L3-CES5-05",
+    categoryCn: "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    categoryEn: "Computing Environment Security",
+    controlCn: "\u63A7\u5236\u8BBE\u5907\u5B89\u5168",
+    controlEn: "Control Equipment Security",
+    requirementCn: "\u5E94\u4FDD\u8BC1\u63A7\u5236\u8BBE\u5907\u5728\u4E0A\u7EBF\u524D\u7ECF\u8FC7\u5B89\u5168\u6027\u68C0\u6D4B\uFF0C\u907F\u514D\u63A7\u5236\u8BBE\u5907\u56FA\u4EF6\u4E2D\u5B58\u5728\u6076\u610F\u4EE3\u7801\u7A0B\u5E8F",
+    requirementEn: "It should be ensured that the control device is tested for security before going online, and there is no malicious code program in the control device firmware.",
+    referenceStatus: "\u4E0D\u9002\u7528 N/A",
+    referenceComment: ""
+  }
+];
+
+// src/data/mlps3-check-mapping.ts
+var MLPS3_FULL_CHECKLIST = mlps3_full_checklist_default;
+var MLPS3_CATEGORY_ORDER = [
+  "\u5B89\u5168\u7269\u7406\u73AF\u5883",
+  "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
+  "\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+  "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+  "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3"
+];
+var MLPS3_CATEGORY_SECTION = {
+  "\u5B89\u5168\u7269\u7406\u73AF\u5883": "\u4E00\u3001\u5B89\u5168\u7269\u7406\u73AF\u5883",
+  "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC": "\u4E8C\u3001\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
+  "\u5B89\u5168\u533A\u57DF\u8FB9\u754C": "\u4E09\u3001\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+  "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883": "\u56DB\u3001\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+  "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3": "\u4E94\u3001\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3"
+};
+var MLPS3_CHECK_MAPPING = [
+  // =========================================================================
+  // 安全物理环境 — L3-PES1-* (22 items) → cloud_provider
+  // =========================================================================
+  { id: "L3-PES1-01", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-02", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-03", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-04", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-05", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-06", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-07", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-08", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-09", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-10", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-11", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-12", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-13", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-14", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-15", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-16", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-17", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-18", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-19", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-20", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-21", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  { id: "L3-PES1-22", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u673A\u623F\u7269\u7406\u5B89\u5168" },
+  // L3-PES2-01 (Cloud extension — physical infra in China)
+  { id: "L3-PES2-01", type: "cloud_provider", note: "AWS \u4E2D\u56FD\u533A\u57FA\u7840\u8BBE\u65BD\u4F4D\u4E8E\u4E2D\u56FD\u5883\u5185" },
+  // L3-PES3-01 (Wireless — N/A)
+  { id: "L3-PES3-01", type: "not_applicable" },
+  // L3-PES4-* (IoT sensor — N/A)
+  { id: "L3-PES4-01", type: "not_applicable" },
+  { id: "L3-PES4-02", type: "not_applicable" },
+  { id: "L3-PES4-03", type: "not_applicable" },
+  { id: "L3-PES4-04", type: "not_applicable" },
+  // L3-PES5-* (Industrial control outdoor — N/A)
+  { id: "L3-PES5-01", type: "not_applicable" },
+  { id: "L3-PES5-02", type: "not_applicable" },
+  // =========================================================================
+  // 安全通信网络 — L3-CNS1-* (8 items)
+  // =========================================================================
+  { id: "L3-CNS1-01", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u7F51\u7EDC\u8BBE\u5907\u5904\u7406\u80FD\u529B" },
+  { id: "L3-CNS1-02", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u7F51\u7EDC\u5E26\u5BBD" },
+  {
+    id: "L3-CNS1-03",
+    type: "auto",
+    modules: ["network_reachability", "security_hub_findings"],
+    findingPatterns: ["default VPC", "EC2.2", "VPC", "subnet"]
+  },
+  {
+    id: "L3-CNS1-04",
+    type: "auto",
+    modules: ["network_reachability", "security_hub_findings"],
+    findingPatterns: [
+      "allows all ports",
+      "allows SSH",
+      "allows RDP",
+      "security group",
+      "EC2.18",
+      "EC2.19",
+      "NACL",
+      "network ACL"
+    ]
+  },
+  { id: "L3-CNS1-05", type: "cloud_provider", note: "AWS \u591A\u53EF\u7528\u533A/\u591A\u533A\u57DF\u5197\u4F59" },
+  {
+    id: "L3-CNS1-06",
+    type: "auto",
+    modules: ["ssl_certificate", "security_hub_findings"],
+    findingPatterns: ["HTTPS", "TLS", "certificate", "ELB.1", "HTTP listener", "transport encryption"]
+  },
+  {
+    id: "L3-CNS1-07",
+    type: "auto",
+    modules: ["ssl_certificate", "security_hub_findings"],
+    findingPatterns: ["HTTPS", "TLS", "SSL", "certificate", "ELB.1", "encryption in transit"]
+  },
+  { id: "L3-CNS1-08", type: "not_applicable" },
+  // L3-CNS2-* (Cloud extension communication — 5 items)
+  { id: "L3-CNS2-01", type: "cloud_provider", note: "AWS \u7B49\u4FDD\u6DB5\u76D6" },
+  { id: "L3-CNS2-02", type: "cloud_provider", note: "VPC \u5B9E\u73B0\u865A\u62DF\u7F51\u7EDC\u9694\u79BB" },
+  {
+    id: "L3-CNS2-03",
+    type: "auto",
+    modules: ["network_reachability", "waf_coverage", "guardduty_findings"],
+    findingPatterns: [
+      "security group",
+      "NACL",
+      "WAF",
+      "GuardDuty",
+      "allows all ports",
+      "allows SSH",
+      "allows RDP"
+    ]
+  },
+  { id: "L3-CNS2-04", type: "cloud_provider", note: "AWS \u652F\u6301\u81EA\u4E3B\u5B89\u5168\u7B56\u7565\u914D\u7F6E" },
+  { id: "L3-CNS2-05", type: "cloud_provider", note: "AWS Marketplace \u652F\u6301\u7B2C\u4E09\u65B9\u4EA7\u54C1" },
+  // L3-CNS5-* (Industrial control communication — N/A)
+  { id: "L3-CNS5-01", type: "not_applicable" },
+  { id: "L3-CNS5-02", type: "not_applicable" },
+  { id: "L3-CNS5-03", type: "not_applicable" },
+  { id: "L3-CNS5-04", type: "not_applicable" },
+  // =========================================================================
+  // 安全区域边界 — L3-ABS1-* (20 items)
+  // =========================================================================
+  {
+    id: "L3-ABS1-01",
+    type: "auto",
+    modules: ["network_reachability", "waf_coverage", "security_hub_findings"],
+    findingPatterns: [
+      "security group",
+      "allows all ports",
+      "allows SSH",
+      "allows RDP",
+      "EC2.18",
+      "EC2.19",
+      "WAF",
+      "ALB"
+    ]
+  },
+  {
+    id: "L3-ABS1-02",
+    type: "auto",
+    modules: ["network_reachability", "security_hub_findings"],
+    findingPatterns: [
+      "security group",
+      "allows all ports",
+      "allows SSH",
+      "allows RDP",
+      "EC2.18",
+      "EC2.19"
+    ]
+  },
+  {
+    id: "L3-ABS1-03",
+    type: "manual",
+    guidance: "\u9700\u786E\u8BA4 NAT Gateway\u3001VPC Endpoint \u914D\u7F6E\uFF0C\u9650\u5236\u5185\u90E8\u7528\u6237\u975E\u6388\u6743\u5916\u8054"
+  },
+  { id: "L3-ABS1-04", type: "not_applicable" },
+  {
+    id: "L3-ABS1-05",
+    type: "auto",
+    modules: ["network_reachability", "security_hub_findings"],
+    findingPatterns: [
+      "security group",
+      "allows all ports",
+      "allows SSH",
+      "allows RDP",
+      "EC2.18",
+      "EC2.19",
+      "NACL"
+    ]
+  },
+  {
+    id: "L3-ABS1-06",
+    type: "auto",
+    modules: ["idle_resources", "security_hub_findings"],
+    findingPatterns: [
+      "unused security group",
+      "security group",
+      "EC2.18",
+      "EC2.19"
+    ]
+  },
+  {
+    id: "L3-ABS1-07",
+    type: "auto",
+    modules: ["network_reachability", "waf_coverage", "security_hub_findings"],
+    findingPatterns: [
+      "security group",
+      "source address",
+      "port",
+      "protocol",
+      "EC2.18",
+      "EC2.19",
+      "allows all ports",
+      "WAF"
+    ]
+  },
+  {
+    id: "L3-ABS1-08",
+    type: "manual",
+    guidance: "\u9700\u542F\u7528 WAF \u6216\u90E8\u7F72\u7B2C\u4E09\u65B9\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\u5B9E\u73B0\u57FA\u4E8E\u4F1A\u8BDD\u72B6\u6001\u7684\u8BBF\u95EE\u63A7\u5236"
+  },
+  {
+    id: "L3-ABS1-09",
+    type: "manual",
+    guidance: "\u9700\u542F\u7528 WAF \u6216\u90E8\u7F72\u7B2C\u4E09\u65B9\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\u5B9E\u73B0\u57FA\u4E8E\u5E94\u7528\u534F\u8BAE\u7684\u8BBF\u95EE\u63A7\u5236"
+  },
+  {
+    id: "L3-ABS1-10",
+    type: "auto",
+    modules: ["guardduty_findings", "waf_coverage", "security_hub_findings"],
+    findingPatterns: ["GuardDuty", "WAF", "attack", "intrusion", "threat"]
+  },
+  {
+    id: "L3-ABS1-11",
+    type: "auto",
+    modules: ["guardduty_findings", "security_hub_findings"],
+    findingPatterns: ["GuardDuty", "internal", "attack", "anomalous", "unusual"]
+  },
+  {
+    id: "L3-ABS1-12",
+    type: "auto",
+    modules: ["guardduty_findings", "waf_coverage", "security_hub_findings"],
+    findingPatterns: ["GuardDuty", "WAF", "behavior analysis", "network attack", "anomalous"]
+  },
+  {
+    id: "L3-ABS1-13",
+    type: "auto",
+    modules: ["guardduty_findings", "waf_coverage"],
+    findingPatterns: ["GuardDuty", "WAF", "attack source", "alarm", "alert"]
+  },
+  {
+    id: "L3-ABS1-14",
+    type: "manual",
+    guidance: "\u9700\u5728\u64CD\u4F5C\u7CFB\u7EDF\u5B89\u88C5\u7B2C\u4E09\u65B9\u6740\u6BD2\u8F6F\u4EF6\uFF0C\u6216\u90E8\u7F72\u4E0B\u4E00\u4EE3\u9632\u706B\u5899\u8FDB\u884C\u6076\u610F\u4EE3\u7801\u68C0\u6D4B"
+  },
+  { id: "L3-ABS1-15", type: "not_applicable" },
+  {
+    id: "L3-ABS1-16",
+    type: "auto",
+    modules: ["service_detection", "security_hub_findings"],
+    findingPatterns: ["CloudTrail", "not enabled", "multi-region", "CloudTrail.1", "audit"]
+  },
+  {
+    id: "L3-ABS1-17",
+    type: "auto",
+    modules: ["service_detection", "security_hub_findings"],
+    findingPatterns: ["CloudTrail", "audit record", "event date", "CloudTrail.1"]
+  },
+  {
+    id: "L3-ABS1-18",
+    type: "auto",
+    modules: ["security_hub_findings"],
+    findingPatterns: [
+      "CloudTrail",
+      "S3 bucket",
+      "encryption",
+      "versioning",
+      "Block Public Access",
+      "CloudTrail.4",
+      "CloudTrail.5",
+      "CloudTrail.6",
+      "CloudTrail.7"
+    ]
+  },
+  {
+    id: "L3-ABS1-19",
+    type: "manual",
+    guidance: "\u9700\u914D\u7F6E S3 Access Log\u3001ALB Access Log\uFF0C\u6216\u90E8\u7F72\u4E0A\u7F51\u884C\u4E3A\u7BA1\u7406\u4EA7\u54C1\u8FDB\u884C\u8FDC\u7A0B\u8BBF\u95EE\u884C\u4E3A\u5BA1\u8BA1"
+  },
+  { id: "L3-ABS1-20", type: "not_applicable" },
+  // L3-ABS2-* (Cloud extension boundary — 8 items)
+  {
+    id: "L3-ABS2-01",
+    type: "auto",
+    modules: ["network_reachability", "security_hub_findings"],
+    findingPatterns: [
+      "security group",
+      "NACL",
+      "allows all ports",
+      "allows SSH",
+      "allows RDP",
+      "EC2.18",
+      "EC2.19"
+    ]
+  },
+  {
+    id: "L3-ABS2-02",
+    type: "auto",
+    modules: ["network_reachability", "security_hub_findings"],
+    findingPatterns: [
+      "security group",
+      "NACL",
+      "allows all ports",
+      "allows SSH",
+      "allows RDP",
+      "EC2.18",
+      "EC2.19"
+    ]
+  },
+  {
+    id: "L3-ABS2-03",
+    type: "auto",
+    modules: ["guardduty_findings", "waf_coverage"],
+    findingPatterns: ["GuardDuty", "WAF", "attack", "intrusion"]
+  },
+  {
+    id: "L3-ABS2-04",
+    type: "auto",
+    modules: ["guardduty_findings", "waf_coverage"],
+    findingPatterns: ["GuardDuty", "WAF", "attack", "intrusion", "virtual"]
+  },
+  {
+    id: "L3-ABS2-05",
+    type: "auto",
+    modules: ["guardduty_findings"],
+    findingPatterns: ["GuardDuty", "anomalous", "unusual", "traffic"]
+  },
+  {
+    id: "L3-ABS2-06",
+    type: "auto",
+    modules: ["guardduty_findings", "waf_coverage"],
+    findingPatterns: ["GuardDuty", "WAF", "alarm", "alert", "attack"]
+  },
+  {
+    id: "L3-ABS2-07",
+    type: "auto",
+    modules: ["service_detection", "security_hub_findings"],
+    findingPatterns: ["CloudTrail", "privileged command", "CloudTrail.1"]
+  },
+  {
+    id: "L3-ABS2-08",
+    type: "auto",
+    modules: ["service_detection", "security_hub_findings"],
+    findingPatterns: ["CloudTrail", "CloudTrail.1"]
+  },
+  // L3-ABS3-* (Wireless boundary — N/A)
+  { id: "L3-ABS3-01", type: "not_applicable" },
+  { id: "L3-ABS3-02", type: "not_applicable" },
+  { id: "L3-ABS3-03", type: "not_applicable" },
+  { id: "L3-ABS3-04", type: "not_applicable" },
+  { id: "L3-ABS3-05", type: "not_applicable" },
+  { id: "L3-ABS3-06", type: "not_applicable" },
+  { id: "L3-ABS3-07", type: "not_applicable" },
+  { id: "L3-ABS3-08", type: "not_applicable" },
+  // L3-ABS4-* (IoT boundary — N/A)
+  { id: "L3-ABS4-01", type: "not_applicable" },
+  { id: "L3-ABS4-02", type: "not_applicable" },
+  { id: "L3-ABS4-03", type: "not_applicable" },
+  // L3-ABS5-* (Industrial control boundary — N/A)
+  { id: "L3-ABS5-01", type: "not_applicable" },
+  { id: "L3-ABS5-02", type: "not_applicable" },
+  { id: "L3-ABS5-03", type: "not_applicable" },
+  { id: "L3-ABS5-04", type: "not_applicable" },
+  { id: "L3-ABS5-05", type: "not_applicable" },
+  { id: "L3-ABS5-06", type: "not_applicable" },
+  { id: "L3-ABS5-07", type: "not_applicable" },
+  { id: "L3-ABS5-08", type: "not_applicable" },
+  // =========================================================================
+  // 安全计算环境 — L3-CES1-* (34 items, no CES1-16)
+  // =========================================================================
+  {
+    id: "L3-CES1-01",
+    type: "auto",
+    modules: ["security_hub_findings"],
+    findingPatterns: [
+      "password policy",
+      "password length",
+      "complexity",
+      "password expiry",
+      "reuse prevention",
+      "IAM.7",
+      "IAM.10",
+      "IAM.11"
+    ]
+  },
+  {
+    id: "L3-CES1-02",
+    type: "manual",
+    guidance: "\u9700\u914D\u7F6E\u5821\u5792\u673A\u6216\u901A\u8FC7 CloudTrail + CloudWatch Alarm + Lambda \u5B9E\u73B0\u767B\u5F55\u5931\u8D25\u5904\u7406"
+  },
+  {
+    id: "L3-CES1-03",
+    type: "auto",
+    modules: ["ssl_certificate", "security_hub_findings"],
+    findingPatterns: ["HTTPS", "TLS", "SSH", "encrypted", "ELB.1", "certificate"]
+  },
+  {
+    id: "L3-CES1-04",
+    type: "auto",
+    modules: ["security_hub_findings"],
+    findingPatterns: ["MFA", "IAM.5", "IAM.6", "multi-factor"]
+  },
+  {
+    id: "L3-CES1-05",
+    type: "auto",
+    modules: ["iam_privilege_escalation", "access_analyzer_findings"],
+    findingPatterns: [
+      "AdministratorAccess",
+      "privilege escalation",
+      "over-permissive",
+      "external access",
+      "IAM"
+    ]
+  },
+  {
+    id: "L3-CES1-06",
+    type: "manual",
+    guidance: "\u9700\u786E\u8BA4\u5DF2\u91CD\u547D\u540D\u6216\u5220\u9664\u9ED8\u8BA4\u8D26\u6237\uFF08\u5982 root \u76F4\u63A5\u767B\u5F55\uFF09\uFF0C\u4FEE\u6539\u9ED8\u8BA4\u53E3\u4EE4"
+  },
+  {
+    id: "L3-CES1-07",
+    type: "auto",
+    modules: ["security_hub_findings", "access_analyzer_findings"],
+    findingPatterns: [
+      "access key older",
+      "access key rotated",
+      "IAM.3",
+      "IAM.4",
+      "unused",
+      "expired",
+      "inactive"
+    ]
+  },
+  {
+    id: "L3-CES1-08",
+    type: "auto",
+    modules: ["iam_privilege_escalation", "security_hub_findings"],
+    findingPatterns: [
+      "AdministratorAccess",
+      "PowerUserAccess",
+      "IAMFullAccess",
+      "over-permissive",
+      "privilege escalation",
+      "self-grant",
+      "iam:*",
+      "create admin",
+      "Lambda role passing",
+      "CreateAccessKey",
+      "AssumeRole"
+    ]
+  },
+  {
+    id: "L3-CES1-09",
+    type: "auto",
+    modules: ["iam_privilege_escalation", "access_analyzer_findings"],
+    findingPatterns: [
+      "access control",
+      "policy",
+      "privilege escalation",
+      "external access"
+    ]
+  },
+  {
+    id: "L3-CES1-10",
+    type: "auto",
+    modules: ["iam_privilege_escalation", "security_hub_findings"],
+    findingPatterns: [
+      "IAM",
+      "privilege",
+      "access control",
+      "policy",
+      "granularity"
+    ]
+  },
+  {
+    id: "L3-CES1-11",
+    type: "manual",
+    guidance: "\u9700\u5728\u5E94\u7528\u5C42\u5BF9\u654F\u611F\u4FE1\u606F\u8FDB\u884C\u5206\u7C7B\uFF0C\u5229\u7528 Tag \u6216 Metadata \u6807\u8BB0\u6570\u636E\uFF0C\u914D\u5408\u8BBF\u95EE\u63A7\u5236\u7B56\u7565\u7BA1\u63A7"
+  },
+  {
+    id: "L3-CES1-12",
+    type: "auto",
+    modules: ["service_detection", "security_hub_findings", "config_rules_findings"],
+    findingPatterns: ["CloudTrail", "not enabled", "multi-region", "CloudTrail.1", "Config"]
+  },
+  {
+    id: "L3-CES1-13",
+    type: "auto",
+    modules: ["service_detection", "security_hub_findings"],
+    findingPatterns: ["CloudTrail", "audit record", "CloudTrail.1"]
+  },
+  {
+    id: "L3-CES1-14",
+    type: "auto",
+    modules: ["security_hub_findings"],
+    findingPatterns: [
+      "CloudTrail",
+      "S3 bucket",
+      "encryption",
+      "versioning",
+      "CloudTrail.4",
+      "CloudTrail.5",
+      "CloudTrail.6",
+      "CloudTrail.7"
+    ]
+  },
+  {
+    id: "L3-CES1-15",
+    type: "auto",
+    modules: ["security_hub_findings"],
+    findingPatterns: ["CloudTrail", "log file validation", "CloudTrail.4", "CloudTrail.5"]
+  },
+  // Note: L3-CES1-16 does not exist in the standard
+  {
+    id: "L3-CES1-17",
+    type: "auto",
+    modules: ["security_hub_findings", "network_reachability"],
+    findingPatterns: [
+      "unnecessary",
+      "unneeded",
+      "default",
+      "minimum install",
+      "allows all ports",
+      "high-risk port"
+    ]
+  },
+  {
+    id: "L3-CES1-18",
+    type: "auto",
+    modules: ["network_reachability", "security_hub_findings"],
+    findingPatterns: [
+      "allows all ports",
+      "high-risk port",
+      "allows SSH",
+      "allows RDP",
+      "MySQL",
+      "PostgreSQL",
+      "MongoDB",
+      "Redis",
+      "EC2.18",
+      "EC2.19"
+    ]
+  },
+  {
+    id: "L3-CES1-19",
+    type: "auto",
+    modules: ["network_reachability", "security_hub_findings"],
+    findingPatterns: [
+      "allows SSH",
+      "allows RDP",
+      "management",
+      "security group",
+      "EC2.18",
+      "EC2.19"
+    ]
+  },
+  {
+    id: "L3-CES1-20",
+    type: "manual",
+    guidance: "\u9700\u542F\u7528 WAF \u89C4\u5219\u8FDB\u884C\u8F93\u5165\u9A8C\u8BC1\uFF0C\u6216\u5728\u5E94\u7528\u5C42\u5B9E\u73B0\u6570\u636E\u6709\u6548\u6027\u68C0\u9A8C"
+  },
+  {
+    id: "L3-CES1-21",
+    type: "auto",
+    modules: ["inspector_findings", "patch_compliance_findings"],
+    findingPatterns: ["CVE-", "vulnerability", "patch", "Inspector", "missing patch", "non-compliant"]
+  },
+  {
+    id: "L3-CES1-22",
+    type: "auto",
+    modules: ["guardduty_findings", "waf_coverage"],
+    findingPatterns: ["GuardDuty", "WAF", "intrusion", "attack", "alarm"]
+  },
+  {
+    id: "L3-CES1-23",
+    type: "manual",
+    guidance: "\u9700\u5728\u64CD\u4F5C\u7CFB\u7EDF\u5C42\u5B89\u88C5\u7B2C\u4E09\u65B9\u6740\u6BD2\u4EA7\u54C1\uFF1B\u53EF\u7ED3\u5408 GuardDuty \u68C0\u6D4B\u6076\u610F\u884C\u4E3A"
+  },
+  { id: "L3-CES1-24", type: "not_applicable" },
+  {
+    id: "L3-CES1-25",
+    type: "auto",
+    modules: ["ssl_certificate", "security_hub_findings"],
+    findingPatterns: ["HTTPS", "TLS", "certificate", "ELB.1", "integrity", "transport encryption"]
+  },
+  {
+    id: "L3-CES1-26",
+    type: "manual",
+    guidance: "\u9700\u5B89\u88C5\u7B2C\u4E09\u65B9\u9632\u7BE1\u6539\u8F6F\u4EF6\uFF1BS3 \u53EF\u5229\u7528\u5BF9\u8C61\u6821\u9A8C\u786E\u4FDD\u5B8C\u6574\u6027"
+  },
+  {
+    id: "L3-CES1-27",
+    type: "auto",
+    modules: ["ssl_certificate", "security_hub_findings"],
+    findingPatterns: ["HTTPS", "TLS", "certificate", "ELB.1", "encryption in transit"]
+  },
+  {
+    id: "L3-CES1-28",
+    type: "auto",
+    modules: ["security_hub_findings"],
+    findingPatterns: [
+      "no default encryption",
+      "not encrypted",
+      "S3.4",
+      "EC2.7",
+      "RDS.3",
+      "EBS default encryption",
+      "KMS",
+      "storage encryption"
+    ]
+  },
+  {
+    id: "L3-CES1-29",
+    type: "auto",
+    modules: ["disaster_recovery"],
+    findingPatterns: ["backup", "snapshot", "recovery", "EBS snapshot", "RDS snapshot"]
+  },
+  {
+    id: "L3-CES1-30",
+    type: "auto",
+    modules: ["disaster_recovery"],
+    findingPatterns: [
+      "cross-region",
+      "backup",
+      "replication",
+      "Multi-AZ",
+      "S3 versioning",
+      "snapshot"
+    ]
+  },
+  {
+    id: "L3-CES1-31",
+    type: "auto",
+    modules: ["disaster_recovery"],
+    findingPatterns: ["Multi-AZ", "redundancy", "high availability", "backup"]
+  },
+  { id: "L3-CES1-32", type: "cloud_provider", note: "AWS \u5B58\u50A8\u670D\u52A1\u6570\u636E\u6E05\u9664\u7B56\u7565\u8986\u76D6" },
+  { id: "L3-CES1-33", type: "cloud_provider", note: "AWS \u5B58\u50A8\u670D\u52A1\u6570\u636E\u6E05\u9664\u7B56\u7565\u8986\u76D6" },
+  {
+    id: "L3-CES1-34",
+    type: "manual",
+    guidance: "\u5E94\u7528\u4FA7\u884C\u4E3A \u2014 \u9700\u786E\u8BA4\u4EC5\u91C7\u96C6\u548C\u4FDD\u5B58\u4E1A\u52A1\u5FC5\u9700\u7684\u7528\u6237\u4E2A\u4EBA\u4FE1\u606F"
+  },
+  {
+    id: "L3-CES1-35",
+    type: "manual",
+    guidance: "\u5E94\u7528\u4FA7\u884C\u4E3A \u2014 \u9700\u786E\u8BA4\u7981\u6B62\u672A\u6388\u6743\u8BBF\u95EE\u548C\u975E\u6CD5\u4F7F\u7528\u7528\u6237\u4E2A\u4EBA\u4FE1\u606F"
+  },
+  // L3-CES2-* (Cloud extension computing — 19 items)
+  {
+    id: "L3-CES2-01",
+    type: "auto",
+    modules: ["security_hub_findings"],
+    findingPatterns: ["MFA", "IAM.5", "IAM.6", "authentication", "SSH", "RDP"]
+  },
+  { id: "L3-CES2-02", type: "cloud_provider", note: "AWS \u786E\u4FDD VM \u8FC1\u79FB\u65F6\u8BBF\u95EE\u63A7\u5236\u968F\u8FC1" },
+  {
+    id: "L3-CES2-03",
+    type: "auto",
+    modules: ["network_reachability", "security_hub_findings"],
+    findingPatterns: ["security group", "EC2.18", "EC2.19", "allows all ports"]
+  },
+  { id: "L3-CES2-04", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u865A\u62DF\u5316\u8D44\u6E90\u9694\u79BB" },
+  {
+    id: "L3-CES2-05",
+    type: "auto",
+    modules: ["service_detection", "guardduty_findings"],
+    findingPatterns: ["CloudTrail", "GuardDuty", "unauthorized", "RunInstances"]
+  },
+  {
+    id: "L3-CES2-06",
+    type: "manual",
+    guidance: "\u9700\u90E8\u7F72\u7B2C\u4E09\u65B9\u5165\u4FB5\u9632\u8303\u548C\u6740\u6BD2\u4EA7\u54C1\u68C0\u6D4B\u865A\u62DF\u673A\u95F4\u6076\u610F\u4EE3\u7801\u8513\u5EF6"
+  },
+  {
+    id: "L3-CES2-07",
+    type: "manual",
+    guidance: "\u82E5\u4E0D\u4F7F\u7528 AWS \u5B98\u65B9\u955C\u50CF\uFF0C\u9700\u81EA\u884C\u52A0\u56FA\u64CD\u4F5C\u7CFB\u7EDF"
+  },
+  {
+    id: "L3-CES2-08",
+    type: "manual",
+    guidance: "\u82E5\u4E0D\u4F7F\u7528 AWS \u5B98\u65B9\u955C\u50CF\uFF0C\u9700\u81EA\u884C\u6821\u9A8C\u955C\u50CF\u548C\u5FEB\u7167\u5B8C\u6574\u6027"
+  },
+  {
+    id: "L3-CES2-09",
+    type: "auto",
+    modules: ["security_hub_findings"],
+    findingPatterns: [
+      "not encrypted",
+      "EBS default encryption",
+      "EC2.7",
+      "snapshot",
+      "KMS",
+      "encryption"
+    ]
+  },
+  { id: "L3-CES2-10", type: "cloud_provider", note: "AWS \u4E2D\u56FD\u533A\u6570\u636E\u5B58\u50A8\u4E8E\u4E2D\u56FD\u5883\u5185" },
+  { id: "L3-CES2-11", type: "cloud_provider", note: "AWS \u4EC5\u5728\u5BA2\u6237\u6388\u6743\u4E0B\u7BA1\u7406\u6570\u636E" },
+  { id: "L3-CES2-12", type: "cloud_provider", note: "AWS \u786E\u4FDD VM \u8FC1\u79FB\u6570\u636E\u5B8C\u6574\u6027" },
+  {
+    id: "L3-CES2-13",
+    type: "auto",
+    modules: ["security_hub_findings"],
+    findingPatterns: ["KMS", "encryption", "key management", "CMK"]
+  },
+  { id: "L3-CES2-14", type: "not_applicable" },
+  { id: "L3-CES2-15", type: "cloud_provider", note: "AWS \u652F\u6301\u67E5\u8BE2\u6570\u636E\u53CA\u5907\u4EFD\u5B58\u50A8\u4F4D\u7F6E" },
+  { id: "L3-CES2-16", type: "cloud_provider", note: "AWS \u5B58\u50A8\u670D\u52A1\u4FDD\u8BC1\u591A\u526F\u672C\u4E00\u81F4" },
+  { id: "L3-CES2-17", type: "not_applicable" },
+  { id: "L3-CES2-18", type: "cloud_provider", note: "AWS \u786E\u4FDD VM \u5185\u5B58\u548C\u5B58\u50A8\u7A7A\u95F4\u56DE\u6536\u65F6\u5B8C\u5168\u6E05\u9664" },
+  { id: "L3-CES2-19", type: "cloud_provider", note: "AWS \u786E\u4FDD\u5220\u9664\u6570\u636E\u65F6\u6E05\u9664\u6240\u6709\u526F\u672C" },
+  // L3-CES3-* (Mobile — N/A)
+  { id: "L3-CES3-01", type: "not_applicable" },
+  { id: "L3-CES3-02", type: "not_applicable" },
+  { id: "L3-CES3-03", type: "not_applicable" },
+  { id: "L3-CES3-04", type: "not_applicable" },
+  { id: "L3-CES3-05", type: "not_applicable" },
+  // L3-CES4-* (IoT sensor/gateway — N/A)
+  { id: "L3-CES4-01", type: "not_applicable" },
+  { id: "L3-CES4-02", type: "not_applicable" },
+  { id: "L3-CES4-03", type: "not_applicable" },
+  { id: "L3-CES4-04", type: "not_applicable" },
+  { id: "L3-CES4-05", type: "not_applicable" },
+  { id: "L3-CES4-06", type: "not_applicable" },
+  { id: "L3-CES4-07", type: "not_applicable" },
+  { id: "L3-CES4-08", type: "not_applicable" },
+  { id: "L3-CES4-09", type: "not_applicable" },
+  { id: "L3-CES4-10", type: "not_applicable" },
+  { id: "L3-CES4-11", type: "not_applicable" },
+  // L3-CES5-* (Industrial control — N/A)
+  { id: "L3-CES5-01", type: "not_applicable" },
+  { id: "L3-CES5-02", type: "not_applicable" },
+  { id: "L3-CES5-03", type: "not_applicable" },
+  { id: "L3-CES5-04", type: "not_applicable" },
+  { id: "L3-CES5-05", type: "not_applicable" },
+  // =========================================================================
+  // 安全管理中心 — L3-SMC1-* (12 items)
+  // =========================================================================
+  {
+    id: "L3-SMC1-01",
+    type: "auto",
+    modules: ["iam_privilege_escalation", "security_hub_findings"],
+    findingPatterns: ["IAM", "administrator", "authentication", "root", "MFA"]
+  },
+  {
+    id: "L3-SMC1-02",
+    type: "auto",
+    modules: ["security_hub_findings", "config_rules_findings"],
+    findingPatterns: ["Config", "resource configuration", "IAM", "CloudFormation"]
+  },
+  {
+    id: "L3-SMC1-03",
+    type: "auto",
+    modules: ["iam_privilege_escalation", "security_hub_findings"],
+    findingPatterns: ["IAM", "administrator", "audit", "root", "MFA"]
+  },
+  {
+    id: "L3-SMC1-04",
+    type: "auto",
+    modules: ["service_detection", "security_hub_findings"],
+    findingPatterns: ["CloudTrail", "audit", "analysis", "CloudTrail.1"]
+  },
+  {
+    id: "L3-SMC1-05",
+    type: "auto",
+    modules: ["iam_privilege_escalation", "security_hub_findings"],
+    findingPatterns: ["IAM", "administrator", "security", "root", "MFA"]
+  },
+  {
+    id: "L3-SMC1-06",
+    type: "auto",
+    modules: ["iam_privilege_escalation", "security_hub_findings"],
+    findingPatterns: ["IAM", "policy", "security parameter", "access control"]
+  },
+  {
+    id: "L3-SMC1-07",
+    type: "auto",
+    modules: ["security_hub_findings", "service_detection"],
+    findingPatterns: ["Security Hub", "Firewall Manager", "centralized", "management"]
+  },
+  {
+    id: "L3-SMC1-08",
+    type: "auto",
+    modules: ["ssl_certificate", "security_hub_findings"],
+    findingPatterns: ["HTTPS", "TLS", "certificate", "ELB.1", "encryption"]
+  },
+  {
+    id: "L3-SMC1-09",
+    type: "auto",
+    modules: ["service_detection"],
+    findingPatterns: ["CloudWatch", "monitoring", "centralized"]
+  },
+  {
+    id: "L3-SMC1-10",
+    type: "auto",
+    modules: ["service_detection", "security_hub_findings"],
+    findingPatterns: ["CloudTrail", "centralized", "audit", "analysis"]
+  },
+  {
+    id: "L3-SMC1-11",
+    type: "manual",
+    guidance: "\u9700\u90E8\u7F72\u7B2C\u4E09\u65B9\u9632\u5165\u4FB5\u548C\u9632\u75C5\u6BD2\u4EA7\u54C1\u8FDB\u884C\u5B89\u5168\u7B56\u7565\u3001\u6076\u610F\u4EE3\u7801\u3001\u8865\u4E01\u5347\u7EA7\u96C6\u4E2D\u7BA1\u7406"
+  },
+  {
+    id: "L3-SMC1-12",
+    type: "auto",
+    modules: ["guardduty_findings", "security_hub_findings"],
+    findingPatterns: ["GuardDuty", "Security Hub", "alarm", "alert", "security event"]
+  },
+  // L3-SMC2-* (Cloud extension management center — 4 items)
+  { id: "L3-SMC2-01", type: "cloud_provider", note: "AWS \u8D1F\u8D23\u7EDF\u4E00\u7BA1\u7406\u8C03\u5EA6\u548C\u5206\u914D" },
+  { id: "L3-SMC2-02", type: "cloud_provider", note: "AWS \u786E\u4FDD\u7BA1\u7406\u6D41\u91CF\u4E0E\u4E1A\u52A1\u6D41\u91CF\u5206\u79BB" },
+  { id: "L3-SMC2-03", type: "cloud_provider", note: "AWS \u57FA\u4E8E\u8D23\u4EFB\u5171\u62C5\u6A21\u578B\u5B9E\u73B0\u96C6\u4E2D\u5BA1\u8BA1" },
+  { id: "L3-SMC2-04", type: "cloud_provider", note: "AWS \u57FA\u4E8E\u8D23\u4EFB\u5171\u62C5\u6A21\u578B\u5B9E\u73B0\u96C6\u4E2D\u76D1\u6D4B" }
+];
+var _mappingIndex = /* @__PURE__ */ new Map();
+for (const m of MLPS3_CHECK_MAPPING) {
+  _mappingIndex.set(m.id, m);
+}
+function getMappingById(id) {
+  return _mappingIndex.get(id);
+}
+
 // src/tools/mlps-report.ts
+function evaluateFullCheck(item, mapping, allFindings, scanModules) {
+  if (mapping.type === "cloud_provider") {
+    return { item, mapping, status: "cloud_provider", relatedFindings: [] };
+  }
+  if (mapping.type === "not_applicable") {
+    return { item, mapping, status: "not_applicable", relatedFindings: [] };
+  }
+  if (mapping.type === "manual") {
+    return { item, mapping, status: "manual", relatedFindings: [] };
+  }
+  const mods = mapping.modules ?? [];
+  const patterns = mapping.findingPatterns ?? [];
+  const allModulesPresent = mods.every(
+    (mod) => scanModules.some((m) => m.module === mod && m.status === "success")
+  );
+  if (!allModulesPresent) {
+    return { item, mapping, status: "unknown", relatedFindings: [] };
+  }
+  const relatedFindings = allFindings.filter((f) => {
+    const moduleMatch = mods.some((mod) => f.module === mod);
+    if (!moduleMatch) return false;
+    const text = `${f.title} ${f.description}`.toLowerCase();
+    return patterns.some((pattern) => text.includes(pattern.toLowerCase()));
+  });
+  return {
+    item,
+    mapping,
+    status: relatedFindings.length === 0 ? "pass" : "fail",
+    relatedFindings
+  };
+}
+function evaluateAllFullChecks(scanResults) {
+  const allFindings = scanResults.modules.flatMap(
+    (m) => m.findings.map((f) => ({ ...f, module: f.module ?? m.module }))
+  );
+  const scanModules = scanResults.modules.map((m) => ({
+    module: m.module,
+    status: m.status
+  }));
+  return MLPS3_FULL_CHECKLIST.map((item) => {
+    const mapping = getMappingById(item.id);
+    if (!mapping) {
+      return {
+        item,
+        mapping: { id: item.id, type: "manual", guidance: "\u672A\u6620\u5C04\u7684\u68C0\u67E5\u9879" },
+        status: "manual",
+        relatedFindings: []
+      };
+    }
+    return evaluateFullCheck(item, mapping, allFindings, scanModules);
+  });
+}
 var MLPS_CHECKS = [
   // 一、身份鉴别
   {
@@ -5225,21 +8118,16 @@ function generateMlps3HtmlReport(scanResults, history) {
   const { accountId, region, scanStart } = scanResults;
   const date = scanStart.split("T")[0];
   const scanTime = scanStart.replace("T", " ").replace(/\.\d+Z$/, " UTC");
-  const allFindings = scanResults.modules.flatMap(
-    (m) => m.findings.map((f) => ({ ...f, module: f.module ?? m.module }))
-  );
-  const scanModules = scanResults.modules.map((m) => ({
-    module: m.module,
-    status: m.status
-  }));
-  const results = MLPS_CHECKS.map(
-    (check) => evaluateCheck(check, allFindings, scanModules)
-  );
-  const passCount = results.filter((r) => r.status === "pass").length;
-  const failCount = results.filter((r) => r.status === "fail").length;
-  const unknownCount = results.filter((r) => r.status === "unknown").length;
-  const checkedTotal = passCount + failCount;
-  const percent = checkedTotal > 0 ? Math.round(passCount / checkedTotal * 100) : 0;
+  const results = evaluateAllFullChecks(scanResults);
+  const autoResults = results.filter((r) => r.mapping.type === "auto");
+  const autoPass = autoResults.filter((r) => r.status === "pass").length;
+  const autoFail = autoResults.filter((r) => r.status === "fail").length;
+  const autoUnknown = autoResults.filter((r) => r.status === "unknown").length;
+  const cloudCount = results.filter((r) => r.status === "cloud_provider").length;
+  const manualCount = results.filter((r) => r.status === "manual").length;
+  const naCount = results.filter((r) => r.status === "not_applicable").length;
+  const checkedTotal = autoPass + autoFail;
+  const percent = checkedTotal > 0 ? Math.round(autoPass / checkedTotal * 100) : 0;
   let trendHtml = "";
   if (history && history.length >= 2) {
     trendHtml = `
@@ -5255,65 +8143,96 @@ function generateMlps3HtmlReport(scanResults, history) {
       </div>
     </section>`;
   }
-  const categorySections = CATEGORY_ORDER.map((category) => {
-    const sectionTitle = CATEGORY_SECTION[category];
-    const categoryResults = results.filter(
-      (r) => r.check.category === category
-    );
-    if (categoryResults.length === 0) return "";
-    const catPass = categoryResults.filter((r) => r.status === "pass").length;
-    const catFail = categoryResults.filter((r) => r.status === "fail").length;
-    const catUnknown = categoryResults.filter(
-      (r) => r.status === "unknown"
-    ).length;
-    const byId = /* @__PURE__ */ new Map();
-    for (const r of categoryResults) {
-      const existing = byId.get(r.check.id) ?? [];
-      existing.push(r);
-      byId.set(r.check.id, existing);
-    }
-    const groups = [...byId.entries()].map(([checkId, checkResults]) => {
-      const grpPass = checkResults.filter((r) => r.status === "pass").length;
-      const grpFail = checkResults.filter((r) => r.status === "fail").length;
-      const grpUnknown = checkResults.filter((r) => r.status === "unknown").length;
-      const items = checkResults.map((r) => {
-        const icon = r.status === "pass" ? "&#10004;" : r.status === "fail" ? "&#10008;" : "&#9888;";
-        const cls = `check-${r.status}`;
-        const label = r.status === "unknown" ? " (\u672A\u68C0\u67E5)" : "";
-        let findingsHtml = "";
-        if (r.status === "fail" && r.relatedFindings.length > 0) {
-          const items2 = r.relatedFindings.slice(0, 3).map(
-            (f) => `<li>${esc(f.severity)}: ${esc(f.title)}</li>`
-          );
-          if (r.relatedFindings.length > 3) {
-            items2.push(
-              `<li>... \u53CA\u5176\u4ED6 ${r.relatedFindings.length - 3} \u9879</li>`
-            );
-          }
-          findingsHtml = `<ul class="check-findings">${items2.join("")}</ul>`;
-        }
-        return `<div class="check-item ${cls}"><span class="check-icon">${icon}</span><span class="check-name">${esc(r.check.name)}${label}</span></div>${findingsHtml}`;
-      }).join("\n");
-      const statusBadges = [
-        grpPass > 0 ? `<span class="category-stat-pass">&#10003; ${grpPass}</span>` : "",
-        grpFail > 0 ? `<span class="category-stat-fail">&#10007; ${grpFail}</span>` : "",
-        grpUnknown > 0 ? `<span class="category-stat-unknown">? ${grpUnknown}</span>` : ""
-      ].filter(Boolean).join(" ");
-      return `<details class="severity-group-fold"><summary><h4>${esc(checkId)} ${esc(checkResults[0].check.name)} <span class="category-stats">${statusBadges}</span></h4></summary>
-${items}
+  const categoryMap = /* @__PURE__ */ new Map();
+  for (const r of results) {
+    if (r.status === "not_applicable") continue;
+    const cat = r.item.categoryCn;
+    if (!categoryMap.has(cat)) categoryMap.set(cat, []);
+    categoryMap.get(cat).push(r);
+  }
+  const categorySections = MLPS3_CATEGORY_ORDER.map((category) => {
+    const sectionTitle = MLPS3_CATEGORY_SECTION[category];
+    const catResults = categoryMap.get(category);
+    if (!catResults || catResults.length === 0) return "";
+    const allCloud = catResults.every((r) => r.status === "cloud_provider");
+    if (allCloud) {
+      return `<details class="category-fold mlps-cloud-section">
+  <summary>
+    <span class="category-title">${esc(sectionTitle)}</span>
+    <span class="category-stats"><span class="category-stat-cloud">\u{1F3E2} ${catResults.length} \u9879\u4E91\u5E73\u53F0\u8D1F\u8D23\uFF08\u7B26\u5408\uFF09</span></span>
+  </summary>
+  <div class="category-body">
+    <div class="mlps-cloud-note">\u4EE5\u4E0B ${catResults.length} \u9879\u7531 AWS \u4E91\u5E73\u53F0\u8D1F\u8D23\uFF0C\u6839\u636E\u5B89\u5168\u8D23\u4EFB\u5171\u62C5\u6A21\u578B\u8BC4\u4F30\u4E3A\u7B26\u5408\u3002</div>
+    ${catResults.map((r) => `<div class="check-item check-cloud"><span class="check-icon">\u{1F3E2}</span><span class="check-name">${esc(r.item.id)} ${esc(r.item.controlCn)}</span><span class="check-note">${esc(r.mapping.note ?? "")}</span></div>`).join("\n")}
+  </div>
 </details>`;
-    }).join("\n");
+    }
+    const catPass = catResults.filter((r) => r.status === "pass").length;
+    const catFail = catResults.filter((r) => r.status === "fail").length;
+    const catUnknown = catResults.filter((r) => r.status === "unknown").length;
+    const catCloud = catResults.filter((r) => r.status === "cloud_provider").length;
+    const catManual = catResults.filter((r) => r.status === "manual").length;
     const statsHtml = [
       catPass > 0 ? `<span class="category-stat-pass">&#10003; ${catPass}</span>` : "",
       catFail > 0 ? `<span class="category-stat-fail">&#10007; ${catFail}</span>` : "",
-      catUnknown > 0 ? `<span class="category-stat-unknown">? ${catUnknown}</span>` : ""
+      catUnknown > 0 ? `<span class="category-stat-unknown">? ${catUnknown}</span>` : "",
+      catCloud > 0 ? `<span class="category-stat-cloud">\u{1F3E2} ${catCloud}</span>` : "",
+      catManual > 0 ? `<span class="category-stat-manual">\u{1F4CB} ${catManual}</span>` : ""
     ].filter(Boolean).join("");
+    const controlMap = /* @__PURE__ */ new Map();
+    for (const r of catResults) {
+      const key = r.item.controlCn;
+      if (!controlMap.has(key)) controlMap.set(key, []);
+      controlMap.get(key).push(r);
+    }
+    const controlGroups = [...controlMap.entries()].map(([controlName, controlResults]) => {
+      const cloudItems = controlResults.filter((r) => r.status === "cloud_provider");
+      const nonCloudItems = controlResults.filter((r) => r.status !== "cloud_provider");
+      let itemsHtml = "";
+      for (const r of nonCloudItems) {
+        const icon = r.status === "pass" ? "&#10004;" : r.status === "fail" ? "&#10008;" : r.status === "unknown" ? "&#9888;" : r.status === "manual" ? "&#128203;" : "&#127970;";
+        const cls = `check-${r.status === "cloud_provider" ? "cloud" : r.status}`;
+        const suffix = r.status === "unknown" ? " (\u672A\u68C0\u67E5)" : r.status === "manual" ? ` \u2014 ${esc(r.mapping.guidance ?? "\u9700\u4EBA\u5DE5\u8BC4\u4F30")}` : "";
+        let findingsDetail = "";
+        if (r.status === "fail" && r.relatedFindings.length > 0) {
+          const fItems = r.relatedFindings.slice(0, 3).map((f) => `<li>${esc(f.severity)}: ${esc(f.title)}</li>`);
+          if (r.relatedFindings.length > 3) {
+            fItems.push(`<li>... \u53CA\u5176\u4ED6 ${r.relatedFindings.length - 3} \u9879</li>`);
+          }
+          findingsDetail = `<div class="check-findings-wrap"><ul class="check-findings">${fItems.join("")}</ul></div>`;
+        }
+        itemsHtml += `<div class="check-item ${cls}"><span class="check-icon">${icon}</span><span class="check-name">${esc(r.item.id)} ${esc(r.item.requirementCn.slice(0, 60))}${r.item.requirementCn.length > 60 ? "\u2026" : ""}${suffix}</span></div>
+${findingsDetail}`;
+      }
+      if (cloudItems.length > 0) {
+        for (const r of cloudItems) {
+          itemsHtml += `<div class="check-item check-cloud"><span class="check-icon">\u{1F3E2}</span><span class="check-name">${esc(r.item.id)} ${esc(r.item.requirementCn.slice(0, 50))}${r.item.requirementCn.length > 50 ? "\u2026" : ""}</span><span class="check-note">\u4E91\u5E73\u53F0\u8D1F\u8D23</span></div>
+`;
+        }
+      }
+      const grpPass = controlResults.filter((r) => r.status === "pass").length;
+      const grpFail = controlResults.filter((r) => r.status === "fail").length;
+      const grpUnknown = controlResults.filter((r) => r.status === "unknown").length;
+      const grpCloud = controlResults.filter((r) => r.status === "cloud_provider").length;
+      const grpManual = controlResults.filter((r) => r.status === "manual").length;
+      const grpStats = [
+        grpPass > 0 ? `<span class="category-stat-pass">&#10003; ${grpPass}</span>` : "",
+        grpFail > 0 ? `<span class="category-stat-fail">&#10007; ${grpFail}</span>` : "",
+        grpUnknown > 0 ? `<span class="category-stat-unknown">? ${grpUnknown}</span>` : "",
+        grpCloud > 0 ? `<span class="category-stat-cloud">\u{1F3E2} ${grpCloud}</span>` : "",
+        grpManual > 0 ? `<span class="category-stat-manual">\u{1F4CB} ${grpManual}</span>` : ""
+      ].filter(Boolean).join(" ");
+      const hasFailures = grpFail > 0;
+      return `<details class="severity-group-fold"${hasFailures ? " open" : ""}><summary><h4>${esc(controlName)} <span class="category-stats">${grpStats}</span></h4></summary>
+${itemsHtml}
+</details>`;
+    }).join("\n");
     return `<details class="category-fold">
   <summary>
     <span class="category-title">${esc(sectionTitle)}</span>
     <span class="category-stats">${statsHtml}</span>
   </summary>
-  <div class="category-body">${groups}</div>
+  <div class="category-body">${controlGroups}</div>
 </details>`;
   }).filter(Boolean).join("\n");
   const failedResults = results.filter((r) => r.status === "fail");
@@ -5339,56 +8258,83 @@ ${items}
       if (sevDiff !== 0) return sevDiff;
       return b.count - a.count;
     });
-    const renderMlpsRec = (r) => {
-      const sev = r.severity.toLowerCase();
-      const countLabel = r.count > 1 ? ` (&times; ${r.count})` : "";
-      return `<li><span class="badge badge-${esc(sev)}">${esc(r.severity)}</span> ${esc(r.text)}${countLabel}</li>`;
-    };
-    const MLPS_TOP_N = 10;
-    const mlpsTopItems = mlpsUniqueRecs.slice(0, MLPS_TOP_N).map(renderMlpsRec).join("\n");
-    const mlpsRemaining = mlpsUniqueRecs.slice(MLPS_TOP_N);
-    const mlpsMoreHtml = mlpsRemaining.length > 0 ? `
+    if (mlpsUniqueRecs.length > 0) {
+      const renderMlpsRec = (r) => {
+        const sev = r.severity.toLowerCase();
+        const countLabel = r.count > 1 ? ` (&times; ${r.count})` : "";
+        return `<li><span class="badge badge-${esc(sev)}">${esc(r.severity)}</span> ${esc(r.text)}${countLabel}</li>`;
+      };
+      const MLPS_TOP_N = 10;
+      const mlpsTopItems = mlpsUniqueRecs.slice(0, MLPS_TOP_N).map(renderMlpsRec).join("\n");
+      const mlpsRemaining = mlpsUniqueRecs.slice(MLPS_TOP_N);
+      const mlpsMoreHtml = mlpsRemaining.length > 0 ? `
 <details><summary>\u663E\u793A\u5176\u4F59 ${mlpsRemaining.length} \u9879&hellip;</summary>
 ${mlpsRemaining.map(renderMlpsRec).join("\n")}
 </details>` : "";
-    remediationHtml = `
-      <details class="rec-fold">
-        <summary><h2 style="margin:0;border:0;display:inline">\u5EFA\u8BAE\u6574\u6539\u9879\uFF08${mlpsUniqueRecs.length} \u9879\u53BB\u91CD\uFF09</h2></summary>
-        <div class="rec-body">
-          <ol>${mlpsTopItems}${mlpsMoreHtml}</ol>
-        </div>
-      </details>`;
+      remediationHtml = `
+        <details class="rec-fold" open>
+          <summary><h2 style="margin:0;border:0;display:inline">\u5EFA\u8BAE\u6574\u6539\u9879\uFF08${mlpsUniqueRecs.length} \u9879\u53BB\u91CD\uFF09</h2></summary>
+          <div class="rec-body">
+            <ol>${mlpsTopItems}${mlpsMoreHtml}</ol>
+          </div>
+        </details>`;
+    }
   }
+  const naNote = naCount > 0 ? `<p style="color:#64748b;font-size:13px;margin-top:24px">\u4E0D\u9002\u7528\u9879: ${naCount} \u9879\uFF08\u7269\u8054\u7F51/\u65E0\u7EBF\u7F51\u7EDC/\u79FB\u52A8\u7EC8\u7AEF/\u5DE5\u63A7\u7CFB\u7EDF/\u53EF\u4FE1\u9A8C\u8BC1\u7B49\uFF09</p>` : "";
   const passRateColor = percent >= 80 ? "#22c55e" : percent >= 50 ? "#eab308" : "#ef4444";
-  const unknownNote = unknownCount > 0 ? `<div style="color:#94a3b8;font-size:12px;margin-top:8px">\uFF08\u672A\u68C0\u67E5\u9879\u4E0D\u8BA1\u5165\u901A\u8FC7\u7387\uFF09</div>` : "";
+  const unknownNote = autoUnknown > 0 ? `<div style="color:#94a3b8;font-size:12px;margin-top:8px">\uFF08\u672A\u68C0\u67E5\u9879\u4E0D\u8BA1\u5165\u901A\u8FC7\u7387\uFF09</div>` : "";
+  const mlpsCss = `
+    .mlps-cloud-section>summary{color:#94a3b8}
+    .mlps-cloud-note{color:#94a3b8;font-size:13px;margin-bottom:12px;font-style:italic}
+    .check-cloud{background:rgba(148,163,184,0.08)}
+    .check-cloud .check-note{color:#64748b;font-size:12px;margin-left:auto;white-space:nowrap}
+    .check-manual{background:rgba(148,163,184,0.06)}
+    .check-pass{background:rgba(34,197,94,0.1)}
+    .check-fail{background:rgba(239,68,68,0.1)}
+    .check-unknown{background:rgba(148,163,184,0.1)}
+    .check-findings-wrap{margin-left:28px;margin-bottom:4px}
+    .category-stat-cloud{color:#94a3b8}
+    .category-stat-manual{color:#94a3b8}
+    .mlps-summary-cards{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:32px}
+    .mlps-summary-card{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px 20px;text-align:center;min-width:100px;flex:1}
+    .mlps-summary-card .stat-count{font-size:28px;font-weight:700}
+    .mlps-summary-card .stat-label{font-size:12px;color:#94a3b8;margin-top:2px}
+  `;
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>\u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0\u62A5\u544A &mdash; ${esc(date)}</title>
-<style>${sharedCss()}</style>
+<style>${sharedCss()}${mlpsCss}</style>
 </head>
 <body>
 <div class="container">
 
 <header>
   <h1>&#128737;&#65039; \u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0\u62A5\u544A</h1>
-  <div class="disclaimer">\u672C\u62A5\u544A\u4E3A\u7B49\u4FDD\u9884\u68C0\u53C2\u8003\uFF0C\u4EC5\u8986\u76D6 AWS \u4E91\u5E73\u53F0\u914D\u7F6E\u68C0\u67E5\u3002\u5B8C\u6574\u7B49\u4FDD\u6D4B\u8BC4\u9700\u7531\u6301\u8BC1\u6D4B\u8BC4\u673A\u6784\u6267\u884C\u3002</div>
+  <div class="disclaimer">\u672C\u62A5\u544A\u57FA\u4E8E GB/T 22239-2019 \u5B8C\u6574\u68C0\u67E5\u6E05\u5355\uFF08184 \u9879\uFF09\uFF0C\u4EC5\u8986\u76D6 AWS \u4E91\u5E73\u53F0\u914D\u7F6E\u68C0\u67E5\u3002\u5B8C\u6574\u7B49\u4FDD\u6D4B\u8BC4\u9700\u7531\u6301\u8BC1\u6D4B\u8BC4\u673A\u6784\u6267\u884C\u3002</div>
   <div class="meta">\u8D26\u6237: ${esc(accountId)} | \u533A\u57DF: ${esc(region)} | \u626B\u63CF\u65F6\u95F4: ${esc(scanTime)}</div>
 </header>
 
 <section class="summary">
   <div class="score-card">
     <div class="score-value" style="color:${passRateColor}">${percent}%</div>
-    <div class="score-label">\u901A\u8FC7\u7387</div>
+    <div class="score-label">\u81EA\u52A8\u68C0\u67E5\u901A\u8FC7\u7387</div>
   </div>
   <div class="severity-stats">
-    <div class="stat-card" style="border-color:#22c55e30"><div class="stat-count" style="color:#22c55e">${passCount}</div><div class="stat-label">\u901A\u8FC7</div></div>
-    <div class="stat-card" style="border-color:#ef444430"><div class="stat-count" style="color:#ef4444">${failCount}</div><div class="stat-label">\u4E0D\u901A\u8FC7</div></div>
-    ${unknownCount > 0 ? `<div class="stat-card" style="border-color:#94a3b830"><div class="stat-count" style="color:#94a3b8">${unknownCount}</div><div class="stat-label">\u672A\u68C0\u67E5</div></div>` : ""}
+    <div class="stat-card" style="border-color:#22c55e30"><div class="stat-count" style="color:#22c55e">${autoPass}</div><div class="stat-label">\u81EA\u52A8\u901A\u8FC7</div></div>
+    <div class="stat-card" style="border-color:#ef444430"><div class="stat-count" style="color:#ef4444">${autoFail}</div><div class="stat-label">\u81EA\u52A8\u4E0D\u901A\u8FC7</div></div>
+    ${autoUnknown > 0 ? `<div class="stat-card" style="border-color:#94a3b830"><div class="stat-count" style="color:#94a3b8">${autoUnknown}</div><div class="stat-label">\u672A\u68C0\u67E5</div></div>` : ""}
   </div>
 </section>
+
+<div class="mlps-summary-cards">
+  <div class="mlps-summary-card"><div class="stat-count" style="color:#22c55e">${autoResults.length}</div><div class="stat-label">\u81EA\u52A8\u68C0\u67E5 (${autoPass} \u901A\u8FC7 / ${autoFail} \u4E0D\u901A\u8FC7${autoUnknown > 0 ? ` / ${autoUnknown} \u672A\u68C0\u67E5` : ""})</div></div>
+  <div class="mlps-summary-card"><div class="stat-count" style="color:#94a3b8">${cloudCount}</div><div class="stat-label">\u4E91\u5E73\u53F0\u8D1F\u8D23</div></div>
+  <div class="mlps-summary-card"><div class="stat-count" style="color:#eab308">${manualCount}</div><div class="stat-label">\u9700\u4EBA\u5DE5\u8BC4\u4F30</div></div>
+  <div class="mlps-summary-card"><div class="stat-count" style="color:#64748b">${naCount}</div><div class="stat-label">\u4E0D\u9002\u7528</div></div>
+</div>
 ${unknownNote}
 
 ${trendHtml}
@@ -5398,6 +8344,8 @@ ${buildServiceReminderHtml(scanResults.modules)}
 ${categorySections}
 
 ${remediationHtml}
+
+${naNote}
 
 <footer>
   <p>\u7531 AWS Security MCP Server v${VERSION} \u751F\u6210</p>

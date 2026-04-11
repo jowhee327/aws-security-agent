@@ -1,4 +1,114 @@
 import type { FullScanResult, Finding } from "../types.js";
+import {
+  MLPS3_FULL_CHECKLIST,
+  MLPS3_CHECK_MAPPING,
+  getMappingById,
+  type MlpsChecklistItem,
+  type MlpsCheckMapping,
+} from "../data/mlps3-check-mapping.js";
+
+// Re-export for use by html-report and tests
+export {
+  MLPS3_FULL_CHECKLIST,
+  MLPS3_CHECK_MAPPING,
+  MLPS3_CATEGORY_ORDER,
+  MLPS3_CATEGORY_SECTION,
+  getMappingById,
+  type MlpsChecklistItem,
+  type MlpsCheckMapping,
+} from "../data/mlps3-check-mapping.js";
+
+// ---------------------------------------------------------------------------
+// Full-checklist evaluation result
+// ---------------------------------------------------------------------------
+
+export type FullCheckStatus = "pass" | "fail" | "unknown" | "cloud_provider" | "manual" | "not_applicable";
+
+export interface FullCheckResult {
+  item: MlpsChecklistItem;
+  mapping: MlpsCheckMapping;
+  status: FullCheckStatus;
+  relatedFindings: Finding[];
+}
+
+/**
+ * Evaluate a single checklist item against scan results.
+ */
+export function evaluateFullCheck(
+  item: MlpsChecklistItem,
+  mapping: MlpsCheckMapping,
+  allFindings: Finding[],
+  scanModules: Array<{ module: string; status: string }>,
+): FullCheckResult {
+  if (mapping.type === "cloud_provider") {
+    return { item, mapping, status: "cloud_provider", relatedFindings: [] };
+  }
+  if (mapping.type === "not_applicable") {
+    return { item, mapping, status: "not_applicable", relatedFindings: [] };
+  }
+  if (mapping.type === "manual") {
+    return { item, mapping, status: "manual", relatedFindings: [] };
+  }
+
+  // Type "auto" — check modules present and evaluate findings
+  const mods = mapping.modules ?? [];
+  const patterns = mapping.findingPatterns ?? [];
+
+  const allModulesPresent = mods.every((mod) =>
+    scanModules.some((m) => m.module === mod && m.status === "success"),
+  );
+
+  if (!allModulesPresent) {
+    return { item, mapping, status: "unknown", relatedFindings: [] };
+  }
+
+  const relatedFindings = allFindings.filter((f) => {
+    const moduleMatch = mods.some((mod) => f.module === mod);
+    if (!moduleMatch) return false;
+    const text = `${f.title} ${f.description}`.toLowerCase();
+    return patterns.some((pattern) => text.includes(pattern.toLowerCase()));
+  });
+
+  return {
+    item,
+    mapping,
+    status: relatedFindings.length === 0 ? "pass" : "fail",
+    relatedFindings,
+  };
+}
+
+/**
+ * Evaluate all 184 checks from the full GB/T 22239-2019 checklist.
+ */
+export function evaluateAllFullChecks(
+  scanResults: FullScanResult,
+): FullCheckResult[] {
+  const allFindings: Finding[] = scanResults.modules.flatMap((m) =>
+    m.findings.map((f) => ({ ...f, module: f.module ?? m.module })),
+  );
+  const scanModules = scanResults.modules.map((m) => ({
+    module: m.module,
+    status: m.status,
+  }));
+
+  return MLPS3_FULL_CHECKLIST.map((item) => {
+    const mapping = getMappingById(item.id);
+    if (!mapping) {
+      // Unmapped check — treat as manual
+      return {
+        item,
+        mapping: { id: item.id, type: "manual" as const, guidance: "未映射的检查项" },
+        status: "manual" as FullCheckStatus,
+        relatedFindings: [],
+      };
+    }
+    return evaluateFullCheck(item, mapping, allFindings, scanModules);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Legacy types and exports (kept for backward compatibility)
+// ---------------------------------------------------------------------------
 
 export interface MlpsCheck {
   id: string;
