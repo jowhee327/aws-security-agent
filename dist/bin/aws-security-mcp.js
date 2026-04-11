@@ -17226,6 +17226,470 @@ var TrustedAdvisorFindingsScanner = class {
   }
 };
 
+// src/scanners/config-rules-findings.ts
+import {
+  ConfigServiceClient as ConfigServiceClient2,
+  DescribeComplianceByConfigRuleCommand,
+  GetComplianceDetailsByConfigRuleCommand
+} from "@aws-sdk/client-config-service";
+var SECURITY_RULE_PATTERNS = [
+  "securitygroup",
+  "security-group",
+  "encryption",
+  "encrypted",
+  "public",
+  "unrestricted",
+  "mfa",
+  "password",
+  "access-key",
+  "root",
+  "admin",
+  "logging",
+  "cloudtrail",
+  "iam",
+  "kms",
+  "ssl",
+  "tls",
+  "vpc-flow",
+  "guardduty",
+  "securityhub"
+];
+function ruleIsSecurityRelated(ruleName) {
+  const lower = ruleName.toLowerCase();
+  return SECURITY_RULE_PATTERNS.some((pat) => lower.includes(pat));
+}
+var ConfigRulesFindingsScanner = class {
+  moduleName = "config_rules_findings";
+  async scan(ctx) {
+    const { region, partition, accountId } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    let resourcesScanned = 0;
+    try {
+      const client = createClient(ConfigServiceClient2, region, ctx.credentials);
+      let nextToken;
+      const nonCompliantRules = [];
+      do {
+        const resp = await client.send(
+          new DescribeComplianceByConfigRuleCommand({ NextToken: nextToken })
+        );
+        for (const rule of resp.ComplianceByConfigRules ?? []) {
+          resourcesScanned++;
+          if (rule.Compliance?.ComplianceType === "NON_COMPLIANT") {
+            nonCompliantRules.push(rule);
+          }
+        }
+        nextToken = resp.NextToken;
+      } while (nextToken);
+      if (resourcesScanned === 0) {
+        warnings.push("AWS Config is not enabled in this region or no Config Rules are defined.");
+        return {
+          module: this.moduleName,
+          status: "success",
+          warnings,
+          resourcesScanned: 0,
+          findingsCount: 0,
+          scanTimeMs: Date.now() - startMs,
+          findings: []
+        };
+      }
+      for (const rule of nonCompliantRules) {
+        const ruleName = rule.ConfigRuleName ?? "unknown";
+        try {
+          let detailToken;
+          do {
+            const detailResp = await client.send(
+              new GetComplianceDetailsByConfigRuleCommand({
+                ConfigRuleName: ruleName,
+                ComplianceTypes: ["NON_COMPLIANT"],
+                NextToken: detailToken
+              })
+            );
+            for (const evalResult of detailResp.EvaluationResults ?? []) {
+              const qualifier = evalResult.EvaluationResultIdentifier?.EvaluationResultQualifier;
+              const resourceType = qualifier?.ResourceType ?? "AWS::Unknown";
+              const resourceId = qualifier?.ResourceId ?? "unknown";
+              const annotation = evalResult.Annotation;
+              const isSecurityRule = ruleIsSecurityRelated(ruleName);
+              const riskScore = isSecurityRule ? 7.5 : 5.5;
+              const severity = severityFromScore(riskScore);
+              const descParts = [`Config Rule: ${ruleName}`, `Resource Type: ${resourceType}`];
+              if (annotation) descParts.push(`Annotation: ${annotation}`);
+              findings.push({
+                severity,
+                title: `${ruleName} - Non-Compliant`,
+                resourceType,
+                resourceId,
+                resourceArn: `arn:${partition}:config:${region}:${accountId}:resource/${resourceType}/${resourceId}`,
+                region,
+                description: descParts.join(". "),
+                impact: `Resource is non-compliant with Config Rule: ${ruleName}`,
+                riskScore,
+                remediationSteps: [
+                  `Review the Config Rule "${ruleName}" in the AWS Config console.`,
+                  `Check resource ${resourceId} for compliance violations.`,
+                  "Follow the rule's remediation guidance to bring the resource into compliance."
+                ],
+                priority: priorityFromSeverity(severity),
+                module: this.moduleName,
+                accountId
+              });
+            }
+            detailToken = detailResp.NextToken;
+          } while (detailToken);
+        } catch (detailErr) {
+          const msg = detailErr instanceof Error ? detailErr.message : String(detailErr);
+          warnings.push(`Failed to get details for rule ${ruleName}: ${msg}`);
+        }
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("NoSuchConfigurationRecorder") || msg.includes("InsufficientDeliveryPolicy") || msg.includes("No Configuration Recorder")) {
+        warnings.push("AWS Config is not enabled in this region.");
+        return {
+          module: this.moduleName,
+          status: "success",
+          warnings,
+          resourcesScanned: 0,
+          findingsCount: 0,
+          scanTimeMs: Date.now() - startMs,
+          findings: []
+        };
+      }
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: `Config Rules scan failed: ${msg}`,
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+
+// src/scanners/access-analyzer-findings.ts
+import {
+  AccessAnalyzerClient,
+  ListAnalyzersCommand,
+  ListFindingsV2Command
+} from "@aws-sdk/client-accessanalyzer";
+function aaSeverityToScore(severity) {
+  switch (severity?.toUpperCase()) {
+    case "CRITICAL":
+      return 9.5;
+    case "HIGH":
+      return 8;
+    case "MEDIUM":
+      return 5.5;
+    case "LOW":
+      return 3;
+    default:
+      return 5.5;
+  }
+}
+var AccessAnalyzerFindingsScanner = class {
+  moduleName = "access_analyzer_findings";
+  async scan(ctx) {
+    const { region, partition, accountId } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    let resourcesScanned = 0;
+    try {
+      const client = createClient(AccessAnalyzerClient, region, ctx.credentials);
+      let analyzerToken;
+      const analyzers = [];
+      do {
+        const resp = await client.send(
+          new ListAnalyzersCommand({ nextToken: analyzerToken })
+        );
+        for (const analyzer of resp.analyzers ?? []) {
+          if (analyzer.status === "ACTIVE") {
+            analyzers.push(analyzer);
+          }
+        }
+        analyzerToken = resp.nextToken;
+      } while (analyzerToken);
+      if (analyzers.length === 0) {
+        warnings.push("No IAM Access Analyzer found. Create an analyzer to detect external access to your resources.");
+        return {
+          module: this.moduleName,
+          status: "success",
+          warnings,
+          resourcesScanned: 0,
+          findingsCount: 0,
+          scanTimeMs: Date.now() - startMs,
+          findings: []
+        };
+      }
+      for (const analyzer of analyzers) {
+        const analyzerArn = analyzer.arn ?? "unknown";
+        let findingToken;
+        do {
+          const listResp = await client.send(
+            new ListFindingsV2Command({
+              analyzerArn,
+              filter: {
+                status: { eq: ["ACTIVE"] }
+              },
+              nextToken: findingToken
+            })
+          );
+          for (const aaf of listResp.findings ?? []) {
+            resourcesScanned++;
+            const score = aaSeverityToScore(aaf.findingType);
+            const severity = severityFromScore(score);
+            const resourceArn = aaf.resource ?? "unknown";
+            const resourceType = aaf.resourceType ?? "AWS::Unknown";
+            const resourceId = resourceArn.split("/").pop() ?? resourceArn.split(":").pop() ?? "unknown";
+            const descParts = [`Resource Type: ${resourceType}`];
+            if (aaf.resourceOwnerAccount) descParts.push(`Owner Account: ${aaf.resourceOwnerAccount}`);
+            if (aaf.findingType) descParts.push(`Finding Type: ${aaf.findingType}`);
+            const title = buildFindingTitle(aaf);
+            findings.push({
+              severity,
+              title,
+              resourceType: mapResourceType(resourceType),
+              resourceId,
+              resourceArn,
+              region,
+              description: descParts.join(". "),
+              impact: `Resource is accessible from outside the account. Type: ${aaf.findingType ?? "unknown"}`,
+              riskScore: score,
+              remediationSteps: [
+                "Review the finding in the IAM Access Analyzer console.",
+                `Check resource ${resourceId} for unintended external access.`,
+                "Remove or restrict the resource policy to eliminate external access."
+              ],
+              priority: priorityFromSeverity(severity),
+              module: this.moduleName,
+              accountId: aaf.resourceOwnerAccount ?? accountId
+            });
+          }
+          findingToken = listResp.nextToken;
+        } while (findingToken);
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: `Access Analyzer scan failed: ${msg}`,
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+function buildFindingTitle(finding) {
+  const resourceType = finding.resourceType ?? "Resource";
+  const resource = finding.resource ? finding.resource.split("/").pop() ?? finding.resource.split(":").pop() ?? finding.resource : "unknown";
+  return `[Access Analyzer] ${resourceType} ${resource} \u2014 external access detected`;
+}
+function mapResourceType(aaType) {
+  const mapping = {
+    "AWS::S3::Bucket": "AWS::S3::Bucket",
+    "AWS::IAM::Role": "AWS::IAM::Role",
+    "AWS::SQS::Queue": "AWS::SQS::Queue",
+    "AWS::Lambda::Function": "AWS::Lambda::Function",
+    "AWS::Lambda::LayerVersion": "AWS::Lambda::LayerVersion",
+    "AWS::KMS::Key": "AWS::KMS::Key",
+    "AWS::SecretsManager::Secret": "AWS::SecretsManager::Secret",
+    "AWS::SNS::Topic": "AWS::SNS::Topic",
+    "AWS::EFS::FileSystem": "AWS::EFS::FileSystem",
+    "AWS::RDS::DBSnapshot": "AWS::RDS::DBSnapshot",
+    "AWS::RDS::DBClusterSnapshot": "AWS::RDS::DBClusterSnapshot",
+    "AWS::ECR::Repository": "AWS::ECR::Repository"
+  };
+  return mapping[aaType] ?? aaType;
+}
+
+// src/scanners/patch-compliance-findings.ts
+import {
+  SSMClient,
+  DescribeInstanceInformationCommand,
+  DescribeInstancePatchStatesCommand
+} from "@aws-sdk/client-ssm";
+var PatchComplianceFindingsScanner = class {
+  moduleName = "patch_compliance_findings";
+  async scan(ctx) {
+    const { region, partition, accountId } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    let resourcesScanned = 0;
+    try {
+      const client = createClient(SSMClient, region, ctx.credentials);
+      let nextToken;
+      const instances = [];
+      do {
+        const resp = await client.send(
+          new DescribeInstanceInformationCommand({
+            MaxResults: 50,
+            NextToken: nextToken
+          })
+        );
+        instances.push(...resp.InstanceInformationList ?? []);
+        nextToken = resp.NextToken;
+      } while (nextToken);
+      if (instances.length === 0) {
+        warnings.push("No SSM-managed instances found in this region.");
+        return {
+          module: this.moduleName,
+          status: "success",
+          warnings,
+          resourcesScanned: 0,
+          findingsCount: 0,
+          scanTimeMs: Date.now() - startMs,
+          findings: []
+        };
+      }
+      resourcesScanned = instances.length;
+      const instanceIds = instances.map((i) => i.InstanceId).filter(Boolean);
+      const patchStateMap = /* @__PURE__ */ new Map();
+      for (let i = 0; i < instanceIds.length; i += 50) {
+        const batch = instanceIds.slice(i, i + 50);
+        let patchToken;
+        do {
+          const patchResp = await client.send(
+            new DescribeInstancePatchStatesCommand({
+              InstanceIds: batch,
+              NextToken: patchToken
+            })
+          );
+          for (const ps of patchResp.InstancePatchStates ?? []) {
+            if (ps.InstanceId) {
+              patchStateMap.set(ps.InstanceId, ps);
+            }
+          }
+          patchToken = patchResp.NextToken;
+        } while (patchToken);
+      }
+      for (const instance of instances) {
+        const instanceId = instance.InstanceId ?? "unknown";
+        const platform = instance.PlatformName ?? instance.PlatformType ?? "unknown";
+        const instanceArn = `arn:${partition}:ec2:${region}:${accountId}:instance/${instanceId}`;
+        const patchState = patchStateMap.get(instanceId);
+        if (!patchState) {
+          const riskScore2 = 3;
+          const severity2 = severityFromScore(riskScore2);
+          findings.push({
+            severity: severity2,
+            title: `Instance ${instanceId} has no patch compliance data`,
+            resourceType: "AWS::EC2::Instance",
+            resourceId: instanceId,
+            resourceArn: instanceArn,
+            region,
+            description: `Instance ${instanceId} (${platform}) is managed by SSM but has no patch compliance data. Patch Manager may not be configured for this instance.`,
+            impact: "Patch compliance status is unknown \u2014 vulnerabilities may exist.",
+            riskScore: riskScore2,
+            remediationSteps: [
+              "Configure AWS Systems Manager Patch Manager for this instance.",
+              "Create a patch baseline and maintenance window.",
+              "Run a patch scan to establish compliance status."
+            ],
+            priority: priorityFromSeverity(severity2),
+            module: this.moduleName,
+            accountId
+          });
+          continue;
+        }
+        const missingCount = patchState.MissingCount ?? 0;
+        const failedCount = patchState.FailedCount ?? 0;
+        const securityNonCompliantCount = patchState.SecurityNonCompliantCount ?? 0;
+        const lastScanTime = patchState.OperationEndTime?.toISOString() ?? "unknown";
+        if (missingCount === 0 && failedCount === 0) {
+          continue;
+        }
+        let riskScore;
+        if (securityNonCompliantCount > 0 || failedCount > 0) {
+          riskScore = 7.5;
+        } else {
+          riskScore = 5.5;
+        }
+        const severity = severityFromScore(riskScore);
+        const titleParts = [];
+        if (missingCount > 0) titleParts.push(`${missingCount} missing`);
+        if (failedCount > 0) titleParts.push(`${failedCount} failed`);
+        const descParts = [
+          `Instance: ${instanceId}`,
+          `Platform: ${platform}`,
+          `Missing patches: ${missingCount}`,
+          `Failed patches: ${failedCount}`,
+          `Security non-compliant: ${securityNonCompliantCount}`,
+          `Last scan: ${lastScanTime}`
+        ];
+        findings.push({
+          severity,
+          title: `Instance ${instanceId} has ${titleParts.join(", ")} patches`,
+          resourceType: "AWS::EC2::Instance",
+          resourceId: instanceId,
+          resourceArn: instanceArn,
+          region,
+          description: descParts.join(". "),
+          impact: `Instance has ${missingCount} missing and ${failedCount} failed patches \u2014 potential security vulnerabilities.`,
+          riskScore,
+          remediationSteps: [
+            `Review patch compliance for instance ${instanceId} in the Systems Manager console.`,
+            "Apply missing patches using a maintenance window or manual patching.",
+            "Investigate and resolve any failed patch installations.",
+            "Consider enabling automatic patching through Patch Manager."
+          ],
+          priority: priorityFromSeverity(severity),
+          module: this.moduleName,
+          accountId
+        });
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: `Patch compliance scan failed: ${msg}`,
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+
 // src/tools/report-tool.ts
 var SEVERITY_ICON = {
   CRITICAL: "\u{1F534}",
@@ -18405,13 +18869,13 @@ var SCAN_GROUPS = {
   mlps3_precheck: {
     name: "\u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0",
     description: "GB/T 22239-2019 \u7B49\u4FDD\u4E09\u7EA7 AWS \u4E91\u79DF\u6237\u5C42\u914D\u7F6E\u68C0\u67E5",
-    modules: ["service_detection", "secret_exposure", "ssl_certificate", "dns_dangling", "network_reachability", "iam_privilege_escalation", "tag_compliance", "disaster_recovery", "security_hub_findings", "guardduty_findings", "inspector_findings", "trusted_advisor_findings"],
+    modules: ["service_detection", "secret_exposure", "ssl_certificate", "dns_dangling", "network_reachability", "iam_privilege_escalation", "tag_compliance", "disaster_recovery", "security_hub_findings", "guardduty_findings", "inspector_findings", "trusted_advisor_findings", "config_rules_findings", "access_analyzer_findings", "patch_compliance_findings"],
     reportType: "mlps3"
   },
   hw_defense: {
     name: "\u62A4\u7F51\u84DD\u961F\u52A0\u56FA",
     description: "\u62A4\u7F51\u524D\u5B89\u5168\u81EA\u67E5 \u2014 \u653B\u51FB\u9762+\u5F31\u70B9\u8BC4\u4F30",
-    modules: ["service_detection", "secret_exposure", "network_reachability", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "inspector_findings"],
+    modules: ["service_detection", "secret_exposure", "network_reachability", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "inspector_findings", "config_rules_findings", "access_analyzer_findings", "patch_compliance_findings"],
     findingsFilter: {
       guardDutyTypes: ["Backdoor", "Trojan", "PenTest", "CryptoCurrency"],
       minSeverity: "MEDIUM"
@@ -18420,7 +18884,7 @@ var SCAN_GROUPS = {
   exposure: {
     name: "\u516C\u7F51\u66B4\u9732\u9762\u8BC4\u4F30",
     description: "\u8BC4\u4F30\u516C\u7F51\u53EF\u8FBE\u7684\u8D44\u6E90\u548C\u7AEF\u53E3",
-    modules: ["network_reachability", "dns_dangling", "public_access_verify", "ssl_certificate", "security_hub_findings"],
+    modules: ["network_reachability", "dns_dangling", "public_access_verify", "ssl_certificate", "security_hub_findings", "access_analyzer_findings"],
     findingsFilter: {
       securityHubCategories: ["network", "public", "exposure", "port"]
     }
@@ -18441,7 +18905,7 @@ var SCAN_GROUPS = {
   least_privilege: {
     name: "\u6700\u5C0F\u6743\u9650\u5BA1\u8BA1",
     description: "IAM \u6743\u9650\u6700\u5C0F\u5316\u8BC4\u4F30",
-    modules: ["iam_privilege_escalation", "security_hub_findings"],
+    modules: ["iam_privilege_escalation", "security_hub_findings", "access_analyzer_findings"],
     findingsFilter: {
       securityHubCategories: ["IAM", "iam", "access", "privilege"]
     }
@@ -18477,17 +18941,17 @@ var SCAN_GROUPS = {
   new_account_baseline: {
     name: "\u65B0\u8D26\u6237\u57FA\u7EBF\u68C0\u67E5",
     description: "\u65B0 AWS \u8D26\u6237\u5B89\u5168\u57FA\u7EBF",
-    modules: ["service_detection", "secret_exposure", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings"]
+    modules: ["service_detection", "secret_exposure", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "access_analyzer_findings"]
   },
   aggregation: {
     name: "\u5B89\u5168\u670D\u52A1\u805A\u5408",
     description: "\u4ECE Security Hub / GuardDuty / Inspector / Trusted Advisor \u805A\u5408\u6240\u6709\u5B89\u5168\u53D1\u73B0",
-    modules: ["security_hub_findings", "guardduty_findings", "inspector_findings", "trusted_advisor_findings"]
+    modules: ["security_hub_findings", "guardduty_findings", "inspector_findings", "trusted_advisor_findings", "config_rules_findings", "access_analyzer_findings", "patch_compliance_findings"]
   }
 };
 
 // src/resources/index.ts
-var SECURITY_RULES_CONTENT = `# AWS Security Scan Modules & Rules
+var SECURITY_RULES_CONTENT = `# AWS Security Scan Modules & Rules (17 modules)
 
 ## 1. Service Detection (service_detection)
 Detects which AWS security services are enabled and assesses overall security maturity.
@@ -18556,6 +19020,31 @@ Finds unused/idle AWS resources (unattached EBS volumes, unused EIPs, stopped in
 
 ## 14. Disaster Recovery (disaster_recovery)
 Assesses disaster recovery readiness \u2014 RDS Multi-AZ & backups, EBS snapshot coverage, S3 versioning & cross-region replication.
+
+## 15. Config Rules Findings (config_rules_findings)
+Pulls non-compliant AWS Config Rule evaluation results.
+- Lists all Config Rules and their compliance status.
+- For NON_COMPLIANT rules, retrieves specific non-compliant resources.
+- Security-related rules (encryption, IAM, public access, etc.) mapped to HIGH severity (7.5).
+- Other non-compliant rules mapped to MEDIUM severity (5.5).
+- Gracefully handles regions where AWS Config is not enabled.
+
+## 16. IAM Access Analyzer Findings (access_analyzer_findings)
+Pulls active IAM Access Analyzer findings \u2014 resources accessible from outside the account.
+- Lists active analyzers (ACCOUNT or ORGANIZATION type).
+- Retrieves ACTIVE findings showing external access to resources.
+- Covers S3 buckets, IAM roles, SQS queues, Lambda functions, KMS keys, and more.
+- Severity mapped: CRITICAL \u2192 9.5, HIGH \u2192 8.0, MEDIUM \u2192 5.5, LOW \u2192 3.0.
+- Returns warning if no analyzer is configured.
+
+## 17. SSM Patch Compliance (patch_compliance_findings)
+Checks patch compliance status for SSM-managed instances.
+- Lists all managed instances via SSM.
+- Retrieves patch compliance state for each instance.
+- Missing security patches or failed patches \u2192 HIGH (7.5).
+- Missing non-security patches \u2192 MEDIUM (5.5).
+- Instances without patch data flagged as LOW (3.0) for visibility.
+- Includes platform info, missing/failed counts, and last scan time.
 `;
 var RISK_SCORING_CONTENT = `# Risk Scoring Model
 
@@ -18617,7 +19106,10 @@ var MODULE_DESCRIPTIONS = {
   security_hub_findings: "Aggregates active findings from AWS Security Hub \u2014 replaces individual config scanners with centralized compliance checks.",
   guardduty_findings: "Aggregates threat detection findings from Amazon GuardDuty \u2014 account compromise, instance compromise, and reconnaissance.",
   inspector_findings: "Aggregates vulnerability findings from Amazon Inspector \u2014 CVEs in EC2, Lambda, and container images.",
-  trusted_advisor_findings: "Aggregates security checks from AWS Trusted Advisor \u2014 requires Business or Enterprise Support plan."
+  trusted_advisor_findings: "Aggregates security checks from AWS Trusted Advisor \u2014 requires Business or Enterprise Support plan.",
+  config_rules_findings: "Pulls non-compliant AWS Config Rule evaluation results \u2014 configuration compliance violations across all resource types.",
+  access_analyzer_findings: "Pulls active IAM Access Analyzer findings \u2014 resources accessible from outside the account (external principals, public access).",
+  patch_compliance_findings: "Checks SSM Patch Manager compliance \u2014 managed instances with missing or failed security and system patches."
 };
 function summarizeResult(result) {
   const { summary } = result;
@@ -18666,7 +19158,10 @@ function createServer(defaultRegion) {
     new SecurityHubFindingsScanner(),
     new GuardDutyFindingsScanner(),
     new InspectorFindingsScanner(),
-    new TrustedAdvisorFindingsScanner()
+    new TrustedAdvisorFindingsScanner(),
+    new ConfigRulesFindingsScanner(),
+    new AccessAnalyzerFindingsScanner(),
+    new PatchComplianceFindingsScanner()
   ];
   const scannerMap = /* @__PURE__ */ new Map();
   for (const s of allScanners) {
@@ -18719,7 +19214,10 @@ function createServer(defaultRegion) {
     { toolName: "scan_security_hub_findings", moduleName: "security_hub_findings", label: "Security Hub Findings" },
     { toolName: "scan_guardduty_findings", moduleName: "guardduty_findings", label: "GuardDuty Findings" },
     { toolName: "scan_inspector_findings", moduleName: "inspector_findings", label: "Inspector Findings" },
-    { toolName: "scan_trusted_advisor_findings", moduleName: "trusted_advisor_findings", label: "Trusted Advisor Findings" }
+    { toolName: "scan_trusted_advisor_findings", moduleName: "trusted_advisor_findings", label: "Trusted Advisor Findings" },
+    { toolName: "scan_config_rules_findings", moduleName: "config_rules_findings", label: "Config Rules Findings" },
+    { toolName: "scan_access_analyzer_findings", moduleName: "access_analyzer_findings", label: "Access Analyzer Findings" },
+    { toolName: "scan_patch_compliance_findings", moduleName: "patch_compliance_findings", label: "Patch Compliance Findings" }
   ];
   for (const { toolName, moduleName, label } of individualScanners) {
     server.tool(
@@ -19151,7 +19649,7 @@ Deploy this as a StackSet from your Management Account to all member accounts.` 
   server.resource(
     "security-rules",
     "security://rules",
-    { description: "Describes all 14 scan modules and their check rules", mimeType: "text/markdown" },
+    { description: "Describes all 17 scan modules and their check rules", mimeType: "text/markdown" },
     async () => ({
       contents: [{ uri: "security://rules", text: SECURITY_RULES_CONTENT, mimeType: "text/markdown" }]
     })
