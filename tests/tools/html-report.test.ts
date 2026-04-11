@@ -228,7 +228,7 @@ describe("generateMlps3HtmlReport", () => {
     expect(html).toContain("cn-north-1");
   });
 
-  it("shows pass/partial/fail indicators for checks", () => {
+  it("shows clean/issues indicators for checks", () => {
     const result = makeResult([
       {
         module: "security_hub_findings",
@@ -253,15 +253,17 @@ describe("generateMlps3HtmlReport", () => {
     ]);
     const html = generateMlps3HtmlReport(result);
 
-    // Check with 1 security_hub finding (securityHubControlIds) → partial
-    expect(html).toContain("check-partial");
-    // Passed check should have check-pass class
-    expect(html).toContain("check-pass");
-    // 部分符合 label in summary
-    expect(html).toContain("\u90e8\u5206\u7b26\u5408");
+    // Check with findings → issues class
+    expect(html).toContain("check-issues");
+    // Clean check should have check-clean class
+    expect(html).toContain("check-clean");
+    // 发现问题 label
+    expect(html).toContain("\u53d1\u73b0\u95ee\u9898");
+    // 未发现问题 label
+    expect(html).toContain("\u672a\u53d1\u73b0\u95ee\u9898");
   });
 
-  it("displays pass rate", () => {
+  it("displays fact-based summary (no pass rate)", () => {
     const result = makeResult([
       { module: "security_hub_findings", findings: [] },
       { module: "iam_privilege_escalation", findings: [] },
@@ -278,9 +280,11 @@ describe("generateMlps3HtmlReport", () => {
     ]);
     const html = generateMlps3HtmlReport(result);
 
-    expect(html).toContain("100%");
-    expect(html).toContain("\u901a\u8fc7\u7387");
-    // All pass — no remediation section
+    // Should show checked count, not pass rate
+    expect(html).toContain("\u5df2\u68c0\u67e5");
+    expect(html).toContain("\u672a\u53d1\u73b0\u95ee\u9898");
+    expect(html).not.toContain("\u901a\u8fc7\u7387");
+    // All clean — no remediation section
     expect(html).not.toContain("\u5efa\u8bae\u6574\u6539\u9879");
   });
 
@@ -294,13 +298,14 @@ describe("generateMlps3HtmlReport", () => {
     expect(html).toContain("未检查");
   });
 
-  it("includes Chinese disclaimer", () => {
+  it("includes evidence-mode disclaimer", () => {
     const result = makeResult([{ module: "security_hub_findings", findings: [] }]);
     const html = generateMlps3HtmlReport(result);
 
     expect(html).toContain("GB/T 22239-2019");
     expect(html).toContain("184");
-    expect(html).toContain("持证测评机构执行");
+    expect(html).toContain("\u5408\u89c4\u5224\u5b9a");
+    expect(html).toContain("\u6301\u8bc1\u6d4b\u8bc4\u673a\u6784");
   });
 
   it("includes MLPS category sections", () => {
@@ -328,7 +333,7 @@ describe("generateMlps3HtmlReport", () => {
     expect(html).toContain("安全管理中心");
   });
 
-  it("includes remediation section for failed/partial checks", () => {
+  it("includes remediation section for checks with issues", () => {
     const result = makeResult([
       {
         module: "security_hub_findings",

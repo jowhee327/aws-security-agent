@@ -22,7 +22,7 @@ export {
 // Full-checklist evaluation result
 // ---------------------------------------------------------------------------
 
-export type FullCheckStatus = "pass" | "partial" | "fail" | "unknown" | "cloud_provider" | "manual" | "not_applicable";
+export type FullCheckStatus = "clean" | "issues" | "unknown" | "cloud_provider" | "manual" | "not_applicable";
 
 export interface FullCheckResult {
   item: MlpsChecklistItem;
@@ -86,17 +86,8 @@ export function evaluateFullCheck(
     relatedFindings = allFindings.filter((f) => mods.includes(f.module ?? ""));
   }
 
-  // Three-tier evaluation:
-  // - Checks with securityHubControlIds use 0 / 1-3 / 4+ thresholds
-  // - Pure scanner checks (no securityHubControlIds) use pass/fail only
-  let status: FullCheckStatus;
-  if (relatedFindings.length === 0) {
-    status = "pass";
-  } else if (mapping.securityHubControlIds?.length) {
-    status = relatedFindings.length <= 3 ? "partial" : "fail";
-  } else {
-    status = "fail";
-  }
+  // Evidence collection: clean (0 findings) or issues (1+ findings)
+  const status: FullCheckStatus = relatedFindings.length === 0 ? "clean" : "issues";
 
   return { item, mapping, status, relatedFindings };
 }
@@ -288,7 +279,7 @@ export const CATEGORY_SECTION: Record<string, string> = {
 
 export interface CheckResult {
   check: MlpsCheck;
-  status: "pass" | "fail" | "unknown";
+  status: "clean" | "issues" | "unknown";
   relatedFindings: Finding[];
 }
 
@@ -319,7 +310,7 @@ export function evaluateCheck(
 
   return {
     check,
-    status: relatedFindings.length === 0 ? "pass" : "fail",
+    status: relatedFindings.length === 0 ? "clean" : "issues",
     relatedFindings,
   };
 }
@@ -342,18 +333,17 @@ export function generateMlps3Report(scanResults: FullScanResult): string {
     evaluateCheck(check, allFindings, scanModules),
   );
 
-  const passCount = results.filter((r) => r.status === "pass").length;
-  const failCount = results.filter((r) => r.status === "fail").length;
+  const cleanCount = results.filter((r) => r.status === "clean").length;
+  const issuesCount = results.filter((r) => r.status === "issues").length;
   const unknownCount = results.filter((r) => r.status === "unknown").length;
-  const checkedTotal = passCount + failCount;
+  const checkedTotal = cleanCount + issuesCount;
   const total = results.length;
-  const percent = checkedTotal > 0 ? Math.round((passCount / checkedTotal) * 100) : 0;
 
   const lines: string[] = [];
 
   // Header
   lines.push("# 等保三级预检报告");
-  lines.push("> **本报告为等保预检参考，仅覆盖 AWS 云平台配置检查。完整等保测评需由持证测评机构执行。**");
+  lines.push("> **本报告为等保三级预检参考，提供云平台配置检查数据与建议。合规判定（符合/部分符合/不符合）需由持证测评机构根据实际情况确认。**");
   lines.push("");
 
   // Account info
@@ -363,8 +353,12 @@ export function generateMlps3Report(scanResults: FullScanResult): string {
 
   // Summary
   lines.push("## 预检总览");
-  lines.push(`- 检查项: ${total} | 通过: ${passCount} | 不通过: ${failCount}${unknownCount > 0 ? ` | 未检查: ${unknownCount}` : ""}`);
-  lines.push(`- 通过率: ${percent}%${unknownCount > 0 ? "（未检查项不计入通过率）" : ""}`);
+  lines.push(`- 已检查 ${checkedTotal} 项 / 共 ${total} 项`);
+  lines.push(`  - 未发现问题: ${cleanCount} 项`);
+  lines.push(`  - 发现问题: ${issuesCount} 项`);
+  if (unknownCount > 0) {
+    lines.push(`  - 未检查: ${unknownCount} 项`);
+  }
   lines.push("");
 
   // Group results by category
@@ -387,10 +381,10 @@ export function generateMlps3Report(scanResults: FullScanResult): string {
     for (const [checkId, checkResults] of byId) {
       lines.push(`### ${checkId} ${checkResults[0].check.name}`);
       for (const r of checkResults) {
-        const icon = r.status === "pass" ? "\u2705" : r.status === "fail" ? "\u274c" : "\u26a0\ufe0f";
-        const label = r.status === "unknown" ? " 未检查" : "";
+        const icon = r.status === "clean" ? "\u2705" : r.status === "issues" ? "\u274c" : "\u26a0\ufe0f";
+        const label = r.status === "unknown" ? " 未检查" : r.status === "clean" ? " 未发现问题" : r.status === "issues" ? " 发现问题" : "";
         lines.push(`- [${icon}] ${r.check.name}${label}`);
-        if (r.status === "fail" && r.relatedFindings.length > 0) {
+        if (r.status === "issues" && r.relatedFindings.length > 0) {
           for (const f of r.relatedFindings.slice(0, 3)) {
             lines.push(`  - ${f.severity}: ${f.title}`);
           }
@@ -404,7 +398,7 @@ export function generateMlps3Report(scanResults: FullScanResult): string {
   }
 
   // Remediation recommendations sorted by priority
-  const failedResults = results.filter((r) => r.status === "fail");
+  const failedResults = results.filter((r) => r.status === "issues");
   if (failedResults.length > 0) {
     lines.push("## 建议整改项（按优先级）");
     lines.push("");

@@ -51,7 +51,7 @@ function makeResult(modules: Array<{
 }
 
 describe("generateMlps3Report", () => {
-  it("generates report with pass/fail indicators for findings", () => {
+  it("generates report with clean/issues indicators for findings", () => {
     const result = makeResult([
       {
         module: "security_hub_findings",
@@ -81,22 +81,25 @@ describe("generateMlps3Report", () => {
     expect(report).toContain("Account: 123456789012");
     expect(report).toContain("cn-north-1");
 
-    // Password policy should FAIL (finding matches "IAM.7" pattern)
+    // Password policy should have issues (finding matches "IAM.7" pattern)
     expect(report).toContain("\u274c");
     expect(report).toContain("密码策略");
+    expect(report).toContain("发现问题");
 
-    // Audit function should PASS (security_hub_findings present, no CloudTrail finding)
+    // Audit function should be clean (security_hub_findings present, no CloudTrail finding)
     expect(report).toContain("\u2705");
     expect(report).toContain("审计功能");
+    expect(report).toContain("未发现问题");
 
-    // Summary
-    expect(report).toContain("通过率:");
+    // Summary — no 通过率, uses fact-based summary
+    expect(report).toContain("已检查");
+    expect(report).not.toContain("通过率");
 
     // Remediation section
     expect(report).toContain("建议整改项");
   });
 
-  it("generates all-pass report when no findings exist", () => {
+  it("generates all-clean report when no findings exist", () => {
     const result = makeResult([
       { module: "security_hub_findings", findings: [] },
       { module: "iam_privilege_escalation", findings: [] },
@@ -114,9 +117,10 @@ describe("generateMlps3Report", () => {
 
     const report = generateMlps3Report(result);
 
-    // All checks should pass
+    // All checks should be clean (no ❌ issues)
     expect(report).not.toContain("\u274c");
-    expect(report).toContain("通过率: 100%");
+    expect(report).toContain("未发现问题");
+    expect(report).not.toContain("通过率");
     // No remediation section
     expect(report).not.toContain("建议整改项");
   });
@@ -147,13 +151,12 @@ describe("generateMlps3Report", () => {
 
     const report = generateMlps3Report(result);
 
-    // Password policy check should FAIL (security_hub_findings present, finding matches "IAM.7")
+    // Password policy check should have issues (security_hub_findings present, finding matches "IAM.7")
     expect(report).toContain("\u274c");
+    expect(report).toContain("发现问题");
     // Checks with missing modules (e.g., service_detection for GuardDuty) should show ⚠️ 未检查
     expect(report).toContain("\u26a0\ufe0f");
     expect(report).toContain("未检查");
-    // Summary should show 未检查 count and note about pass rate
-    expect(report).toContain("未检查项不计入通过率");
   });
 });
 
@@ -199,7 +202,7 @@ const allModulesPresent = [
 ];
 
 describe("evaluateFullCheck — securityHubControlIds", () => {
-  it("passes when no Security Hub findings match the specific control IDs", () => {
+  it("returns clean when no Security Hub findings match the specific control IDs", () => {
     const mapping: MlpsCheckMapping = {
       id: "L3-TEST-01",
       type: "auto",
@@ -211,11 +214,11 @@ describe("evaluateFullCheck — securityHubControlIds", () => {
       makeFinding({ title: "EC2.2 Default VPC in use", module: "security_hub_findings" }),
     ];
     const result = evaluateFullCheck(dummyItem, mapping, findings, allModulesPresent);
-    expect(result.status).toBe("pass");
+    expect(result.status).toBe("clean");
     expect(result.relatedFindings).toHaveLength(0);
   });
 
-  it("returns partial when 1-3 Security Hub findings match specific control IDs", () => {
+  it("returns issues when Security Hub findings match specific control IDs", () => {
     const mapping: MlpsCheckMapping = {
       id: "L3-TEST-01",
       type: "auto",
@@ -226,11 +229,11 @@ describe("evaluateFullCheck — securityHubControlIds", () => {
       makeFinding({ title: "IAM.7 Password policy too weak", module: "security_hub_findings" }),
     ];
     const result = evaluateFullCheck(dummyItem, mapping, findings, allModulesPresent);
-    expect(result.status).toBe("partial");
+    expect(result.status).toBe("issues");
     expect(result.relatedFindings).toHaveLength(1);
   });
 
-  it("fails when 4+ Security Hub findings match specific control IDs", () => {
+  it("returns issues when 4+ Security Hub findings match specific control IDs", () => {
     const mapping: MlpsCheckMapping = {
       id: "L3-TEST-01",
       type: "auto",
@@ -244,7 +247,7 @@ describe("evaluateFullCheck — securityHubControlIds", () => {
       makeFinding({ title: "IAM.10 Password expiry not set - resource 2", module: "security_hub_findings" }),
     ];
     const result = evaluateFullCheck(dummyItem, mapping, findings, allModulesPresent);
-    expect(result.status).toBe("fail");
+    expect(result.status).toBe("issues");
     expect(result.relatedFindings).toHaveLength(4);
   });
 
@@ -262,14 +265,13 @@ describe("evaluateFullCheck — securityHubControlIds", () => {
       makeFinding({ title: "SG allows SSH from 0.0.0.0/0", module: "network_reachability" }),
     ];
     const result = evaluateFullCheck(dummyItem, mapping, findings, allModulesPresent);
-    // 1 finding with securityHubControlIds → partial (1-3 threshold)
-    expect(result.status).toBe("partial");
+    expect(result.status).toBe("issues");
     // Only the network_reachability finding should be related (not IAM.7)
     expect(result.relatedFindings).toHaveLength(1);
     expect(result.relatedFindings[0].module).toBe("network_reachability");
   });
 
-  it("hybrid: fails when 4+ findings from mixed modules", () => {
+  it("hybrid: returns issues when 4+ findings from mixed modules", () => {
     const mapping: MlpsCheckMapping = {
       id: "L3-TEST-01",
       type: "auto",
@@ -283,23 +285,23 @@ describe("evaluateFullCheck — securityHubControlIds", () => {
       makeFinding({ title: "SG allows RDP from 0.0.0.0/0", module: "network_reachability" }),
     ];
     const result = evaluateFullCheck(dummyItem, mapping, findings, allModulesPresent);
-    expect(result.status).toBe("fail");
+    expect(result.status).toBe("issues");
     expect(result.relatedFindings).toHaveLength(4);
   });
 });
 
 describe("evaluateFullCheck — module-level (no patterns, no control IDs)", () => {
-  it("passes when scanner modules have no findings", () => {
+  it("returns clean when scanner modules have no findings", () => {
     const mapping: MlpsCheckMapping = {
       id: "L3-TEST-01",
       type: "auto",
       modules: ["guardduty_findings", "waf_coverage"],
     };
     const result = evaluateFullCheck(dummyItem, mapping, [], allModulesPresent);
-    expect(result.status).toBe("pass");
+    expect(result.status).toBe("clean");
   });
 
-  it("fails when scanner modules have findings", () => {
+  it("returns issues when scanner modules have findings", () => {
     const mapping: MlpsCheckMapping = {
       id: "L3-TEST-01",
       type: "auto",
@@ -309,7 +311,7 @@ describe("evaluateFullCheck — module-level (no patterns, no control IDs)", () 
       makeFinding({ title: "Trojan detected", module: "guardduty_findings" }),
     ];
     const result = evaluateFullCheck(dummyItem, mapping, findings, allModulesPresent);
-    expect(result.status).toBe("fail");
+    expect(result.status).toBe("issues");
     expect(result.relatedFindings).toHaveLength(1);
   });
 
@@ -324,12 +326,12 @@ describe("evaluateFullCheck — module-level (no patterns, no control IDs)", () 
       makeFinding({ title: "SG issue", module: "network_reachability" }),
     ];
     const result = evaluateFullCheck(dummyItem, mapping, findings, allModulesPresent);
-    expect(result.status).toBe("pass");
+    expect(result.status).toBe("clean");
   });
 });
 
 describe("evaluateFullCheck — findingPatterns (legacy)", () => {
-  it("passes when no findings match the patterns", () => {
+  it("returns clean when no findings match the patterns", () => {
     const mapping: MlpsCheckMapping = {
       id: "L3-TEST-01",
       type: "auto",
@@ -340,10 +342,10 @@ describe("evaluateFullCheck — findingPatterns (legacy)", () => {
       makeFinding({ title: "Security Hub not enabled", module: "service_detection" }),
     ];
     const result = evaluateFullCheck(dummyItem, mapping, findings, allModulesPresent);
-    expect(result.status).toBe("pass");
+    expect(result.status).toBe("clean");
   });
 
-  it("fails when a finding matches the pattern", () => {
+  it("returns issues when a finding matches the pattern", () => {
     const mapping: MlpsCheckMapping = {
       id: "L3-TEST-01",
       type: "auto",
@@ -354,7 +356,7 @@ describe("evaluateFullCheck — findingPatterns (legacy)", () => {
       makeFinding({ title: "CloudWatch monitoring not configured", module: "service_detection" }),
     ];
     const result = evaluateFullCheck(dummyItem, mapping, findings, allModulesPresent);
-    expect(result.status).toBe("fail");
+    expect(result.status).toBe("issues");
     expect(result.relatedFindings).toHaveLength(1);
   });
 });
