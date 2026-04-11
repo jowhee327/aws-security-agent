@@ -130,7 +130,7 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     id: "L3-CNS1-04",
     type: "auto",
     modules: ["network_reachability", "security_hub_findings"],
-    securityHubControlIds: ["EC2.18", "EC2.19"],
+    securityHubControlIds: ["EC2.2", "EC2.18", "EC2.19"],
   },
   { id: "L3-CNS1-05", type: "cloud_provider", note: "AWS 多可用区/多区域冗余" },
   {
@@ -194,7 +194,7 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
   {
     id: "L3-ABS1-06",
     type: "auto",
-    modules: ["idle_resources", "security_hub_findings"],
+    modules: ["network_reachability", "security_hub_findings"],
     securityHubControlIds: ["EC2.18", "EC2.19"],
   },
   {
@@ -216,19 +216,19 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
   {
     id: "L3-ABS1-10",
     type: "auto",
-    modules: ["guardduty_findings", "waf_coverage", "security_hub_findings"],
+    modules: ["guardduty_findings", "waf_coverage", "inspector_findings", "security_hub_findings"],
     securityHubControlIds: ["GuardDuty.1"],
   },
   {
     id: "L3-ABS1-11",
     type: "auto",
-    modules: ["guardduty_findings", "security_hub_findings"],
+    modules: ["guardduty_findings", "waf_coverage", "inspector_findings", "security_hub_findings"],
     securityHubControlIds: ["GuardDuty.1"],
   },
   {
     id: "L3-ABS1-12",
     type: "auto",
-    modules: ["guardduty_findings", "waf_coverage", "security_hub_findings"],
+    modules: ["guardduty_findings", "waf_coverage", "inspector_findings", "security_hub_findings"],
     securityHubControlIds: ["GuardDuty.1"],
   },
   {
@@ -245,13 +245,13 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
   {
     id: "L3-ABS1-16",
     type: "auto",
-    modules: ["security_hub_findings"],
+    modules: ["service_detection", "config_rules_findings", "security_hub_findings"],
     securityHubControlIds: ["CloudTrail.1"],
   },
   {
     id: "L3-ABS1-17",
     type: "auto",
-    modules: ["security_hub_findings"],
+    modules: ["service_detection", "security_hub_findings"],
     securityHubControlIds: ["CloudTrail.1"],
   },
   {
@@ -344,7 +344,7 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
   {
     id: "L3-CES1-01",
     type: "auto",
-    modules: ["security_hub_findings"],
+    modules: ["iam_privilege_escalation", "access_analyzer_findings", "security_hub_findings"],
     securityHubControlIds: ["IAM.7", "IAM.10", "IAM.11"],
   },
   {
@@ -378,7 +378,7 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     id: "L3-CES1-07",
     type: "auto",
     modules: ["security_hub_findings", "access_analyzer_findings"],
-    securityHubControlIds: ["IAM.3", "IAM.4"],
+    securityHubControlIds: ["IAM.3", "IAM.4", "IAM.22"],
   },
   {
     id: "L3-CES1-08",
@@ -405,13 +405,13 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
   {
     id: "L3-CES1-12",
     type: "auto",
-    modules: ["security_hub_findings"],
+    modules: ["service_detection", "security_hub_findings"],
     securityHubControlIds: ["CloudTrail.1"],
   },
   {
     id: "L3-CES1-13",
     type: "auto",
-    modules: ["security_hub_findings"],
+    modules: ["service_detection", "security_hub_findings"],
     securityHubControlIds: ["CloudTrail.1"],
   },
   {

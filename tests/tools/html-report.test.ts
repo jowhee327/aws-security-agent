@@ -228,7 +228,7 @@ describe("generateMlps3HtmlReport", () => {
     expect(html).toContain("cn-north-1");
   });
 
-  it("shows pass/fail indicators for checks", () => {
+  it("shows pass/partial/fail indicators for checks", () => {
     const result = makeResult([
       {
         module: "security_hub_findings",
@@ -248,13 +248,17 @@ describe("generateMlps3HtmlReport", () => {
         }],
       },
       { module: "network_reachability", findings: [] },
+      { module: "iam_privilege_escalation", findings: [] },
+      { module: "access_analyzer_findings", findings: [] },
     ]);
     const html = generateMlps3HtmlReport(result);
 
-    // Failed check should have check-fail class
-    expect(html).toContain("check-fail");
+    // Check with 1 security_hub finding (securityHubControlIds) → partial
+    expect(html).toContain("check-partial");
     // Passed check should have check-pass class
     expect(html).toContain("check-pass");
+    // 部分符合 label in summary
+    expect(html).toContain("\u90e8\u5206\u7b26\u5408");
   });
 
   it("displays pass rate", () => {
@@ -266,13 +270,18 @@ describe("generateMlps3HtmlReport", () => {
       { module: "guardduty_findings", findings: [] },
       { module: "inspector_findings", findings: [] },
       { module: "ssl_certificate", findings: [] },
+      { module: "access_analyzer_findings", findings: [] },
+      { module: "config_rules_findings", findings: [] },
+      { module: "patch_compliance_findings", findings: [] },
+      { module: "disaster_recovery", findings: [] },
+      { module: "waf_coverage", findings: [] },
     ]);
     const html = generateMlps3HtmlReport(result);
 
     expect(html).toContain("100%");
-    expect(html).toContain("通过率");
+    expect(html).toContain("\u901a\u8fc7\u7387");
     // All pass — no remediation section
-    expect(html).not.toContain("建议整改项");
+    expect(html).not.toContain("\u5efa\u8bae\u6574\u6539\u9879");
   });
 
   it("shows unknown checks when modules are missing", () => {
@@ -303,6 +312,11 @@ describe("generateMlps3HtmlReport", () => {
       { module: "ssl_certificate", findings: [] },
       { module: "guardduty_findings", findings: [] },
       { module: "inspector_findings", findings: [] },
+      { module: "access_analyzer_findings", findings: [] },
+      { module: "config_rules_findings", findings: [] },
+      { module: "patch_compliance_findings", findings: [] },
+      { module: "disaster_recovery", findings: [] },
+      { module: "waf_coverage", findings: [] },
     ]);
     const html = generateMlps3HtmlReport(result);
 
@@ -314,7 +328,7 @@ describe("generateMlps3HtmlReport", () => {
     expect(html).toContain("安全管理中心");
   });
 
-  it("includes remediation section for failed checks", () => {
+  it("includes remediation section for failed/partial checks", () => {
     const result = makeResult([
       {
         module: "security_hub_findings",
@@ -333,10 +347,12 @@ describe("generateMlps3HtmlReport", () => {
           module: "security_hub_findings",
         }],
       },
+      { module: "iam_privilege_escalation", findings: [] },
+      { module: "access_analyzer_findings", findings: [] },
     ]);
     const html = generateMlps3HtmlReport(result);
 
-    expect(html).toContain("建议整改项");
+    expect(html).toContain("\u5efa\u8bae\u6574\u6539\u9879");
     expect(html).toContain("rec-fold");
     expect(html).toContain("Set minimum password length");
   });

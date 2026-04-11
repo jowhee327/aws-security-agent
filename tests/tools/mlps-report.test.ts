@@ -105,6 +105,11 @@ describe("generateMlps3Report", () => {
       { module: "guardduty_findings", findings: [] },
       { module: "inspector_findings", findings: [] },
       { module: "ssl_certificate", findings: [] },
+      { module: "access_analyzer_findings", findings: [] },
+      { module: "config_rules_findings", findings: [] },
+      { module: "patch_compliance_findings", findings: [] },
+      { module: "disaster_recovery", findings: [] },
+      { module: "waf_coverage", findings: [] },
     ]);
 
     const report = generateMlps3Report(result);
@@ -210,7 +215,7 @@ describe("evaluateFullCheck — securityHubControlIds", () => {
     expect(result.relatedFindings).toHaveLength(0);
   });
 
-  it("fails when a Security Hub finding matches a specific control ID", () => {
+  it("returns partial when 1-3 Security Hub findings match specific control IDs", () => {
     const mapping: MlpsCheckMapping = {
       id: "L3-TEST-01",
       type: "auto",
@@ -221,8 +226,26 @@ describe("evaluateFullCheck — securityHubControlIds", () => {
       makeFinding({ title: "IAM.7 Password policy too weak", module: "security_hub_findings" }),
     ];
     const result = evaluateFullCheck(dummyItem, mapping, findings, allModulesPresent);
-    expect(result.status).toBe("fail");
+    expect(result.status).toBe("partial");
     expect(result.relatedFindings).toHaveLength(1);
+  });
+
+  it("fails when 4+ Security Hub findings match specific control IDs", () => {
+    const mapping: MlpsCheckMapping = {
+      id: "L3-TEST-01",
+      type: "auto",
+      modules: ["security_hub_findings"],
+      securityHubControlIds: ["IAM.7", "IAM.10"],
+    };
+    const findings = [
+      makeFinding({ title: "IAM.7 Password policy too weak - resource 1", module: "security_hub_findings" }),
+      makeFinding({ title: "IAM.7 Password policy too weak - resource 2", module: "security_hub_findings" }),
+      makeFinding({ title: "IAM.10 Password expiry not set - resource 1", module: "security_hub_findings" }),
+      makeFinding({ title: "IAM.10 Password expiry not set - resource 2", module: "security_hub_findings" }),
+    ];
+    const result = evaluateFullCheck(dummyItem, mapping, findings, allModulesPresent);
+    expect(result.status).toBe("fail");
+    expect(result.relatedFindings).toHaveLength(4);
   });
 
   it("hybrid: matches Security Hub by control ID and other scanners by module", () => {
@@ -239,10 +262,29 @@ describe("evaluateFullCheck — securityHubControlIds", () => {
       makeFinding({ title: "SG allows SSH from 0.0.0.0/0", module: "network_reachability" }),
     ];
     const result = evaluateFullCheck(dummyItem, mapping, findings, allModulesPresent);
-    expect(result.status).toBe("fail");
+    // 1 finding with securityHubControlIds → partial (1-3 threshold)
+    expect(result.status).toBe("partial");
     // Only the network_reachability finding should be related (not IAM.7)
     expect(result.relatedFindings).toHaveLength(1);
     expect(result.relatedFindings[0].module).toBe("network_reachability");
+  });
+
+  it("hybrid: fails when 4+ findings from mixed modules", () => {
+    const mapping: MlpsCheckMapping = {
+      id: "L3-TEST-01",
+      type: "auto",
+      modules: ["network_reachability", "security_hub_findings"],
+      securityHubControlIds: ["EC2.18"],
+    };
+    const findings = [
+      makeFinding({ title: "EC2.18 SG unrestricted - res 1", module: "security_hub_findings" }),
+      makeFinding({ title: "EC2.18 SG unrestricted - res 2", module: "security_hub_findings" }),
+      makeFinding({ title: "SG allows SSH from 0.0.0.0/0", module: "network_reachability" }),
+      makeFinding({ title: "SG allows RDP from 0.0.0.0/0", module: "network_reachability" }),
+    ];
+    const result = evaluateFullCheck(dummyItem, mapping, findings, allModulesPresent);
+    expect(result.status).toBe("fail");
+    expect(result.relatedFindings).toHaveLength(4);
   });
 });
 

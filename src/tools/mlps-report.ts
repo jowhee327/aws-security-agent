@@ -22,7 +22,7 @@ export {
 // Full-checklist evaluation result
 // ---------------------------------------------------------------------------
 
-export type FullCheckStatus = "pass" | "fail" | "unknown" | "cloud_provider" | "manual" | "not_applicable";
+export type FullCheckStatus = "pass" | "partial" | "fail" | "unknown" | "cloud_provider" | "manual" | "not_applicable";
 
 export interface FullCheckResult {
   item: MlpsChecklistItem;
@@ -86,12 +86,19 @@ export function evaluateFullCheck(
     relatedFindings = allFindings.filter((f) => mods.includes(f.module ?? ""));
   }
 
-  return {
-    item,
-    mapping,
-    status: relatedFindings.length === 0 ? "pass" : "fail",
-    relatedFindings,
-  };
+  // Three-tier evaluation:
+  // - Checks with securityHubControlIds use 0 / 1-3 / 4+ thresholds
+  // - Pure scanner checks (no securityHubControlIds) use pass/fail only
+  let status: FullCheckStatus;
+  if (relatedFindings.length === 0) {
+    status = "pass";
+  } else if (mapping.securityHubControlIds?.length) {
+    status = relatedFindings.length <= 3 ? "partial" : "fail";
+  } else {
+    status = "fail";
+  }
+
+  return { item, mapping, status, relatedFindings };
 }
 
 /**
