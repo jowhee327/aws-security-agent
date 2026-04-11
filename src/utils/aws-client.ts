@@ -25,8 +25,11 @@ export async function getAccountId(region?: string): Promise<string> {
 }
 
 export function createClient<T>(
-  ClientClass: new (config: { region: string }) => T,
+  ClientClass: new (config: any) => T,
   region?: string,
+  credentials?: { accessKeyId: string; secretAccessKey: string; sessionToken: string },
 ): T {
-  return new ClientClass({ region: region ?? "us-east-1" });
+  const config: any = { region: region ?? "us-east-1" };
+  if (credentials) config.credentials = credentials;
+  return new ClientClass(config);
 }

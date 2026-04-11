@@ -32,7 +32,7 @@ describe("getIamRegion", () => {
   });
 });
 
-// Warnings propagation: test that a scanner with a partially failing check
+// Warnings propagation: test that a scanner with a graceful degradation path
 // includes warnings in the result
 vi.mock("../src/utils/aws-client.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/utils/aws-client.js")>();
@@ -43,7 +43,7 @@ vi.mock("../src/utils/aws-client.js", async (importOriginal) => {
 });
 const mockSend = vi.fn();
 
-import { S3Scanner } from "../src/scanners/s3.js";
+import { SecurityHubFindingsScanner } from "../src/scanners/security-hub-findings.js";
 import type { ScanContext } from "../src/types.js";
 
 describe("warnings propagation", () => {
@@ -57,52 +57,19 @@ describe("warnings propagation", () => {
     mockSend.mockReset();
   });
 
-  it("S3Scanner includes warnings when getBucketRegion fails", async () => {
-    const scanner = new S3Scanner();
+  it("SecurityHubFindingsScanner includes warnings when Security Hub is not enabled", async () => {
+    const scanner = new SecurityHubFindingsScanner();
 
-    mockSend.mockImplementation((cmd: { constructor: { name: string } }) => {
-      const name = cmd.constructor.name;
-      switch (name) {
-        case "GetAccountPublicAccessBlockCommand":
-          return {
-            PublicAccessBlockConfiguration: {
-              BlockPublicAcls: true,
-              IgnorePublicAcls: true,
-              BlockPublicPolicy: true,
-              RestrictPublicBuckets: true,
-            },
-          };
-        case "ListBucketsCommand":
-          return { Buckets: [{ Name: "test-bucket" }] };
-        case "GetBucketLocationCommand":
-          throw new Error("Access Denied");
-        case "GetPublicAccessBlockCommand":
-          return {
-            PublicAccessBlockConfiguration: {
-              BlockPublicAcls: true,
-              IgnorePublicAcls: true,
-              BlockPublicPolicy: true,
-              RestrictPublicBuckets: true,
-            },
-          };
-        case "GetBucketAclCommand":
-          return { Grants: [] };
-        case "GetBucketPolicyStatusCommand":
-          return { PolicyStatus: { IsPublic: false } };
-        case "GetBucketEncryptionCommand":
-          return {};
-        case "GetBucketVersioningCommand":
-          return { Status: "Enabled" };
-        default:
-          return {};
-      }
-    });
+    const notEnabledErr = new Error("Security Hub is not enabled");
+    notEnabledErr.name = "InvalidAccessException";
+    mockSend.mockRejectedValue(notEnabledErr);
 
     const result = await scanner.scan(ctx);
 
     expect(result.status).toBe("success");
     expect(result.warnings).toBeDefined();
     expect(result.warnings!.length).toBeGreaterThanOrEqual(1);
-    expect(result.warnings!.some((w) => w.includes("Failed to detect region for bucket test-bucket"))).toBe(true);
+    expect(result.warnings!.some((w) => w.includes("Security Hub is not enabled"))).toBe(true);
+    expect(result.findingsCount).toBe(0);
   });
 });

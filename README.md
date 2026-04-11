@@ -1,6 +1,6 @@
 # aws-security-mcp
 
-MCP server for automated AWS security scanning — 7 modules, risk scoring, zero write operations.
+MCP server for automated AWS security scanning — 14 modules, risk scoring, zero write operations.
 
 <!-- badges -->
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
@@ -9,13 +9,15 @@ MCP server for automated AWS security scanning — 7 modules, risk scoring, zero
 
 ## Features
 
-- **7 Security Scan Modules** — Security Groups, S3, IAM, CloudTrail, RDS, EBS, VPC
+- **14 Security Scan Modules** — 10 unique scanners + 4 aggregation scanners (Security Hub, GuardDuty, Inspector, Trusted Advisor)
 - **Risk Scoring** — every finding scored 0-10 with severity (CRITICAL/HIGH/MEDIUM/LOW) and priority (P0-P3)
 - **100% Read-Only** — uses only Describe/Get/List API calls; never modifies your AWS resources
-- **Parallel Execution** — all 7 modules run concurrently via `Promise.allSettled`
-- **Markdown Report Generation** — structured report with executive summary, findings by severity, and prioritized recommendations
+- **Parallel Execution** — all modules run concurrently via `Promise.allSettled`
+- **Report Generation** — Markdown, professional HTML, and MLPS Level 3 compliance reports
+- **React Dashboard** — local or S3-hosted dashboard with 30-day trend charts
 - **MCP Resources** — embedded security rules and risk scoring model documentation
 - **MCP Prompts** — pre-built workflows for full scans and finding analysis
+- **China Region Support** — full support for aws-cn partition
 
 ## Quick Start
 
@@ -105,16 +107,30 @@ Or use the built-in `security-scan` prompt for a guided workflow.
 
 | Tool | Description |
 |------|-------------|
-| `scan_all` | Run all 7 security scanners in parallel |
-| `scan_sg` | Scan EC2 security groups for overly permissive rules |
-| `scan_s3` | Check S3 buckets for public access, encryption, versioning |
-| `scan_iam` | Audit IAM users, root account, access keys, policies |
-| `scan_cloudtrail` | Validate CloudTrail logging configuration |
-| `scan_rds` | Scan RDS instances for public access, encryption, backups |
-| `scan_ebs` | Check EBS volumes and snapshots for encryption and public sharing |
-| `scan_vpc` | Review VPC flow logs, default VPC usage, default security groups |
-| `generate_report` | Generate a Markdown report from scan results |
+| `scan_all` | Run all 14 security scanners in parallel |
+| `detect_services` | Detect enabled AWS security services and assess maturity |
+| `scan_secret_exposure` | Check Lambda env vars and EC2 userData for exposed secrets |
+| `scan_ssl_certificate` | Check ACM certificates for expiry and failed status |
+| `scan_dns_dangling` | Detect dangling DNS records (subdomain takeover risk) |
+| `scan_network_reachability` | Analyze true network reachability (SG + NACL rules) |
+| `scan_iam_privilege_escalation` | Detect IAM privilege escalation paths |
+| `scan_public_access_verify` | Verify actual public accessibility of resources |
+| `scan_tag_compliance` | Check resources for required tags |
+| `scan_idle_resources` | Find unused/idle resources |
+| `scan_disaster_recovery` | Assess disaster recovery readiness |
+| `scan_security_hub_findings` | Aggregate findings from AWS Security Hub |
+| `scan_guardduty_findings` | Aggregate findings from Amazon GuardDuty |
+| `scan_inspector_findings` | Aggregate findings from Amazon Inspector |
+| `scan_trusted_advisor_findings` | Aggregate findings from AWS Trusted Advisor |
+| `scan_group` | Run a predefined group of scanners for a specific scenario |
+| `list_groups` | List available scan groups |
 | `list_modules` | List available scan modules with descriptions |
+| `generate_report` | Generate a Markdown report from scan results |
+| `generate_html_report` | Generate a professional HTML report |
+| `generate_mlps3_report` | Generate a MLPS Level 3 compliance report |
+| `generate_mlps3_html_report` | Generate a MLPS Level 3 HTML compliance report |
+| `generate_maturity_report` | Generate a security maturity assessment |
+| `save_results` | Save scan results for the dashboard |
 
 All tools accept an optional `region` parameter (defaults to the server's configured region).
 
@@ -130,38 +146,64 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
       "Sid": "SecurityScannerReadOnly",
       "Effect": "Allow",
       "Action": [
-        "ec2:DescribeSecurityGroups",
+        "acm:DescribeCertificate",
+        "acm:ListCertificates",
+
+        "config:DescribeConfigurationRecorders",
+
+        "ec2:DescribeAddresses",
         "ec2:DescribeInstances",
-        "ec2:DescribeVolumes",
+        "ec2:DescribeNetworkAcls",
+        "ec2:DescribeSecurityGroups",
         "ec2:DescribeSnapshots",
         "ec2:DescribeSnapshotAttribute",
+        "ec2:DescribeVolumes",
         "ec2:GetEbsEncryptionByDefault",
-        "ec2:DescribeVpcs",
-        "ec2:DescribeFlowLogs",
 
-        "s3:ListAllMyBuckets",
-        "s3:GetBucketPublicAccessBlock",
-        "s3:GetBucketAcl",
-        "s3:GetBucketPolicy",
-        "s3:GetBucketPolicyStatus",
-        "s3:GetEncryptionConfiguration",
-        "s3:GetBucketVersioning",
+        "guardduty:GetDetector",
+        "guardduty:ListDetectors",
+        "guardduty:ListFindings",
+        "guardduty:GetFindings",
 
         "iam:GetAccountSummary",
         "iam:ListUsers",
+        "iam:ListRoles",
         "iam:ListAccessKeys",
         "iam:GetAccessKeyLastUsed",
         "iam:ListAttachedUserPolicies",
-        "iam:GenerateCredentialReport",
-        "iam:GetCredentialReport",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListUserPolicies",
+        "iam:ListRolePolicies",
+        "iam:GetUserPolicy",
+        "iam:GetRolePolicy",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
 
-        "cloudtrail:DescribeTrails",
-        "cloudtrail:GetTrailStatus",
-        "cloudtrail:GetEventSelectors",
+        "inspector2:ListFindings",
+
+        "lambda:ListFunctions",
+        "lambda:GetFunction",
+
+        "macie2:GetMacieSession",
 
         "rds:DescribeDBInstances",
 
-        "sts:GetCallerIdentity"
+        "route53:ListHostedZones",
+        "route53:ListResourceRecordSets",
+
+        "s3:GetBucketPublicAccessBlock",
+        "s3:GetBucketVersioning",
+        "s3:GetBucketReplication",
+        "s3:GetBucketTagging",
+        "s3:ListAllMyBuckets",
+
+        "securityhub:DescribeHub",
+        "securityhub:GetFindings",
+
+        "sts:GetCallerIdentity",
+
+        "support:DescribeTrustedAdvisorChecks",
+        "support:DescribeTrustedAdvisorCheckResult"
       ],
       "Resource": "*"
     }
@@ -171,15 +213,29 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
 
 ## Scan Modules
 
+### Unique Scanners (10)
+
 | Module | What It Checks | Risk Score Range |
 |--------|---------------|-----------------|
-| **Security Groups** | Open ports to 0.0.0.0/0 (SSH, RDP, databases), all-ports rules | 7.5 - 9.5 |
-| **S3** | Public ACLs, public bucket policies, Block Public Access, encryption, versioning | 3.0 - 9.5 |
-| **IAM** | Root MFA, root access keys, inactive users, old access keys, over-permissive policies | 5.0 - 10.0 |
-| **CloudTrail** | Trail existence, multi-region logging, log validation, CloudWatch integration, management events | 5.5 - 9.5 |
-| **RDS** | Public accessibility, storage encryption, backup retention, deletion protection | 4.0 - 8.0 |
-| **EBS** | Default encryption, unencrypted volumes, unencrypted snapshots, public snapshots | 5.5 - 9.5 |
-| **VPC** | Default VPC usage, VPC Flow Logs, default security group rules | 5.5 - 7.0 |
+| **Service Detection** | Enabled security services (Security Hub, GuardDuty, Inspector, Config, Macie) and maturity level | 5.0 - 7.5 |
+| **Secret Exposure** | Lambda env vars and EC2 userData for exposed secrets (AWS keys, private keys, passwords) | 7.0 - 9.5 |
+| **SSL Certificate** | ACM certificate expiry, failed status, upcoming renewals | 5.5 - 9.0 |
+| **Dangling DNS** | Route53 CNAME records pointing to non-existent resources (subdomain takeover) | 7.0 - 8.5 |
+| **Network Reachability** | True network reachability combining Security Group + NACL rules for public EC2 instances | 5.5 - 9.5 |
+| **IAM Privilege Escalation** | Privilege escalation paths via policy manipulation, role creation, or service abuse | 7.0 - 9.5 |
+| **Public Access Verify** | Actual public accessibility of resources marked as public (S3 HTTP, RDS DNS) | 7.0 - 9.0 |
+| **Tag Compliance** | Required tags (Environment, Project, Owner) on EC2, RDS, S3 resources | 3.0 - 5.0 |
+| **Idle Resources** | Unused resources (unattached EBS, unused EIPs, stopped instances, unused SGs) | 3.0 - 5.0 |
+| **Disaster Recovery** | RDS Multi-AZ & backups, EBS snapshot coverage, S3 versioning & replication | 4.0 - 7.5 |
+
+### Aggregation Scanners (4)
+
+| Module | Source Service | Risk Score Range |
+|--------|---------------|-----------------|
+| **Security Hub Findings** | AWS Security Hub (FSBP, CIS, PCI DSS) | 3.0 - 9.5 |
+| **GuardDuty Findings** | Amazon GuardDuty threat detection | 3.0 - 9.5 |
+| **Inspector Findings** | Amazon Inspector vulnerability scanning | 3.0 - 9.5 |
+| **Trusted Advisor Findings** | AWS Trusted Advisor security checks (requires Business/Enterprise Support) | 5.5 - 8.0 |
 
 ### Risk Scoring
 
@@ -190,6 +246,26 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
 | 4.0 - 6.9 | MEDIUM | P2 |
 | 0.0 - 3.9 | LOW | P3 |
 
+## Scan Groups
+
+Pre-defined scanner groupings for common scenarios:
+
+| Group | Description | Modules |
+|-------|-------------|---------|
+| `mlps3_precheck` | GB/T 22239-2019 等保三级预检 | 12 modules |
+| `hw_defense` | 护网蓝队加固 | 7 modules |
+| `exposure` | 公网暴露面评估 | 5 modules |
+| `pre_launch` | 生产上线前检查 | ALL modules |
+| `aggregation` | 安全服务聚合 | 4 modules |
+| `new_account_baseline` | 新账户基线检查 | 5 modules |
+| `disaster_recovery` | 灾备评估 | 2 modules |
+| `least_privilege` | 最小权限审计 | 2 modules |
+| `idle_resources` | 闲置资源清理 | 2 modules |
+| `tag_compliance` | 资源标签合规 | 1 module |
+| `public_access_verify` | 公网可达性验证 | 1 module |
+
+Use `list_groups` to see all available groups with their module lists.
+
 ## Output Format
 
 ### Scan Results (JSON)
@@ -198,7 +274,7 @@ Each scan tool returns structured JSON:
 
 ```json
 {
-  "module": "security_group",
+  "module": "network_reachability",
   "status": "success",
   "resourcesScanned": 12,
   "findingsCount": 3,
@@ -206,10 +282,10 @@ Each scan tool returns structured JSON:
   "findings": [
     {
       "severity": "CRITICAL",
-      "title": "Security group sg-abc123 allows SSH (22) from 0.0.0.0/0",
-      "resourceType": "AWS::EC2::SecurityGroup",
-      "resourceId": "sg-abc123",
-      "resourceArn": "arn:aws:ec2:ap-northeast-1:123456789012:security-group/sg-abc123",
+      "title": "EC2 instance i-abc123 has SSH (22) reachable from 0.0.0.0/0",
+      "resourceType": "AWS::EC2::Instance",
+      "resourceId": "i-abc123",
+      "resourceArn": "arn:aws:ec2:ap-northeast-1:123456789012:instance/i-abc123",
       "region": "ap-northeast-1",
       "description": "...",
       "impact": "...",

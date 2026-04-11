@@ -53,11 +53,11 @@ describe("generateMlps3Report", () => {
   it("generates report with pass/fail indicators for findings", () => {
     const result = makeResult([
       {
-        module: "iam_password_policy",
+        module: "security_hub_findings",
         findings: [
           {
             severity: "MEDIUM",
-            title: "IAM password policy minimum length is too short",
+            title: "IAM.7 IAM password policy minimum length is too short",
             description: "The IAM password policy requires only 6 characters.",
             riskScore: 5.0,
             resourceId: "password-policy",
@@ -67,13 +67,9 @@ describe("generateMlps3Report", () => {
             impact: "Weak passwords can be easily cracked.",
             remediationSteps: ["Set minimum password length to at least 8 characters."],
             priority: "P2",
-            module: "iam_password_policy",
+            module: "security_hub_findings",
           },
         ],
-      },
-      {
-        module: "cloudtrail",
-        findings: [],
       },
     ]);
 
@@ -84,11 +80,11 @@ describe("generateMlps3Report", () => {
     expect(report).toContain("Account: 123456789012");
     expect(report).toContain("cn-north-1");
 
-    // Password policy should FAIL
+    // Password policy should FAIL (finding matches "IAM.7" pattern)
     expect(report).toContain("\u274c");
     expect(report).toContain("密码策略");
 
-    // CloudTrail audit should PASS (no findings)
+    // Audit function should PASS (security_hub_findings present, no CloudTrail finding)
     expect(report).toContain("\u2705");
     expect(report).toContain("审计功能");
 
@@ -101,21 +97,12 @@ describe("generateMlps3Report", () => {
 
   it("generates all-pass report when no findings exist", () => {
     const result = makeResult([
-      { module: "iam_password_policy", findings: [] },
-      { module: "iam", findings: [] },
-      { module: "iam_mfa_audit", findings: [] },
+      { module: "security_hub_findings", findings: [] },
       { module: "iam_privilege_escalation", findings: [] },
-      { module: "cloudtrail", findings: [] },
-      { module: "cloudtrail_protection", findings: [] },
-      { module: "log_integrity_audit", findings: [] },
-      { module: "security_group", findings: [] },
       { module: "network_reachability", findings: [] },
-      { module: "s3", findings: [] },
-      { module: "ebs", findings: [] },
-      { module: "rds", findings: [] },
-      { module: "vpc", findings: [] },
       { module: "service_detection", findings: [] },
-      { module: "elb_https", findings: [] },
+      { module: "guardduty_findings", findings: [] },
+      { module: "inspector_findings", findings: [] },
       { module: "ssl_certificate", findings: [] },
     ]);
 
@@ -129,14 +116,14 @@ describe("generateMlps3Report", () => {
   });
 
   it("marks checks as unknown when required module is missing or errored", () => {
-    // Only provide iam_password_policy — all other modules are missing
+    // Only provide security_hub_findings — other required modules (service_detection, etc.) are missing
     const result = makeResult([
       {
-        module: "iam_password_policy",
+        module: "security_hub_findings",
         findings: [
           {
             severity: "MEDIUM",
-            title: "IAM password policy minimum length is too short",
+            title: "IAM.7 IAM password policy minimum length is too short",
             description: "The IAM password policy requires only 6 characters.",
             riskScore: 5.0,
             resourceId: "password-policy",
@@ -146,7 +133,7 @@ describe("generateMlps3Report", () => {
             impact: "Weak passwords.",
             remediationSteps: ["Fix it."],
             priority: "P2",
-            module: "iam_password_policy",
+            module: "security_hub_findings",
           },
         ],
       },
@@ -154,9 +141,9 @@ describe("generateMlps3Report", () => {
 
     const report = generateMlps3Report(result);
 
-    // Password policy check should FAIL (module present, finding matches)
+    // Password policy check should FAIL (security_hub_findings present, finding matches "IAM.7")
     expect(report).toContain("\u274c");
-    // Checks with missing modules should show ⚠️ 未检查
+    // Checks with missing modules (e.g., service_detection for GuardDuty) should show ⚠️ 未检查
     expect(report).toContain("\u26a0\ufe0f");
     expect(report).toContain("未检查");
     // Summary should show 未检查 count and note about pass rate

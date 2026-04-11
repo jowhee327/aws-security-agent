@@ -15,6 +15,8 @@ interface Finding {
     remediationSteps: string[];
     priority: Priority;
     module?: string;
+    accountId?: string;
+    accountAlias?: string;
 }
 interface ScanResult {
     module: string;
@@ -26,10 +28,17 @@ interface ScanResult {
     scanTimeMs: number;
     findings: Finding[];
 }
+interface AwsCredentials {
+    accessKeyId: string;
+    secretAccessKey: string;
+    sessionToken: string;
+}
 interface ScanContext {
     region: string;
     partition: string;
     accountId: string;
+    accountAlias?: string;
+    credentials?: AwsCredentials;
 }
 interface FullScanResult {
     scanStart: string;
@@ -84,6 +93,31 @@ interface Scanner {
 }
 
 declare function runAllScanners(scanners: Scanner[], region: string): Promise<FullScanResult>;
+interface MultiAccountOptions {
+    orgMode: boolean;
+    roleName: string;
+    accountIds?: string[];
+}
+declare function runMultiAccountScanners(scanners: Scanner[], region: string, opts: MultiAccountOptions): Promise<FullScanResult>;
+
+declare function getCurrentAccountId(region: string): Promise<string>;
+declare function assumeRole(roleArn: string, region: string, options?: {
+    sessionName?: string;
+    externalId?: string;
+}): Promise<{
+    accessKeyId: string;
+    secretAccessKey: string;
+    sessionToken: string;
+}>;
+declare function buildRoleArn(accountId: string, roleName: string, partition?: string): string;
+
+interface OrgAccount {
+    id: string;
+    name: string;
+    email: string;
+    status: string;
+}
+declare function listOrgAccounts(region: string): Promise<OrgAccount[]>;
 
 declare function generateMarkdownReport(scanResults: FullScanResult): string;
 
@@ -96,4 +130,4 @@ declare function saveResults(scanResults: FullScanResult, outputDir?: string): s
 declare function createServer(defaultRegion: string): McpServer;
 declare function startServer(defaultRegion: string): Promise<void>;
 
-export { type DashboardData, type DashboardHistoryEntry, type Finding, type FullScanResult, type Priority, type ScanContext, type ScanResult, type Scanner, type Severity, calculateScore, createServer, generateHtmlReport, generateMarkdownReport, generateMlps3HtmlReport, runAllScanners, saveResults, startServer };
+export { type DashboardData, type DashboardHistoryEntry, type Finding, type FullScanResult, type OrgAccount, type Priority, type ScanContext, type ScanResult, type Scanner, type Severity, assumeRole, buildRoleArn, calculateScore, createServer, generateHtmlReport, generateMarkdownReport, generateMlps3HtmlReport, getCurrentAccountId, listOrgAccounts, runAllScanners, runMultiAccountScanners, saveResults, startServer };

@@ -148,7 +148,7 @@ export class PublicAccessVerifyScanner implements Scanner {
     try {
       // --- S3 public access verification ---
       try {
-        const s3Client = createClient(S3Client, region);
+        const s3Client = createClient(S3Client, region, ctx.credentials);
         const listResp = await s3Client.send(new ListBucketsCommand({}));
         const buckets = listResp.Buckets ?? [];
 
@@ -160,7 +160,7 @@ export class PublicAccessVerifyScanner implements Scanner {
           const bucketClient =
             bucketRegion === region
               ? s3Client
-              : createClient(S3Client, bucketRegion);
+              : createClient(S3Client, bucketRegion, ctx.credentials);
 
           const markedPublic = await isBucketMarkedPublic(bucketClient, name, warnings);
           if (markedPublic === "skip" || !markedPublic) continue;
@@ -224,7 +224,7 @@ export class PublicAccessVerifyScanner implements Scanner {
 
       // --- RDS public DNS verification ---
       try {
-        const rdsClient = createClient(RDSClient, region);
+        const rdsClient = createClient(RDSClient, region, ctx.credentials);
         const instances: DBInstance[] = [];
         let marker: string | undefined;
         do {

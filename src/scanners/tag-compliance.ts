@@ -57,7 +57,7 @@ export class TagComplianceScanner implements Scanner {
     try {
       // --- EC2 instances ---
       try {
-        const ec2Client = createClient(EC2Client, region);
+        const ec2Client = createClient(EC2Client, region, ctx.credentials);
         const instances: Instance[] = [];
         let nextToken: string | undefined;
         do {
@@ -106,7 +106,7 @@ export class TagComplianceScanner implements Scanner {
 
       // --- RDS instances ---
       try {
-        const rdsClient = createClient(RDSClient, region);
+        const rdsClient = createClient(RDSClient, region, ctx.credentials);
         const dbInstances: DBInstance[] = [];
         let marker: string | undefined;
         do {
@@ -158,7 +158,7 @@ export class TagComplianceScanner implements Scanner {
 
       // --- S3 buckets ---
       try {
-        const s3Client = createClient(S3Client, region);
+        const s3Client = createClient(S3Client, region, ctx.credentials);
         const listResp = await s3Client.send(new ListBucketsCommand({}));
         const buckets = listResp.Buckets ?? [];
         resourcesScanned += buckets.length;

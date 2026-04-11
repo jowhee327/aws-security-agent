@@ -48,7 +48,7 @@ export class SecretExposureScanner implements Scanner {
     try {
       // --- Lambda functions ---
       try {
-        const lambda = createClient(LambdaClient, region);
+        const lambda = createClient(LambdaClient, region, ctx.credentials);
         const functions: FunctionConfiguration[] = [];
         let marker: string | undefined;
         do {
@@ -125,7 +125,7 @@ export class SecretExposureScanner implements Scanner {
 
       // --- EC2 userData ---
       try {
-        const ec2 = createClient(EC2Client, region);
+        const ec2 = createClient(EC2Client, region, ctx.credentials);
         const instances: Instance[] = [];
         let nextToken: string | undefined;
         do {

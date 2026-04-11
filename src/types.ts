@@ -14,6 +14,8 @@ export interface Finding {
   remediationSteps: string[];
   priority: Priority;
   module?: string;
+  accountId?: string;
+  accountAlias?: string;
 }
 
 export interface ScanResult {
@@ -27,10 +29,18 @@ export interface ScanResult {
   findings: Finding[];
 }
 
+export interface AwsCredentials {
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken: string;
+}
+
 export interface ScanContext {
   region: string;
   partition: string;
   accountId: string;
+  accountAlias?: string;
+  credentials?: AwsCredentials;
 }
 
 export interface FullScanResult {

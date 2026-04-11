@@ -1,0 +1,55 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "AWS Security MCP - Cross-account security audit role. Deploy as StackSet from Management Account to all member accounts.",
+  "Parameters": {
+    "AdminAccountId": {
+      "Type": "String",
+      "Description": "The AWS account ID that will run the security scanning tool",
+      "AllowedPattern": "\\d{12}",
+      "ConstraintDescription": "Must be a 12-digit AWS account ID"
+    },
+    "RoleName": {
+      "Type": "String",
+      "Default": "AWSSecurityMCPAudit",
+      "Description": "Name for the audit IAM role"
+    }
+  },
+  "Resources": {
+    "SecurityAuditRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": { "Ref": "RoleName" },
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": { "Fn::Sub": "arn:${AWS::Partition}:iam::${AdminAccountId}:root" }
+              },
+              "Action": "sts:AssumeRole",
+              "Condition": {
+                "StringEquals": {
+                  "sts:ExternalId": "aws-security-mcp-audit"
+                }
+              }
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          { "Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/SecurityAudit" }
+        ],
+        "Tags": [
+          { "Key": "ManagedBy", "Value": "aws-security-mcp" },
+          { "Key": "Purpose", "Value": "cross-account-security-audit" }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "RoleArn": {
+      "Description": "ARN of the security audit role",
+      "Value": { "Fn::GetAtt": ["SecurityAuditRole", "Arn"] }
+    }
+  }
+}

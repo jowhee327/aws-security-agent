@@ -155,10 +155,35 @@ function sharedCss(): string {
     .category-stat-pass{color:#22c55e}
     .category-stat-fail{color:#ef4444}
     .category-stat-unknown{color:#94a3b8}
+    .module-fold{background:#1e293b;border:1px solid #334155;border-radius:8px;margin-bottom:16px;overflow:hidden}
+    .module-fold>summary{cursor:pointer;padding:16px 20px;display:flex;align-items:center;gap:12px;list-style:none;user-select:none;flex-wrap:wrap}
+    .module-fold>summary::-webkit-details-marker{display:none}
+    .module-fold>summary::marker{content:""}
+    .module-fold>summary h3{margin:0;font-size:16px}
+    .module-fold>summary::after{content:"\\25B6";font-size:12px;color:#64748b;flex-shrink:0;transition:transform 0.2s;margin-left:auto}
+    .module-fold[open]>summary::after{transform:rotate(90deg)}
+    .module-fold[open]>summary{border-bottom:1px solid #334155}
+    .module-body{padding:12px 20px 16px}
+    .module-badges{display:inline-flex;gap:6px;flex-wrap:wrap}
+    .severity-group{margin-bottom:16px}
+    .severity-group-fold{margin-bottom:16px}
+    .severity-group-fold>summary{cursor:pointer;padding:4px 0;list-style:none;user-select:none}
+    .severity-group-fold>summary::-webkit-details-marker{display:none}
+    .severity-group-fold>summary::marker{content:""}
+    .severity-group-fold>summary h4{margin:0;display:inline}
+    .finding-card{display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:4px;border-radius:6px;border-left:4px solid #334155;background:rgba(30,41,59,0.5);flex-wrap:wrap}
+    .finding-title-text{font-weight:600;font-size:13px;flex:1;min-width:200px}
+    .finding-resource{color:#94a3b8;font-size:12px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .finding-card>details{width:100%;margin-top:4px}
+    .finding-card>details>summary{cursor:pointer;font-size:12px;color:#60a5fa;user-select:none}
+    .finding-card-body{padding:8px 0}
+    .finding-card-body p{color:#cbd5e1;font-size:13px;margin-bottom:4px}
+    .finding-card-body ol{padding-left:20px}
+    .finding-card-body li{color:#cbd5e1;font-size:13px;margin-bottom:2px}
     @media print{
       body{background:#fff;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .container{max-width:100%;padding:20px}
-      .card,.score-card,.stat-card,.chart-box,.finding-fold,.top5-card,.trend-chart,.category-fold{background:#fff;border:1px solid #e2e8f0}
+      .card,.score-card,.stat-card,.chart-box,.finding-fold,.top5-card,.trend-chart,.category-fold,.module-fold,.finding-card{background:#fff;border:1px solid #e2e8f0}
       .badge{border:1px solid}
       header{border-bottom-color:#e2e8f0}
       h2{border-bottom-color:#e2e8f0}
@@ -172,14 +197,17 @@ function sharedCss(): string {
       .chart-title,.trend-title{color:#475569}
       .remediation-steps li,.top5-remediation li{color:#475569}
       .recommendations li{color:#475569}
+      .finding-card-body p,.finding-card-body li{color:#475569}
+      .finding-title-text{color:#1e293b}
+      .finding-resource{color:#64748b}
       .check-findings li{color:#64748b}
-      .finding-fold,.top5-card,.category-fold{break-inside:avoid}
+      .finding-fold,.top5-card,.category-fold,.module-fold,.finding-card{break-inside:avoid}
       .check-item{break-inside:avoid}
       svg text{fill:#1e293b !important}
-      .finding-fold[open]>summary,.category-fold[open]>summary{border-bottom-color:#e2e8f0}
+      .finding-fold[open]>summary,.category-fold[open]>summary,.module-fold[open]>summary{border-bottom-color:#e2e8f0}
       details{display:block}
       details>summary{display:block}
-      details>.finding-body,details>.category-body{display:block !important}
+      details>:not(summary){display:block !important}
     }
   `;
 }
@@ -442,44 +470,102 @@ export function generateHtmlReport(
     </section>`;
   }
 
-  // --- Findings HTML (folded with <details>) ---
+  // --- Findings HTML (grouped by module, then severity) ---
   let findingsHtml: string;
   if (summary.totalFindings === 0) {
     findingsHtml = '<div class="no-findings">No security issues found.</div>';
   } else {
-    const grouped = new Map<Severity, Finding[]>();
-    for (const sev of SEVERITY_ORDER) grouped.set(sev, []);
-    for (const f of allFindings) grouped.get(f.severity)!.push(f);
+    const FOLD_THRESHOLD = 20;
 
-    const sections = SEVERITY_ORDER.map((sev) => {
-      const findings = grouped.get(sev)!;
-      if (findings.length === 0) return "";
-      findings.sort((a, b) => b.riskScore - a.riskScore);
-      const openAttr = sev === "CRITICAL" ? " open" : "";
-      const cards = findings
-        .map(
-          (f) => `
-        <details class="finding-fold sev-${sev.toLowerCase()}"${openAttr}>
-          <summary>
-            <span class="badge badge-${sev.toLowerCase()}">${sev}</span>
-            <span class="finding-summary-title">${esc(f.title)}</span>
-            <span class="finding-summary-score">${f.riskScore}/10</span>
-          </summary>
-          <div class="finding-body">
-            <div class="finding-detail"><strong>Resource:</strong> ${esc(f.resourceId)}</div>
-            <div class="finding-detail"><strong>Description:</strong> ${esc(f.description)}</div>
-            <div class="finding-detail"><strong>Impact:</strong> ${esc(f.impact)}</div>
-            <h4>Remediation</h4>
-            <ol class="remediation-steps">${f.remediationSteps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
-          </div>
-        </details>`,
-        )
-        .join("\n");
-      return `<h3>${sev.charAt(0)}${sev.slice(1).toLowerCase()} (${findings.length})</h3>\n${cards}`;
-    })
-      .filter(Boolean)
-      .join("\n");
-    findingsHtml = sections;
+    const renderCard = (f: Finding): string => {
+      const sev = f.severity.toLowerCase();
+      return `<div class="finding-card sev-${esc(sev)}">
+        <span class="badge badge-${esc(sev)}">${esc(f.severity)}</span>
+        <span class="finding-title-text">${esc(f.title)}</span>
+        <span class="finding-resource">${esc(f.resourceArn || f.resourceId)}</span>
+        <details><summary>Details</summary><div class="finding-card-body">
+          <p>${esc(f.description)}</p>
+          <p><strong>Remediation:</strong></p>
+          <ol>${f.remediationSteps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
+        </div></details>
+      </div>`;
+    };
+
+    const renderCards = (findings: Finding[]): string => {
+      if (findings.length <= FOLD_THRESHOLD) {
+        return findings.map(renderCard).join("\n");
+      }
+      const first = findings.slice(0, FOLD_THRESHOLD).map(renderCard).join("\n");
+      const rest = findings.slice(FOLD_THRESHOLD).map(renderCard).join("\n");
+      return `${first}\n<details><summary>Show remaining ${findings.length - FOLD_THRESHOLD} findings...</summary>\n${rest}\n</details>`;
+    };
+
+    const SEV_EMOJI: Record<string, string> = {
+      CRITICAL: "&#128308;",
+      HIGH: "&#128992;",
+      MEDIUM: "&#128993;",
+      LOW: "&#128309;",
+    };
+
+    // Group findings by module
+    const moduleMap = new Map<string, Finding[]>();
+    for (const f of allFindings) {
+      const mod = f.module ?? "unknown";
+      if (!moduleMap.has(mod)) moduleMap.set(mod, []);
+      moduleMap.get(mod)!.push(f);
+    }
+
+    // Sort modules: those with critical/high first, then by count
+    const moduleEntries = [...moduleMap.entries()].sort((a, b) => {
+      const aHasCritHigh = a[1].some((f) => f.severity === "CRITICAL" || f.severity === "HIGH");
+      const bHasCritHigh = b[1].some((f) => f.severity === "CRITICAL" || f.severity === "HIGH");
+      if (aHasCritHigh !== bHasCritHigh) return aHasCritHigh ? -1 : 1;
+      return b[1].length - a[1].length;
+    });
+
+    findingsHtml = moduleEntries.map(([modName, modFindings]) => {
+      const hasCritHigh = modFindings.some((f) => f.severity === "CRITICAL" || f.severity === "HIGH");
+      const openAttr = hasCritHigh ? " open" : "";
+
+      const sevCounts: Record<string, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+      for (const f of modFindings) sevCounts[f.severity]++;
+
+      const badges = SEVERITY_ORDER
+        .filter((sev) => sevCounts[sev] > 0)
+        .map((sev) => `<span class="badge badge-${sev.toLowerCase()}">${sevCounts[sev]} ${sev.charAt(0) + sev.slice(1).toLowerCase()}</span>`)
+        .join(" ");
+
+      const sevGroups = SEVERITY_ORDER.map((sev) => {
+        const findings = modFindings.filter((f) => f.severity === sev);
+        if (findings.length === 0) return "";
+        findings.sort((a, b) => b.riskScore - a.riskScore);
+
+        const emoji = SEV_EMOJI[sev] ?? "";
+        const label = sev.charAt(0) + sev.slice(1).toLowerCase();
+        const isCritHigh = sev === "CRITICAL" || sev === "HIGH";
+
+        if (isCritHigh) {
+          return `<div class="severity-group">
+            <h4>${emoji} ${label} (${findings.length})</h4>
+            ${renderCards(findings)}
+          </div>`;
+        }
+        return `<details class="severity-group-fold">
+          <summary><h4>${emoji} ${label} (${findings.length}) &mdash; click to expand</h4></summary>
+          ${renderCards(findings)}
+        </details>`;
+      }).filter(Boolean).join("\n");
+
+      return `<details class="module-fold"${openAttr}>
+        <summary>
+          <h3>&#128274; ${esc(modName)} (${modFindings.length})</h3>
+          <span class="module-badges">${badges}</span>
+        </summary>
+        <div class="module-body">
+          ${sevGroups}
+        </div>
+      </details>`;
+    }).join("\n");
   }
 
   // --- Trend Charts ---
@@ -578,7 +664,7 @@ ${top5Html}
 </section>
 
 <section>
-  <h2>All Findings by Severity</h2>
+  <h2>All Findings</h2>
   ${findingsHtml}
 </section>
 

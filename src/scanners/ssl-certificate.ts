@@ -34,7 +34,7 @@ export class SslCertificateScanner implements Scanner {
     const warnings: string[] = [];
 
     try {
-      const client = createClient(ACMClient, region);
+      const client = createClient(ACMClient, region, ctx.credentials);
 
       // List all certificates
       const certs: CertificateSummary[] = [];

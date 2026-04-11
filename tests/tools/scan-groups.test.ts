@@ -24,9 +24,10 @@ describe("SCAN_GROUPS", () => {
     expect(mlps.reportType).toBe("mlps3");
 
     const requiredModules = [
-      "security_group", "s3", "iam", "cloudtrail", "rds", "ebs", "vpc",
-      "service_detection", "iam_password_policy", "iam_mfa_audit",
-      "cloudtrail_protection", "elb_https",
+      "service_detection", "security_hub_findings", "guardduty_findings",
+      "inspector_findings", "trusted_advisor_findings",
+      "iam_privilege_escalation", "network_reachability",
+      "ssl_certificate", "disaster_recovery",
     ];
     for (const mod of requiredModules) {
       expect(mlps.modules, `mlps3_precheck should include ${mod}`).toContain(mod);
