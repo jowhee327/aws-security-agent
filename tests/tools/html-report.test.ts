@@ -276,7 +276,7 @@ describe("generateMlps3HtmlReport", () => {
 
   it("shows unknown checks when modules are missing", () => {
     const result = makeResult([
-      { module: "iam_password_policy", findings: [] },
+      { module: "ssl_certificate", findings: [] },
     ]);
     const html = generateMlps3HtmlReport(result);
 
