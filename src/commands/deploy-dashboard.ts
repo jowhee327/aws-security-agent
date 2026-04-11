@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync, existsSync, copyFileSync } from "node:fs";
+import { readdirSync, readFileSync, existsSync, copyFileSync } from "node:fs";
 import { join, extname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -121,7 +121,8 @@ export async function deployDashboard(
     console.log(`  ${key}`);
   }
 
-  const websiteUrl = `http://${bucket}.s3-website-${region}.amazonaws.com`;
+  const domain = region.startsWith("cn-") ? "amazonaws.com.cn" : "amazonaws.com";
+  const websiteUrl = `http://${bucket}.s3-website.${region}.${domain}`;
   console.log(`\nDashboard deployed successfully!`);
   console.log(`Website URL: ${websiteUrl}`);
   console.log(

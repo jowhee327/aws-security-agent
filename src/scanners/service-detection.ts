@@ -119,8 +119,7 @@ export class ServiceDetectionScanner implements Scanner {
           enabled: false,
           recommendation: "Create a multi-region trail for API logging",
         });
-        // CloudTrail findings are handled by the dedicated cloudtrail scanner,
-        // so we don't add a finding here.
+        // CloudTrail is checked by service detection only for coverage assessment.
       }
     } catch (err) {
       if (isAccessDenied(err)) {
@@ -132,7 +131,7 @@ export class ServiceDetectionScanner implements Scanner {
           enabled: false,
           recommendation: "Create a multi-region trail for API logging",
         });
-        // CloudTrail findings are handled by the dedicated cloudtrail scanner
+        // CloudTrail is checked by service detection only for coverage assessment
       } else {
         warnings.push(`CloudTrail detection failed: ${err instanceof Error ? err.message : String(err)}`);
         services.push({ name: "CloudTrail", enabled: null, details: "Detection error" });

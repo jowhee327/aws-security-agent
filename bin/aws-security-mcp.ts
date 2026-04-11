@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 
 import { startServer } from "../src/index.js";
+import { VERSION } from "../src/version.js";
 
 const args = process.argv.slice(2);
 const subcommand = args[0];
-
-const VERSION = "0.1.0";
 
 const HELP = `Usage: aws-security-mcp [command] [options]
 

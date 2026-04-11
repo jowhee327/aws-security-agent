@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
-import { join, extname, resolve, normalize } from "node:path";
+import { join, extname, resolve } from "node:path";
 import { existsSync, copyFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { exec } from "node:child_process";

@@ -137,7 +137,7 @@ export const SCAN_GROUPS: Record<string, {
   },
   aggregation: {
     name: "安全服务聚合",
-    description: "从 Security Hub / GuardDuty / Inspector / Trusted Advisor 聚合所有安全发现",
+    description: "从 Security Hub / GuardDuty / Inspector / Trusted Advisor / Config Rules / Access Analyzer / Patch Compliance 聚合所有安全发现",
     modules: ["security_hub_findings", "guardduty_findings", "inspector_findings", "trusted_advisor_findings", "config_rules_findings", "access_analyzer_findings", "patch_compliance_findings"],
   },
 };

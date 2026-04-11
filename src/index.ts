@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
+import { VERSION } from "./version.js";
 import type { Scanner } from "./scanners/base.js";
 import { runAllScanners, runMultiAccountScanners } from "./scanners/runner.js";
 import { ServiceDetectionScanner } from "./scanners/service-detection.js";
@@ -126,7 +127,7 @@ async function buildScanContext(region: string): Promise<ScanContext> {
 
 export function createServer(defaultRegion: string): McpServer {
   const server = new McpServer(
-    { name: "aws-security-mcp", version: "0.1.0" },
+    { name: "aws-security-mcp", version: VERSION },
     { capabilities: { resources: {}, tools: {}, prompts: {} } },
   );
 

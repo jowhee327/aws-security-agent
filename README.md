@@ -1,6 +1,6 @@
 # aws-security-mcp
 
-MCP server for automated AWS security scanning — 14 modules, risk scoring, zero write operations.
+MCP server for automated AWS security scanning — 17 modules, risk scoring, zero write operations.
 
 <!-- badges -->
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
@@ -9,15 +9,17 @@ MCP server for automated AWS security scanning — 14 modules, risk scoring, zer
 
 ## Features
 
-- **14 Security Scan Modules** — 10 unique scanners + 4 aggregation scanners (Security Hub, GuardDuty, Inspector, Trusted Advisor)
+- **17 Security Scan Modules** — 13 unique scanners + 4 aggregation scanners (Security Hub, GuardDuty, Inspector, Trusted Advisor, Config Rules, Access Analyzer, Patch Compliance)
 - **Risk Scoring** — every finding scored 0-10 with severity (CRITICAL/HIGH/MEDIUM/LOW) and priority (P0-P3)
 - **100% Read-Only** — uses only Describe/Get/List API calls; never modifies your AWS resources
+- **Multi-Account Support** — scan all accounts in an AWS Organization via `org_mode` with cross-account role assumption
 - **Parallel Execution** — all modules run concurrently via `Promise.allSettled`
 - **Report Generation** — Markdown, professional HTML, and MLPS Level 3 compliance reports
 - **React Dashboard** — local or S3-hosted dashboard with 30-day trend charts
 - **MCP Resources** — embedded security rules and risk scoring model documentation
 - **MCP Prompts** — pre-built workflows for full scans and finding analysis
 - **China Region Support** — full support for aws-cn partition
+- **CloudFormation StackSet Template** — one-click deployment of cross-account audit roles
 
 ## Quick Start
 
@@ -103,11 +105,15 @@ Ask your AI tool to run a security scan:
 
 Or use the built-in `security-scan` prompt for a guided workflow.
 
+For multi-account scanning across an AWS Organization:
+
+> "Run a full scan across all org accounts using org_mode"
+
 ## Available Tools
 
 | Tool | Description |
 |------|-------------|
-| `scan_all` | Run all 14 security scanners in parallel |
+| `scan_all` | Run all 17 security scanners in parallel (supports org_mode) |
 | `detect_services` | Detect enabled AWS security services and assess maturity |
 | `scan_secret_exposure` | Check Lambda env vars and EC2 userData for exposed secrets |
 | `scan_ssl_certificate` | Check ACM certificates for expiry and failed status |
@@ -122,15 +128,20 @@ Or use the built-in `security-scan` prompt for a guided workflow.
 | `scan_guardduty_findings` | Aggregate findings from Amazon GuardDuty |
 | `scan_inspector_findings` | Aggregate findings from Amazon Inspector |
 | `scan_trusted_advisor_findings` | Aggregate findings from AWS Trusted Advisor |
+| `scan_config_rules_findings` | Aggregate findings from AWS Config Rules |
+| `scan_access_analyzer_findings` | Aggregate findings from IAM Access Analyzer |
+| `scan_patch_compliance_findings` | Aggregate findings from SSM Patch Compliance |
 | `scan_group` | Run a predefined group of scanners for a specific scenario |
 | `list_groups` | List available scan groups |
 | `list_modules` | List available scan modules with descriptions |
+| `list_org_accounts` | List all accounts in AWS Organization |
 | `generate_report` | Generate a Markdown report from scan results |
 | `generate_html_report` | Generate a professional HTML report |
 | `generate_mlps3_report` | Generate a MLPS Level 3 compliance report |
 | `generate_mlps3_html_report` | Generate a MLPS Level 3 HTML compliance report |
 | `generate_maturity_report` | Generate a security maturity assessment |
 | `save_results` | Save scan results for the dashboard |
+| `get_setup_template` | Get CloudFormation StackSet template for cross-account audit role |
 
 All tools accept an optional `region` parameter (defaults to the server's configured region).
 
@@ -146,14 +157,21 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
       "Sid": "SecurityScannerReadOnly",
       "Effect": "Allow",
       "Action": [
+        "access-analyzer:ListAnalyzers",
+        "access-analyzer:ListFindingsV2",
+
         "acm:DescribeCertificate",
         "acm:ListCertificates",
 
+        "config:DescribeComplianceByConfigRule",
         "config:DescribeConfigurationRecorders",
+        "config:GetComplianceDetailsByConfigRule",
 
         "ec2:DescribeAddresses",
+        "ec2:DescribeInstanceAttribute",
         "ec2:DescribeInstances",
         "ec2:DescribeNetworkAcls",
+        "ec2:DescribeNetworkInterfaces",
         "ec2:DescribeSecurityGroups",
         "ec2:DescribeSnapshots",
         "ec2:DescribeSnapshotAttribute",
@@ -186,11 +204,16 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
 
         "macie2:GetMacieSession",
 
+        "organizations:ListAccounts",
+
         "rds:DescribeDBInstances",
 
         "route53:ListHostedZones",
         "route53:ListResourceRecordSets",
 
+        "s3:GetBucketAcl",
+        "s3:GetBucketLocation",
+        "s3:GetBucketPolicyStatus",
         "s3:GetBucketPublicAccessBlock",
         "s3:GetBucketVersioning",
         "s3:GetBucketReplication",
@@ -199,6 +222,9 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
 
         "securityhub:DescribeHub",
         "securityhub:GetFindings",
+
+        "ssm:DescribeInstanceInformation",
+        "ssm:DescribeInstancePatchStates",
 
         "sts:GetCallerIdentity",
 
@@ -213,11 +239,11 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
 
 ## Scan Modules
 
-### Unique Scanners (10)
+### Unique Scanners (13)
 
 | Module | What It Checks | Risk Score Range |
 |--------|---------------|-----------------|
-| **Service Detection** | Enabled security services (Security Hub, GuardDuty, Inspector, Config, Macie) and maturity level | 5.0 - 7.5 |
+| **Service Detection** | Enabled security services (Security Hub, GuardDuty, Inspector, Config, Macie, CloudTrail) and maturity level | 5.0 - 7.5 |
 | **Secret Exposure** | Lambda env vars and EC2 userData for exposed secrets (AWS keys, private keys, passwords) | 7.0 - 9.5 |
 | **SSL Certificate** | ACM certificate expiry, failed status, upcoming renewals | 5.5 - 9.0 |
 | **Dangling DNS** | Route53 CNAME records pointing to non-existent resources (subdomain takeover) | 7.0 - 8.5 |
@@ -227,6 +253,9 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
 | **Tag Compliance** | Required tags (Environment, Project, Owner) on EC2, RDS, S3 resources | 3.0 - 5.0 |
 | **Idle Resources** | Unused resources (unattached EBS, unused EIPs, stopped instances, unused SGs) | 3.0 - 5.0 |
 | **Disaster Recovery** | RDS Multi-AZ & backups, EBS snapshot coverage, S3 versioning & replication | 4.0 - 7.5 |
+| **Config Rules** | AWS Config Rules compliance status | 3.0 - 9.5 |
+| **Access Analyzer** | IAM Access Analyzer external access findings | 3.0 - 9.5 |
+| **Patch Compliance** | SSM Patch Manager compliance status for managed instances | 3.0 - 9.5 |
 
 ### Aggregation Scanners (4)
 
@@ -252,19 +281,31 @@ Pre-defined scanner groupings for common scenarios:
 
 | Group | Description | Modules |
 |-------|-------------|---------|
-| `mlps3_precheck` | GB/T 22239-2019 等保三级预检 | 12 modules |
-| `hw_defense` | 护网蓝队加固 | 7 modules |
-| `exposure` | 公网暴露面评估 | 5 modules |
-| `pre_launch` | 生产上线前检查 | ALL modules |
-| `aggregation` | 安全服务聚合 | 4 modules |
-| `new_account_baseline` | 新账户基线检查 | 5 modules |
+| `mlps3_precheck` | GB/T 22239-2019 等保三级预检 | 15 modules |
+| `hw_defense` | 护网蓝队加固 | 12 modules |
+| `exposure` | 公网暴露面评估 | 6 modules |
+| `data_encryption` | 数据加密审计 | 2 modules |
+| `least_privilege` | 最小权限审计 | 3 modules |
+| `log_integrity` | 日志完整性审计 | 2 modules |
 | `disaster_recovery` | 灾备评估 | 2 modules |
-| `least_privilege` | 最小权限审计 | 2 modules |
 | `idle_resources` | 闲置资源清理 | 2 modules |
 | `tag_compliance` | 资源标签合规 | 1 module |
-| `public_access_verify` | 公网可达性验证 | 1 module |
+| `new_account_baseline` | 新账户基线检查 | 6 modules |
+| `aggregation` | 安全服务聚合 | 7 modules |
 
 Use `list_groups` to see all available groups with their module lists.
+
+## Multi-Account Support
+
+For scanning across an AWS Organization:
+
+1. **Deploy the audit role** — Use `get_setup_template` to retrieve the CloudFormation StackSet template, then deploy it from your Management Account to create the `AWSSecurityMCPAudit` role in all member accounts.
+
+2. **Run with org_mode** — Pass `org_mode: true` to `scan_all` or `scan_group`. The scanner will discover accounts via `organizations:ListAccounts` and assume the audit role in each.
+
+3. **Optional filtering** — Pass `account_ids` to scan specific accounts instead of the full organization.
+
+The StackSet templates are available in the `templates/` directory in both YAML and JSON formats.
 
 ## Output Format
 
