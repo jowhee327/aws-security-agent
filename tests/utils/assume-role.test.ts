@@ -45,7 +45,7 @@ describe("assume-role utilities", () => {
       expect(result.sessionToken).toBe("session_test_token");
     });
 
-    it("uses custom session name when provided", async () => {
+    it("uses custom session name and externalId when provided", async () => {
       mockSend.mockResolvedValueOnce({
         Credentials: {
           AccessKeyId: "ASIA_KEY",
@@ -57,7 +57,7 @@ describe("assume-role utilities", () => {
       const result = await assumeRole(
         "arn:aws:iam::111122223333:role/TestRole",
         "us-east-1",
-        "custom-session",
+        { sessionName: "custom-session", externalId: "custom-ext-id" },
       );
       expect(result.accessKeyId).toBe("ASIA_KEY");
     });

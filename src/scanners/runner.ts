@@ -131,10 +131,24 @@ export async function runMultiAccountScanners(
   try {
     accounts = await listOrgAccounts(region);
   } catch (err) {
-    // Fall back to single-account scan if org listing fails
-    const result = await runAllScanners(scanners, region);
-    result.modules[0]?.warnings;
-    return result;
+    // FAIL LOUDLY — do not silently degrade to single-account
+    const errMsg = err instanceof Error ? err.message : String(err);
+    return {
+      scanStart: new Date().toISOString(),
+      scanEnd: new Date().toISOString(),
+      region,
+      accountId: adminAccountId,
+      modules: [{
+        module: "org_discovery",
+        status: "error" as const,
+        resourcesScanned: 0,
+        findingsCount: 0,
+        scanTimeMs: 0,
+        findings: [],
+        warnings: [`Organizations ListAccounts failed: ${errMsg}. Ensure you are running from the management account or a delegated admin with organizations:ListAccounts permission.`],
+      }],
+      summary: { totalFindings: 0, critical: 0, high: 0, medium: 0, low: 0, modulesSuccess: 0, modulesError: 1 },
+    };
   }
 
   // Filter to specific accounts if requested

@@ -6,15 +6,23 @@ export async function getCurrentAccountId(region: string): Promise<string> {
   return result.Account!;
 }
 
-export async function assumeRole(roleArn: string, region: string, sessionName = "aws-security-mcp"): Promise<{
+export const DEFAULT_EXTERNAL_ID = "aws-security-mcp-audit";
+
+export async function assumeRole(roleArn: string, region: string, options?: {
+  sessionName?: string;
+  externalId?: string;
+}): Promise<{
   accessKeyId: string;
   secretAccessKey: string;
   sessionToken: string;
 }> {
+  const sessionName = options?.sessionName ?? "aws-security-mcp";
+  const externalId = options?.externalId ?? DEFAULT_EXTERNAL_ID;
   const sts = new STSClient({ region });
   const result = await sts.send(new AssumeRoleCommand({
     RoleArn: roleArn,
     RoleSessionName: sessionName,
+    ExternalId: externalId,
     DurationSeconds: 3600,
   }));
   return {

@@ -13809,11 +13809,15 @@ async function getCurrentAccountId(region) {
   const result = await sts.send(new GetCallerIdentityCommand2({}));
   return result.Account;
 }
-async function assumeRole(roleArn, region, sessionName = "aws-security-mcp") {
+var DEFAULT_EXTERNAL_ID = "aws-security-mcp-audit";
+async function assumeRole(roleArn, region, options) {
+  const sessionName = options?.sessionName ?? "aws-security-mcp";
+  const externalId = options?.externalId ?? DEFAULT_EXTERNAL_ID;
   const sts = new STSClient2({ region });
   const result = await sts.send(new AssumeRoleCommand({
     RoleArn: roleArn,
     RoleSessionName: sessionName,
+    ExternalId: externalId,
     DurationSeconds: 3600
   }));
   return {
@@ -13951,9 +13955,23 @@ async function runMultiAccountScanners(scanners, region, opts) {
   try {
     accounts = await listOrgAccounts(region);
   } catch (err) {
-    const result = await runAllScanners(scanners, region);
-    result.modules[0]?.warnings;
-    return result;
+    const errMsg = err instanceof Error ? err.message : String(err);
+    return {
+      scanStart: (/* @__PURE__ */ new Date()).toISOString(),
+      scanEnd: (/* @__PURE__ */ new Date()).toISOString(),
+      region,
+      accountId: adminAccountId,
+      modules: [{
+        module: "org_discovery",
+        status: "error",
+        resourcesScanned: 0,
+        findingsCount: 0,
+        scanTimeMs: 0,
+        findings: [],
+        warnings: [`Organizations ListAccounts failed: ${errMsg}. Ensure you are running from the management account or a delegated admin with organizations:ListAccounts permission.`]
+      }],
+      summary: { totalFindings: 0, critical: 0, high: 0, medium: 0, low: 0, modulesSuccess: 0, modulesError: 1 }
+    };
   }
   if (opts.accountIds?.length) {
     const idSet = new Set(opts.accountIds);
