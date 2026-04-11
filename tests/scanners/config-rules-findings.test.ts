@@ -70,10 +70,11 @@ describe("ConfigRulesFindingsScanner", () => {
     expect(result.findingsCount).toBe(1);
 
     const finding = result.findings[0];
-    expect(finding.title).toBe("s3-bucket-encryption-enabled - Non-Compliant");
+    expect(finding.title).toBe("Config Rule: s3-bucket-encryption-enabled - AWS::S3::Bucket/my-bucket Non-Compliant");
     expect(finding.severity).toBe("HIGH"); // encryption is security-related
     expect(finding.riskScore).toBe(7.5);
     expect(finding.resourceId).toBe("my-bucket");
+    expect(finding.resourceArn).toBe("my-bucket");
     expect(finding.description).toContain("Encryption not enabled");
   });
 

@@ -10,14 +10,33 @@ import { ScanResult, ScanContext, Finding } from "../types.js";
 import { createClient } from "../utils/aws-client.js";
 import { severityFromScore, priorityFromSeverity } from "../utils/risk-scoring.js";
 
-function aaSeverityToScore(severity: string | undefined): number {
-  switch (severity?.toUpperCase()) {
-    case "CRITICAL": return 9.5;
-    case "HIGH": return 8.0;
-    case "MEDIUM": return 5.5;
-    case "LOW": return 3.0;
+/** Maps Access Analyzer findingType to a risk score. */
+function findingTypeToScore(findingType: string | undefined): number {
+  const ft = findingType as string | undefined;
+  switch (ft) {
+    case "ExternalAccess": return 8.0;
+    case "UnusedIAMRole":
+    case "UnusedIAMUserAccessKey":
+    case "UnusedIAMUserPassword": return 5.5;
+    case "UnusedPermission": return 3.0;
     default: return 5.5;
   }
+}
+
+const UNUSED_FINDING_TYPES = new Set([
+  "UnusedIAMRole",
+  "UnusedIAMUserAccessKey",
+  "UnusedIAMUserPassword",
+  "UnusedPermission",
+]);
+
+function isSecurityRelevant(findingType: string | undefined): boolean {
+  const ft = findingType as string | undefined;
+  return ft === "ExternalAccess" || UNUSED_FINDING_TYPES.has(ft ?? "");
+}
+
+function isExternalAccess(findingType: string | undefined): boolean {
+  return (findingType as string | undefined) === "ExternalAccess";
 }
 
 export class AccessAnalyzerFindingsScanner implements Scanner {
@@ -79,19 +98,41 @@ export class AccessAnalyzerFindingsScanner implements Scanner {
           );
 
           for (const aaf of listResp.findings ?? []) {
+            // Only include security-relevant finding types
+            if (!isSecurityRelevant(aaf.findingType)) {
+              continue;
+            }
+
             resourcesScanned++;
-            const score = aaSeverityToScore(aaf.findingType);
+            const score = findingTypeToScore(aaf.findingType);
             const severity = severityFromScore(score);
 
             const resourceArn = aaf.resource ?? "unknown";
             const resourceType = aaf.resourceType ?? "AWS::Unknown";
             const resourceId = resourceArn.split("/").pop() ?? resourceArn.split(":").pop() ?? "unknown";
+            const external = isExternalAccess(aaf.findingType);
 
             const descParts = [`Resource Type: ${resourceType}`];
             if (aaf.resourceOwnerAccount) descParts.push(`Owner Account: ${aaf.resourceOwnerAccount}`);
             if (aaf.findingType) descParts.push(`Finding Type: ${aaf.findingType}`);
 
             const title = buildFindingTitle(aaf);
+
+            const impact = external
+              ? `Resource is accessible from outside the account. Type: ${aaf.findingType ?? "unknown"}`
+              : `Unused access detected — review and remove to follow least-privilege. Type: ${aaf.findingType ?? "unknown"}`;
+
+            const remediationSteps = external
+              ? [
+                  "Review the finding in the IAM Access Analyzer console.",
+                  `Check resource ${resourceId} for unintended external access.`,
+                  "Remove or restrict the resource policy to eliminate external access.",
+                ]
+              : [
+                  "Review the finding in the IAM Access Analyzer console.",
+                  `Check resource ${resourceId} for unused access permissions.`,
+                  "Remove unused permissions, roles, or credentials to follow least-privilege.",
+                ];
 
             findings.push({
               severity,
@@ -101,13 +142,9 @@ export class AccessAnalyzerFindingsScanner implements Scanner {
               resourceArn,
               region,
               description: descParts.join(". "),
-              impact: `Resource is accessible from outside the account. Type: ${aaf.findingType ?? "unknown"}`,
+              impact,
               riskScore: score,
-              remediationSteps: [
-                "Review the finding in the IAM Access Analyzer console.",
-                `Check resource ${resourceId} for unintended external access.`,
-                "Remove or restrict the resource policy to eliminate external access.",
-              ],
+              remediationSteps,
               priority: priorityFromSeverity(severity),
               module: this.moduleName,
               accountId: aaf.resourceOwnerAccount ?? accountId,
@@ -148,7 +185,10 @@ function buildFindingTitle(finding: FindingSummaryV2): string {
   const resource = finding.resource
     ? (finding.resource.split("/").pop() ?? finding.resource.split(":").pop() ?? finding.resource)
     : "unknown";
-  return `[Access Analyzer] ${resourceType} ${resource} — external access detected`;
+  const label = isExternalAccess(finding.findingType)
+    ? "external access detected"
+    : "unused access detected";
+  return `[Access Analyzer] ${resourceType} ${resource} — ${label}`;
 }
 
 function mapResourceType(aaType: string): string {

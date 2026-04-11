@@ -101,10 +101,10 @@ export class ConfigRulesFindingsScanner implements Scanner {
 
               findings.push({
                 severity,
-                title: `${ruleName} - Non-Compliant`,
+                title: `Config Rule: ${ruleName} - ${resourceType}/${resourceId} Non-Compliant`,
                 resourceType,
                 resourceId,
-                resourceArn: `arn:${partition}:config:${region}:${accountId}:resource/${resourceType}/${resourceId}`,
+                resourceArn: resourceId,
                 region,
                 description: descParts.join(". "),
                 impact: `Resource is non-compliant with Config Rule: ${ruleName}`,

@@ -50,14 +50,18 @@ describe("PatchComplianceFindingsScanner", () => {
                 InstanceId: "i-1234567890abcdef0",
                 MissingCount: 3,
                 FailedCount: 0,
+                CriticalNonCompliantCount: 1,
                 SecurityNonCompliantCount: 2,
+                OtherNonCompliantCount: 0,
                 OperationEndTime: new Date("2026-04-10T12:00:00Z"),
               },
               {
                 InstanceId: "i-abcdef1234567890",
                 MissingCount: 1,
                 FailedCount: 1,
+                CriticalNonCompliantCount: 0,
                 SecurityNonCompliantCount: 0,
+                OtherNonCompliantCount: 0,
                 OperationEndTime: new Date("2026-04-10T14:00:00Z"),
               },
             ],
@@ -74,13 +78,18 @@ describe("PatchComplianceFindingsScanner", () => {
     expect(result.resourcesScanned).toBe(2);
     expect(result.findingsCount).toBe(2);
 
-    // Instance with security non-compliant patches → HIGH
+    // Instance with critical/security non-compliant patches → HIGH
     const linux = result.findings.find((f) => f.resourceId === "i-1234567890abcdef0");
     expect(linux).toBeDefined();
     expect(linux!.severity).toBe("HIGH");
     expect(linux!.riskScore).toBe(7.5);
     expect(linux!.title).toContain("3 missing");
+    expect(linux!.title).toContain("1 critical non-compliant");
+    expect(linux!.title).toContain("2 security non-compliant");
     expect(linux!.description).toContain("Amazon Linux 2");
+    expect(linux!.description).toContain("Critical non-compliant: 1");
+    expect(linux!.description).toContain("Security non-compliant: 2");
+    expect(linux!.description).toContain("Other non-compliant: 0");
 
     // Instance with failed patches → HIGH
     const windows = result.findings.find((f) => f.resourceId === "i-abcdef1234567890");
@@ -123,7 +132,9 @@ describe("PatchComplianceFindingsScanner", () => {
                 InstanceId: "i-1234567890abcdef0",
                 MissingCount: 0,
                 FailedCount: 0,
+                CriticalNonCompliantCount: 0,
                 SecurityNonCompliantCount: 0,
+                OtherNonCompliantCount: 0,
                 OperationEndTime: new Date("2026-04-10T12:00:00Z"),
               },
             ],
@@ -138,6 +149,45 @@ describe("PatchComplianceFindingsScanner", () => {
     expect(result.status).toBe("success");
     expect(result.findingsCount).toBe(0);
     expect(result.findings).toHaveLength(0);
+  });
+
+  it("returns MEDIUM severity for otherNonCompliantCount only", async () => {
+    mockSend.mockImplementation((cmd: { constructor: { name: string } }) => {
+      const name = cmd.constructor.name;
+      switch (name) {
+        case "DescribeInstanceInformationCommand":
+          return {
+            InstanceInformationList: [
+              { InstanceId: "i-other", PlatformName: "Amazon Linux 2", PlatformType: "Linux" },
+            ],
+          };
+        case "DescribeInstancePatchStatesCommand":
+          return {
+            InstancePatchStates: [
+              {
+                InstanceId: "i-other",
+                MissingCount: 0,
+                FailedCount: 0,
+                CriticalNonCompliantCount: 0,
+                SecurityNonCompliantCount: 0,
+                OtherNonCompliantCount: 3,
+                OperationEndTime: new Date("2026-04-10T12:00:00Z"),
+              },
+            ],
+          };
+        default:
+          return {};
+      }
+    });
+
+    const result = await scanner.scan(ctx);
+
+    expect(result.status).toBe("success");
+    expect(result.findingsCount).toBe(1);
+    expect(result.findings[0].severity).toBe("MEDIUM");
+    expect(result.findings[0].riskScore).toBe(5.5);
+    expect(result.findings[0].title).toContain("3 other non-compliant");
+    expect(result.findings[0].description).toContain("Other non-compliant: 3");
   });
 
   it("flags instances without patch data as LOW", async () => {

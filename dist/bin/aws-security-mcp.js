@@ -17318,10 +17318,10 @@ var ConfigRulesFindingsScanner = class {
               if (annotation) descParts.push(`Annotation: ${annotation}`);
               findings.push({
                 severity,
-                title: `${ruleName} - Non-Compliant`,
+                title: `Config Rule: ${ruleName} - ${resourceType}/${resourceId} Non-Compliant`,
                 resourceType,
                 resourceId,
-                resourceArn: `arn:${partition}:config:${region}:${accountId}:resource/${resourceType}/${resourceId}`,
+                resourceArn: resourceId,
                 region,
                 description: descParts.join(". "),
                 impact: `Resource is non-compliant with Config Rule: ${ruleName}`,
@@ -17386,19 +17386,33 @@ import {
   ListAnalyzersCommand,
   ListFindingsV2Command
 } from "@aws-sdk/client-accessanalyzer";
-function aaSeverityToScore(severity) {
-  switch (severity?.toUpperCase()) {
-    case "CRITICAL":
-      return 9.5;
-    case "HIGH":
+function findingTypeToScore(findingType) {
+  const ft = findingType;
+  switch (ft) {
+    case "ExternalAccess":
       return 8;
-    case "MEDIUM":
+    case "UnusedIAMRole":
+    case "UnusedIAMUserAccessKey":
+    case "UnusedIAMUserPassword":
       return 5.5;
-    case "LOW":
+    case "UnusedPermission":
       return 3;
     default:
       return 5.5;
   }
+}
+var UNUSED_FINDING_TYPES = /* @__PURE__ */ new Set([
+  "UnusedIAMRole",
+  "UnusedIAMUserAccessKey",
+  "UnusedIAMUserPassword",
+  "UnusedPermission"
+]);
+function isSecurityRelevant(findingType) {
+  const ft = findingType;
+  return ft === "ExternalAccess" || UNUSED_FINDING_TYPES.has(ft ?? "");
+}
+function isExternalAccess(findingType) {
+  return findingType === "ExternalAccess";
 }
 var AccessAnalyzerFindingsScanner = class {
   moduleName = "access_analyzer_findings";
@@ -17449,16 +17463,30 @@ var AccessAnalyzerFindingsScanner = class {
             })
           );
           for (const aaf of listResp.findings ?? []) {
+            if (!isSecurityRelevant(aaf.findingType)) {
+              continue;
+            }
             resourcesScanned++;
-            const score = aaSeverityToScore(aaf.findingType);
+            const score = findingTypeToScore(aaf.findingType);
             const severity = severityFromScore(score);
             const resourceArn = aaf.resource ?? "unknown";
             const resourceType = aaf.resourceType ?? "AWS::Unknown";
             const resourceId = resourceArn.split("/").pop() ?? resourceArn.split(":").pop() ?? "unknown";
+            const external = isExternalAccess(aaf.findingType);
             const descParts = [`Resource Type: ${resourceType}`];
             if (aaf.resourceOwnerAccount) descParts.push(`Owner Account: ${aaf.resourceOwnerAccount}`);
             if (aaf.findingType) descParts.push(`Finding Type: ${aaf.findingType}`);
             const title = buildFindingTitle(aaf);
+            const impact = external ? `Resource is accessible from outside the account. Type: ${aaf.findingType ?? "unknown"}` : `Unused access detected \u2014 review and remove to follow least-privilege. Type: ${aaf.findingType ?? "unknown"}`;
+            const remediationSteps = external ? [
+              "Review the finding in the IAM Access Analyzer console.",
+              `Check resource ${resourceId} for unintended external access.`,
+              "Remove or restrict the resource policy to eliminate external access."
+            ] : [
+              "Review the finding in the IAM Access Analyzer console.",
+              `Check resource ${resourceId} for unused access permissions.`,
+              "Remove unused permissions, roles, or credentials to follow least-privilege."
+            ];
             findings.push({
               severity,
               title,
@@ -17467,13 +17495,9 @@ var AccessAnalyzerFindingsScanner = class {
               resourceArn,
               region,
               description: descParts.join(". "),
-              impact: `Resource is accessible from outside the account. Type: ${aaf.findingType ?? "unknown"}`,
+              impact,
               riskScore: score,
-              remediationSteps: [
-                "Review the finding in the IAM Access Analyzer console.",
-                `Check resource ${resourceId} for unintended external access.`,
-                "Remove or restrict the resource policy to eliminate external access."
-              ],
+              remediationSteps,
               priority: priorityFromSeverity(severity),
               module: this.moduleName,
               accountId: aaf.resourceOwnerAccount ?? accountId
@@ -17509,7 +17533,8 @@ var AccessAnalyzerFindingsScanner = class {
 function buildFindingTitle(finding) {
   const resourceType = finding.resourceType ?? "Resource";
   const resource = finding.resource ? finding.resource.split("/").pop() ?? finding.resource.split(":").pop() ?? finding.resource : "unknown";
-  return `[Access Analyzer] ${resourceType} ${resource} \u2014 external access detected`;
+  const label = isExternalAccess(finding.findingType) ? "external access detected" : "unused access detected";
+  return `[Access Analyzer] ${resourceType} ${resource} \u2014 ${label}`;
 }
 function mapResourceType(aaType) {
   const mapping = {
@@ -17621,14 +17646,18 @@ var PatchComplianceFindingsScanner = class {
         }
         const missingCount = patchState.MissingCount ?? 0;
         const failedCount = patchState.FailedCount ?? 0;
+        const criticalNonCompliantCount = patchState.CriticalNonCompliantCount ?? 0;
         const securityNonCompliantCount = patchState.SecurityNonCompliantCount ?? 0;
+        const otherNonCompliantCount = patchState.OtherNonCompliantCount ?? 0;
         const lastScanTime = patchState.OperationEndTime?.toISOString() ?? "unknown";
-        if (missingCount === 0 && failedCount === 0) {
+        if (missingCount === 0 && failedCount === 0 && criticalNonCompliantCount === 0 && securityNonCompliantCount === 0 && otherNonCompliantCount === 0) {
           continue;
         }
         let riskScore;
-        if (securityNonCompliantCount > 0 || failedCount > 0) {
+        if (criticalNonCompliantCount > 0 || securityNonCompliantCount > 0 || failedCount > 0) {
           riskScore = 7.5;
+        } else if (otherNonCompliantCount > 0) {
+          riskScore = 5.5;
         } else {
           riskScore = 5.5;
         }
@@ -17636,12 +17665,17 @@ var PatchComplianceFindingsScanner = class {
         const titleParts = [];
         if (missingCount > 0) titleParts.push(`${missingCount} missing`);
         if (failedCount > 0) titleParts.push(`${failedCount} failed`);
+        if (criticalNonCompliantCount > 0) titleParts.push(`${criticalNonCompliantCount} critical non-compliant`);
+        if (securityNonCompliantCount > 0) titleParts.push(`${securityNonCompliantCount} security non-compliant`);
+        if (otherNonCompliantCount > 0) titleParts.push(`${otherNonCompliantCount} other non-compliant`);
         const descParts = [
           `Instance: ${instanceId}`,
           `Platform: ${platform}`,
           `Missing patches: ${missingCount}`,
           `Failed patches: ${failedCount}`,
+          `Critical non-compliant: ${criticalNonCompliantCount}`,
           `Security non-compliant: ${securityNonCompliantCount}`,
+          `Other non-compliant: ${otherNonCompliantCount}`,
           `Last scan: ${lastScanTime}`
         ];
         findings.push({

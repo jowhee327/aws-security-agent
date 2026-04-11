@@ -24,7 +24,7 @@ describe("AccessAnalyzerFindingsScanner", () => {
     mockSend.mockReset();
   });
 
-  it("returns findings from active Access Analyzer", async () => {
+  it("returns findings from active Access Analyzer with correct severity by findingType", async () => {
     mockSend.mockImplementation((cmd: { constructor: { name: string } }) => {
       const name = cmd.constructor.name;
       switch (name) {
@@ -46,14 +46,14 @@ describe("AccessAnalyzerFindingsScanner", () => {
                 resource: "arn:aws:s3:::my-public-bucket",
                 resourceType: "AWS::S3::Bucket",
                 resourceOwnerAccount: "123456789012",
-                findingType: "HIGH",
+                findingType: "ExternalAccess",
                 status: "ACTIVE",
               },
               {
-                resource: "arn:aws:iam::123456789012:role/cross-account-role",
+                resource: "arn:aws:iam::123456789012:role/unused-role",
                 resourceType: "AWS::IAM::Role",
                 resourceOwnerAccount: "123456789012",
-                findingType: "LOW",
+                findingType: "UnusedIAMRole",
                 status: "ACTIVE",
               },
             ],
@@ -70,19 +70,71 @@ describe("AccessAnalyzerFindingsScanner", () => {
     expect(result.resourcesScanned).toBe(2);
     expect(result.findingsCount).toBe(2);
 
-    // HIGH finding
-    const highFinding = result.findings.find((f) => f.resourceArn.includes("my-public-bucket"));
-    expect(highFinding).toBeDefined();
-    expect(highFinding!.severity).toBe("HIGH");
-    expect(highFinding!.riskScore).toBe(8.0);
-    expect(highFinding!.title).toContain("Access Analyzer");
-    expect(highFinding!.title).toContain("my-public-bucket");
+    // ExternalAccess → HIGH (8.0)
+    const externalFinding = result.findings.find((f) => f.resourceArn.includes("my-public-bucket"));
+    expect(externalFinding).toBeDefined();
+    expect(externalFinding!.severity).toBe("HIGH");
+    expect(externalFinding!.riskScore).toBe(8.0);
+    expect(externalFinding!.title).toContain("Access Analyzer");
+    expect(externalFinding!.title).toContain("my-public-bucket");
+    expect(externalFinding!.title).toContain("external access detected");
+    expect(externalFinding!.impact).toContain("accessible from outside");
 
-    // LOW finding
-    const lowFinding = result.findings.find((f) => f.resourceArn.includes("cross-account-role"));
-    expect(lowFinding).toBeDefined();
-    expect(lowFinding!.severity).toBe("LOW");
-    expect(lowFinding!.riskScore).toBe(3.0);
+    // UnusedAccess → MEDIUM (5.5)
+    const unusedFinding = result.findings.find((f) => f.resourceArn.includes("unused-role"));
+    expect(unusedFinding).toBeDefined();
+    expect(unusedFinding!.severity).toBe("MEDIUM");
+    expect(unusedFinding!.riskScore).toBe(5.5);
+    expect(unusedFinding!.title).toContain("unused access detected");
+    expect(unusedFinding!.impact).toContain("Unused access detected");
+  });
+
+  it("filters out non-security-relevant finding types", async () => {
+    mockSend.mockImplementation((cmd: { constructor: { name: string } }) => {
+      const name = cmd.constructor.name;
+      switch (name) {
+        case "ListAnalyzersCommand":
+          return {
+            analyzers: [
+              {
+                arn: "arn:aws:access-analyzer:us-east-1:123456789012:analyzer/my-analyzer",
+                name: "my-analyzer",
+                type: "ACCOUNT",
+                status: "ACTIVE",
+              },
+            ],
+          };
+        case "ListFindingsV2Command":
+          return {
+            findings: [
+              {
+                resource: "arn:aws:s3:::my-bucket",
+                resourceType: "AWS::S3::Bucket",
+                resourceOwnerAccount: "123456789012",
+                findingType: "ExternalAccess",
+                status: "ACTIVE",
+              },
+              {
+                resource: "arn:aws:iam::123456789012:role/some-role",
+                resourceType: "AWS::IAM::Role",
+                resourceOwnerAccount: "123456789012",
+                findingType: "SomeFutureType",
+                status: "ACTIVE",
+              },
+            ],
+          };
+        default:
+          return {};
+      }
+    });
+
+    const result = await scanner.scan(ctx);
+
+    expect(result.status).toBe("success");
+    // Only ExternalAccess counted as scanned and reported
+    expect(result.resourcesScanned).toBe(1);
+    expect(result.findingsCount).toBe(1);
+    expect(result.findings[0].resourceArn).toContain("my-bucket");
   });
 
   it("returns success with warning when no analyzers exist", async () => {

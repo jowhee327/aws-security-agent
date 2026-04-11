@@ -116,17 +116,27 @@ export class PatchComplianceFindingsScanner implements Scanner {
 
         const missingCount = patchState.MissingCount ?? 0;
         const failedCount = patchState.FailedCount ?? 0;
+        const criticalNonCompliantCount = patchState.CriticalNonCompliantCount ?? 0;
         const securityNonCompliantCount = patchState.SecurityNonCompliantCount ?? 0;
+        const otherNonCompliantCount = patchState.OtherNonCompliantCount ?? 0;
         const lastScanTime = patchState.OperationEndTime?.toISOString() ?? "unknown";
 
-        if (missingCount === 0 && failedCount === 0) {
+        if (
+          missingCount === 0 &&
+          failedCount === 0 &&
+          criticalNonCompliantCount === 0 &&
+          securityNonCompliantCount === 0 &&
+          otherNonCompliantCount === 0
+        ) {
           continue; // Instance is fully patched
         }
 
         // Determine severity based on patch issues
         let riskScore: number;
-        if (securityNonCompliantCount > 0 || failedCount > 0) {
-          riskScore = 7.5; // HIGH — security patches missing or failed
+        if (criticalNonCompliantCount > 0 || securityNonCompliantCount > 0 || failedCount > 0) {
+          riskScore = 7.5; // HIGH — critical/security patches missing or failed
+        } else if (otherNonCompliantCount > 0) {
+          riskScore = 5.5; // MEDIUM — other non-compliant patches
         } else {
           riskScore = 5.5; // MEDIUM — non-security patches missing
         }
@@ -135,13 +145,18 @@ export class PatchComplianceFindingsScanner implements Scanner {
         const titleParts: string[] = [];
         if (missingCount > 0) titleParts.push(`${missingCount} missing`);
         if (failedCount > 0) titleParts.push(`${failedCount} failed`);
+        if (criticalNonCompliantCount > 0) titleParts.push(`${criticalNonCompliantCount} critical non-compliant`);
+        if (securityNonCompliantCount > 0) titleParts.push(`${securityNonCompliantCount} security non-compliant`);
+        if (otherNonCompliantCount > 0) titleParts.push(`${otherNonCompliantCount} other non-compliant`);
 
         const descParts = [
           `Instance: ${instanceId}`,
           `Platform: ${platform}`,
           `Missing patches: ${missingCount}`,
           `Failed patches: ${failedCount}`,
+          `Critical non-compliant: ${criticalNonCompliantCount}`,
           `Security non-compliant: ${securityNonCompliantCount}`,
+          `Other non-compliant: ${otherNonCompliantCount}`,
           `Last scan: ${lastScanTime}`,
         ];
 
