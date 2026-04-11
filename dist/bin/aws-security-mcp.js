@@ -4003,7 +4003,6 @@ var Imdsv2EnforcementScanner = class {
         const state = instance.State?.Name ?? "unknown";
         const httpTokens = instance.MetadataOptions?.HttpTokens ?? "unknown";
         const hopLimit = instance.MetadataOptions?.HttpPutResponseHopLimit ?? 1;
-        const arnSuffix = partition === "aws-cn" ? "amazonaws.com.cn" : "amazonaws.com";
         const instanceArn = `arn:${partition}:ec2:${region}:${accountId}:instance/${instanceId}`;
         if (httpTokens !== "required") {
           const description = [
@@ -4077,7 +4076,7 @@ function makeFinding12(opts) {
 var WafCoverageScanner = class {
   moduleName = "waf_coverage";
   async scan(ctx) {
-    const { region, partition, accountId } = ctx;
+    const { region } = ctx;
     const startMs = Date.now();
     const findings = [];
     const warnings = [];
@@ -5678,6 +5677,59 @@ var MODULE_DESCRIPTIONS = {
   imdsv2_enforcement: "Checks if EC2 instances enforce IMDSv2 (HttpTokens: required) \u2014 IMDSv1 allows credential theft via SSRF.",
   waf_coverage: "Checks if internet-facing ALBs have WAF Web ACL associated for protection against common web exploits."
 };
+var HW_DEFENSE_CHECKLIST = `
+\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+\u{1F4CB} \u62A4\u7F51\u884C\u52A8\u8865\u5145\u63D0\u9192\uFF08\u8D85\u51FA\u81EA\u52A8\u5316\u626B\u63CF\u8303\u56F4\uFF09
+\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+
+\u4EE5\u4E0B\u4E8B\u9879\u9700\u8981\u4EBA\u5DE5\u786E\u8BA4\u548C\u6267\u884C\uFF1A
+
+\u26A0\uFE0F \u5E94\u6025\u9694\u79BB/\u6B62\u8840\u65B9\u6848
+  \u25A1 \u51C6\u5907\u4E13\u7528\u9694\u79BB\u5B89\u5168\u7EC4\uFF08\u65E0 Inbound/Outbound \u89C4\u5219\uFF09
+  \u25A1 \u5236\u5B9A\u5B9E\u4F8B\u9694\u79BB SOP\uFF1A\u544A\u8B66 \u2192 \u6392\u67E5 \u2192 \u5C01\u9501\u653B\u51FBIP \u2192 \u7F51\u7EDC\u9694\u79BB \u2192 \u5B89\u5168\u5904\u7F6E \u2192 \u8BB0\u5F55\u653B\u51FB\u9879
+  \u25A1 \u660E\u786E\u5404\u7CFB\u7EDF\uFF08\u751F\u4EA7\u6838\u5FC3/\u751F\u4EA7\u975E\u6838\u5FC3/\u6D4B\u8BD5/\u5F00\u53D1\uFF09\u7684\u5E94\u6025\u5904\u7F6E\u65B9\u5F0F
+  \u25A1 \u660E\u786E\u5404\u9879\u76EE\u8D26\u6237\u53CA\u8D44\u6E90\u7684\u8D1F\u8D23\u4EBA\u4E0E\u8054\u7CFB\u65B9\u5F0F
+
+\u26A0\uFE0F \u6D4B\u8BD5/\u5F00\u53D1\u73AF\u5883\u5904\u7F6E
+  \u25A1 \u975E\u6838\u5FC3\u7CFB\u7EDF\u5728\u62A4\u7F51\u671F\u95F4\u5173\u95ED
+  \u25A1 \u6D4B\u8BD5/\u5F00\u53D1\u73AF\u5883\u5173\u95ED\u6216\u4E0E\u751F\u4EA7\u4FDD\u6301\u540C\u7B49\u5B89\u5168\u57FA\u7EBF
+  \u25A1 \u786E\u8BA4\u54EA\u4E9B\u73AF\u5883\u53EF\u4EE5\u7D27\u6025\u5173\u505C\uFF0C\u907F\u514D\u653B\u51FB\u6269\u6563
+
+\u26A0\uFE0F \u503C\u5B88\u56E2\u961F\u7EC4\u5EFA
+  \u25A1 7\xD724 \u76D1\u63A7\u5FEB\u901F\u54CD\u5E94\u56E2\u961F
+  \u25A1 \u6280\u672F\u4E0E\u98CE\u9669\u5206\u6790\u7EC4
+  \u25A1 \u5B89\u5168\u7B56\u7565\u4E0B\u53D1\u7EC4
+  \u25A1 \u4E1A\u52A1\u54CD\u5E94\u7EC4
+  \u25A1 \u660E\u786E AWS TAM/Support \u8054\u7CFB\u65B9\u5F0F\uFF08ES/EOP \u5BA2\u6237\uFF09
+
+\u26A0\uFE0F \u51FA\u5165\u7AD9\u8DEF\u5F84\u67B6\u6784\u56FE
+  \u25A1 \u786E\u4FDD\u6240\u6709\u4E92\u8054\u7F51/DX \u4E13\u7EBF\u51FA\u5165\u7AD9\u8DEF\u5F84\u5728\u67B6\u6784\u56FE\u4E2D\u6E05\u6670\u6807\u6CE8
+  \u25A1 \u660E\u786E\u5404 ELB/Public EC2/S3/DX \u7684\u6570\u636E\u6D41\u5411
+  \u25A1 \u8BC6\u522B\u6240\u6709\u9762\u5411\u4E92\u8054\u7F51\u7684\u6570\u636E\u4EA4\u4E92\u63A5\u53E3
+
+\u26A0\uFE0F \u4E3B\u52A8\u5F0F\u6E17\u900F\u6D4B\u8BD5
+  \u25A1 \u62A4\u7F51\u524D\u8054\u7CFB\u5B89\u5168\u5382\u5546\uFF08\u9752\u85E4/\u957F\u4EAD/\u5FAE\u6B65\u7B49\uFF09\u8FDB\u884C\u6A21\u62DF\u653B\u51FB\u6F14\u7EC3
+  \u25A1 \u57FA\u4E8E\u6E17\u900F\u6D4B\u8BD5\u62A5\u544A\u8FDB\u884C\u6B63\u5F0F\u62A4\u7F51\u524D\u7684\u5B89\u5168\u52A0\u56FA
+  \u25A1 \u5173\u6CE8 AWS \u5B89\u5168\u516C\u544A\uFF08\u5DF2\u77E5\u6F0F\u6D1E\u4E0E\u8865\u4E01\uFF09
+
+\u26A0\uFE0F WAR-ROOM \u5B9E\u65F6\u6C9F\u901A
+  \u25A1 \u521B\u5EFA\u62A4\u7F51\u671F\u95F4\u4E13\u7528\u6C9F\u901A\u6E20\u9053\uFF08\u4F01\u5FAE/\u9489\u9489/\u98DE\u4E66/Chime\uFF09
+  \u25A1 \u4E0E AWS TAM \u5EFA\u7ACB WAR-ROOM \u8054\u7CFB\uFF08\u4F01\u4E1A\u7EA7\u652F\u6301\u5BA2\u6237\uFF09
+  \u25A1 \u7EDF\u4E00\u6848\u4F8B\u6807\u9898\u683C\u5F0F\uFF1A"\u3010\u62A4\u7F51\u3011+ \u95EE\u9898\u63CF\u8FF0"
+
+\u26A0\uFE0F \u5BC6\u7801\u4E0E\u51ED\u8BC1\u7BA1\u7406
+  \u25A1 \u6240\u6709 IAM \u7528\u6237\u7ED1\u5B9A MFA
+  \u25A1 AKSK \u8F6E\u8F6C\u5468\u671F \u2264 90 \u5929
+  \u25A1 \u907F\u514D\u5171\u4EAB\u8D26\u6237\u4F7F\u7528
+  \u25A1 S3/Lambda/\u5E94\u7528\u4EE3\u7801\u4E2D\u65E0\u660E\u6587\u5BC6\u7801
+
+\u26A0\uFE0F \u62A4\u7F51\u540E\u4F18\u5316
+  \u25A1 \u9488\u5BF9\u653B\u51FB\u62A5\u544A\u9010\u9879\u5E94\u7B54\u4E0E\u4FEE\u590D
+  \u25A1 \u4E0E\u5B89\u5168\u56E2\u961F\u5EFA\u7ACB\u5468\u671F\u6027\u5B89\u5168\u7EF4\u62A4\u6D41\u7A0B
+  \u25A1 \u6301\u7EED\u8865\u5168\u5B89\u5168\u98CE\u9669
+
+\u53C2\u8003\uFF1AAWS \u62A4\u7F51\u884C\u52A8 Standard Operation Procedure (Compliance IEM)
+`;
 function summarizeResult(result) {
   const { summary } = result;
   const lines = [
@@ -5911,12 +5963,17 @@ function createServer(defaultRegion) {
           lines.push("");
           lines.push(`Warning: ${missingModules.length} requested module(s) not available: ${missingModules.join(", ")}`);
         }
-        return {
-          content: [
-            { type: "text", text: lines.join("\n") },
-            { type: "text", text: JSON.stringify(result, null, 2) }
-          ]
-        };
+        const content = [
+          { type: "text", text: lines.join("\n") },
+          { type: "text", text: JSON.stringify(result, null, 2) }
+        ];
+        if (group === "hw_defense") {
+          const summaryContent = content[0];
+          if (summaryContent && summaryContent.type === "text") {
+            summaryContent.text += "\n\n" + HW_DEFENSE_CHECKLIST;
+          }
+        }
+        return { content };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
       }
@@ -6262,6 +6319,25 @@ Deploy this as a StackSet from your Management Account to all member accounts.` 
 
 Finding:
 ${finding}`
+          }
+        }
+      ]
+    })
+  );
+  server.prompt(
+    "hw_defense_checklist",
+    "\u62A4\u7F51\u884C\u52A8\u5B8C\u6574\u68C0\u67E5\u6E05\u5355 \u2014 \u5305\u542B\u81EA\u52A8\u5316\u626B\u63CF\u9879\u548C\u4EBA\u5DE5\u68C0\u67E5\u9879",
+    async () => ({
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: `\u8BF7\u57FA\u4E8E\u4EE5\u4E0B\u62A4\u7F51\u884C\u52A8\u68C0\u67E5\u6E05\u5355\uFF0C\u5E2E\u52A9\u6211\u5236\u5B9A\u62A4\u7F51\u51C6\u5907\u8BA1\u5212\uFF1A
+
+${HW_DEFENSE_CHECKLIST}
+
+\u81EA\u52A8\u5316\u626B\u63CF\u90E8\u5206\u8BF7\u4F7F\u7528 scan_group hw_defense \u6267\u884C\u3002\u4EE5\u4E0A\u4EBA\u5DE5\u68C0\u67E5\u9879\u8BF7\u9010\u9879\u786E\u8BA4\u5E76\u63D0\u4F9B\u5177\u4F53\u5EFA\u8BAE\u3002`
           }
         }
       ]

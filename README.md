@@ -1,6 +1,6 @@
 # aws-security-mcp
 
-MCP server for automated AWS security scanning — 17 modules, risk scoring, zero write operations.
+MCP server for automated AWS security scanning — 19 modules, risk scoring, zero write operations.
 
 <!-- badges -->
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
@@ -9,7 +9,7 @@ MCP server for automated AWS security scanning — 17 modules, risk scoring, zer
 
 ## Features
 
-- **17 Security Scan Modules** — 13 unique scanners + 4 aggregation scanners (Security Hub, GuardDuty, Inspector, Trusted Advisor, Config Rules, Access Analyzer, Patch Compliance)
+- **19 Security Scan Modules** — 15 unique scanners + 4 aggregation scanners (Security Hub, GuardDuty, Inspector, Trusted Advisor, Config Rules, Access Analyzer, Patch Compliance)
 - **Risk Scoring** — every finding scored 0-10 with severity (CRITICAL/HIGH/MEDIUM/LOW) and priority (P0-P3)
 - **100% Read-Only** — uses only Describe/Get/List API calls; never modifies your AWS resources
 - **Multi-Account Support** — scan all accounts in an AWS Organization via `org_mode` with cross-account role assumption
@@ -113,7 +113,7 @@ For multi-account scanning across an AWS Organization:
 
 | Tool | Description |
 |------|-------------|
-| `scan_all` | Run all 17 security scanners in parallel (supports org_mode) |
+| `scan_all` | Run all 19 security scanners in parallel (supports org_mode) |
 | `detect_services` | Detect enabled AWS security services and assess maturity |
 | `scan_secret_exposure` | Check Lambda env vars and EC2 userData for exposed secrets |
 | `scan_ssl_certificate` | Check ACM certificates for expiry and failed status |
@@ -131,6 +131,8 @@ For multi-account scanning across an AWS Organization:
 | `scan_config_rules_findings` | Aggregate findings from AWS Config Rules |
 | `scan_access_analyzer_findings` | Aggregate findings from IAM Access Analyzer |
 | `scan_patch_compliance_findings` | Aggregate findings from SSM Patch Compliance |
+| `scan_imdsv2_enforcement` | Check EC2 instances for IMDSv2 enforcement |
+| `scan_waf_coverage` | Check internet-facing ALBs for WAF Web ACL protection |
 | `scan_group` | Run a predefined group of scanners for a specific scenario |
 | `list_groups` | List available scan groups |
 | `list_modules` | List available scan modules with descriptions |
@@ -166,6 +168,8 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
         "config:DescribeComplianceByConfigRule",
         "config:DescribeConfigurationRecorders",
         "config:GetComplianceDetailsByConfigRule",
+
+        "elasticloadbalancing:DescribeLoadBalancers",
 
         "ec2:DescribeAddresses",
         "ec2:DescribeInstanceAttribute",
@@ -229,7 +233,10 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
         "sts:GetCallerIdentity",
 
         "support:DescribeTrustedAdvisorChecks",
-        "support:DescribeTrustedAdvisorCheckResult"
+        "support:DescribeTrustedAdvisorCheckResult",
+
+        "wafv2:GetWebACL",
+        "wafv2:GetWebACLForResource"
       ],
       "Resource": "*"
     }
@@ -239,7 +246,7 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
 
 ## Scan Modules
 
-### Unique Scanners (13)
+### Unique Scanners (15)
 
 | Module | What It Checks | Risk Score Range |
 |--------|---------------|-----------------|
@@ -256,6 +263,8 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
 | **Config Rules** | AWS Config Rules compliance status | 3.0 - 9.5 |
 | **Access Analyzer** | IAM Access Analyzer external access findings | 3.0 - 9.5 |
 | **Patch Compliance** | SSM Patch Manager compliance status for managed instances | 3.0 - 9.5 |
+| **IMDSv2 Enforcement** | EC2 instances not enforcing IMDSv2 (HttpTokens != required) | 7.5 |
+| **WAF Coverage** | Internet-facing ALBs without WAF Web ACL protection | 7.5 |
 
 ### Aggregation Scanners (4)
 
@@ -281,16 +290,16 @@ Pre-defined scanner groupings for common scenarios:
 
 | Group | Description | Modules |
 |-------|-------------|---------|
-| `mlps3_precheck` | GB/T 22239-2019 等保三级预检 | 15 modules |
-| `hw_defense` | 护网蓝队加固 | 12 modules |
-| `exposure` | 公网暴露面评估 | 6 modules |
+| `mlps3_precheck` | GB/T 22239-2019 等保三级预检 | 17 modules |
+| `hw_defense` | 护网蓝队加固 | 14 modules |
+| `exposure` | 公网暴露面评估 | 8 modules |
 | `data_encryption` | 数据加密审计 | 2 modules |
 | `least_privilege` | 最小权限审计 | 3 modules |
 | `log_integrity` | 日志完整性审计 | 2 modules |
 | `disaster_recovery` | 灾备评估 | 2 modules |
 | `idle_resources` | 闲置资源清理 | 2 modules |
 | `tag_compliance` | 资源标签合规 | 1 module |
-| `new_account_baseline` | 新账户基线检查 | 6 modules |
+| `new_account_baseline` | 新账户基线检查 | 7 modules |
 | `aggregation` | 安全服务聚合 | 7 modules |
 
 Use `list_groups` to see all available groups with their module lists.

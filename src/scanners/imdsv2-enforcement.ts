@@ -1,7 +1,6 @@
 import {
   EC2Client,
   DescribeInstancesCommand,
-  type Reservation,
   type Instance,
 } from "@aws-sdk/client-ec2";
 import { Scanner } from "./base.js";
@@ -62,7 +61,6 @@ export class Imdsv2EnforcementScanner implements Scanner {
         const state = instance.State?.Name ?? "unknown";
         const httpTokens = instance.MetadataOptions?.HttpTokens ?? "unknown";
         const hopLimit = instance.MetadataOptions?.HttpPutResponseHopLimit ?? 1;
-        const arnSuffix = partition === "aws-cn" ? "amazonaws.com.cn" : "amazonaws.com";
         const instanceArn = `arn:${partition}:ec2:${region}:${accountId}:instance/${instanceId}`;
 
         if (httpTokens !== "required") {

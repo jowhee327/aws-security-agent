@@ -31,7 +31,7 @@ export class WafCoverageScanner implements Scanner {
   readonly moduleName = "waf_coverage";
 
   async scan(ctx: ScanContext): Promise<ScanResult> {
-    const { region, partition, accountId } = ctx;
+    const { region } = ctx;
     const startMs = Date.now();
     const findings: Finding[] = [];
     const warnings: string[] = [];
