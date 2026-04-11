@@ -103,7 +103,8 @@ Expected: ${dashboardDir}`
     );
     console.log(`  ${key}`);
   }
-  const websiteUrl = `http://${bucket}.s3-website-${region}.amazonaws.com`;
+  const domain = region.startsWith("cn-") ? "amazonaws.com.cn" : "amazonaws.com";
+  const websiteUrl = `http://${bucket}.s3-website.${region}.${domain}`;
   console.log(`
 Dashboard deployed successfully!`);
   console.log(`Website URL: ${websiteUrl}`);
