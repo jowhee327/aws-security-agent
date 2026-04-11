@@ -17005,6 +17005,504 @@ var TrustedAdvisorFindingsScanner = class {
   }
 };
 
+// src/scanners/config-rules-findings.ts
+import {
+  ConfigServiceClient as ConfigServiceClient2,
+  DescribeComplianceByConfigRuleCommand,
+  GetComplianceDetailsByConfigRuleCommand
+} from "@aws-sdk/client-config-service";
+var SECURITY_RULE_PATTERNS = [
+  "securitygroup",
+  "security-group",
+  "encryption",
+  "encrypted",
+  "public",
+  "unrestricted",
+  "mfa",
+  "password",
+  "access-key",
+  "root",
+  "admin",
+  "logging",
+  "cloudtrail",
+  "iam",
+  "kms",
+  "ssl",
+  "tls",
+  "vpc-flow",
+  "guardduty",
+  "securityhub"
+];
+function ruleIsSecurityRelated(ruleName) {
+  const lower = ruleName.toLowerCase();
+  return SECURITY_RULE_PATTERNS.some((pat) => lower.includes(pat));
+}
+var ConfigRulesFindingsScanner = class {
+  moduleName = "config_rules_findings";
+  async scan(ctx) {
+    const { region, partition, accountId } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    let resourcesScanned = 0;
+    try {
+      const client = createClient(ConfigServiceClient2, region, ctx.credentials);
+      let nextToken;
+      const nonCompliantRules = [];
+      do {
+        const resp = await client.send(
+          new DescribeComplianceByConfigRuleCommand({ NextToken: nextToken })
+        );
+        for (const rule of resp.ComplianceByConfigRules ?? []) {
+          resourcesScanned++;
+          if (rule.Compliance?.ComplianceType === "NON_COMPLIANT") {
+            nonCompliantRules.push(rule);
+          }
+        }
+        nextToken = resp.NextToken;
+      } while (nextToken);
+      if (resourcesScanned === 0) {
+        warnings.push("AWS Config is not enabled in this region or no Config Rules are defined.");
+        return {
+          module: this.moduleName,
+          status: "success",
+          warnings,
+          resourcesScanned: 0,
+          findingsCount: 0,
+          scanTimeMs: Date.now() - startMs,
+          findings: []
+        };
+      }
+      for (const rule of nonCompliantRules) {
+        const ruleName = rule.ConfigRuleName ?? "unknown";
+        try {
+          let detailToken;
+          do {
+            const detailResp = await client.send(
+              new GetComplianceDetailsByConfigRuleCommand({
+                ConfigRuleName: ruleName,
+                ComplianceTypes: ["NON_COMPLIANT"],
+                NextToken: detailToken
+              })
+            );
+            for (const evalResult of detailResp.EvaluationResults ?? []) {
+              const qualifier = evalResult.EvaluationResultIdentifier?.EvaluationResultQualifier;
+              const resourceType = qualifier?.ResourceType ?? "AWS::Unknown";
+              const resourceId = qualifier?.ResourceId ?? "unknown";
+              const annotation = evalResult.Annotation;
+              const isSecurityRule = ruleIsSecurityRelated(ruleName);
+              const riskScore = isSecurityRule ? 7.5 : 5.5;
+              const severity = severityFromScore(riskScore);
+              const descParts = [`Config Rule: ${ruleName}`, `Resource Type: ${resourceType}`];
+              if (annotation) descParts.push(`Annotation: ${annotation}`);
+              findings.push({
+                severity,
+                title: `Config Rule: ${ruleName} - ${resourceType}/${resourceId} Non-Compliant`,
+                resourceType,
+                resourceId,
+                resourceArn: resourceId,
+                region,
+                description: descParts.join(". "),
+                impact: `Resource is non-compliant with Config Rule: ${ruleName}`,
+                riskScore,
+                remediationSteps: [
+                  `Review the Config Rule "${ruleName}" in the AWS Config console.`,
+                  `Check resource ${resourceId} for compliance violations.`,
+                  "Follow the rule's remediation guidance to bring the resource into compliance."
+                ],
+                priority: priorityFromSeverity(severity),
+                module: this.moduleName,
+                accountId
+              });
+            }
+            detailToken = detailResp.NextToken;
+          } while (detailToken);
+        } catch (detailErr) {
+          const msg = detailErr instanceof Error ? detailErr.message : String(detailErr);
+          warnings.push(`Failed to get details for rule ${ruleName}: ${msg}`);
+        }
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("NoSuchConfigurationRecorder") || msg.includes("InsufficientDeliveryPolicy") || msg.includes("No Configuration Recorder")) {
+        warnings.push("AWS Config is not enabled in this region.");
+        return {
+          module: this.moduleName,
+          status: "success",
+          warnings,
+          resourcesScanned: 0,
+          findingsCount: 0,
+          scanTimeMs: Date.now() - startMs,
+          findings: []
+        };
+      }
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: `Config Rules scan failed: ${msg}`,
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+
+// src/scanners/access-analyzer-findings.ts
+import {
+  AccessAnalyzerClient,
+  ListAnalyzersCommand,
+  ListFindingsV2Command
+} from "@aws-sdk/client-accessanalyzer";
+function findingTypeToScore(findingType) {
+  const ft = findingType;
+  switch (ft) {
+    case "ExternalAccess":
+      return 8;
+    case "UnusedIAMRole":
+    case "UnusedIAMUserAccessKey":
+    case "UnusedIAMUserPassword":
+      return 5.5;
+    case "UnusedPermission":
+      return 3;
+    default:
+      return 5.5;
+  }
+}
+var UNUSED_FINDING_TYPES = /* @__PURE__ */ new Set([
+  "UnusedIAMRole",
+  "UnusedIAMUserAccessKey",
+  "UnusedIAMUserPassword",
+  "UnusedPermission"
+]);
+function isSecurityRelevant(findingType) {
+  const ft = findingType;
+  return ft === "ExternalAccess" || UNUSED_FINDING_TYPES.has(ft ?? "");
+}
+function isExternalAccess(findingType) {
+  return findingType === "ExternalAccess";
+}
+var AccessAnalyzerFindingsScanner = class {
+  moduleName = "access_analyzer_findings";
+  async scan(ctx) {
+    const { region, partition, accountId } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    let resourcesScanned = 0;
+    try {
+      const client = createClient(AccessAnalyzerClient, region, ctx.credentials);
+      let analyzerToken;
+      const analyzers = [];
+      do {
+        const resp = await client.send(
+          new ListAnalyzersCommand({ nextToken: analyzerToken })
+        );
+        for (const analyzer of resp.analyzers ?? []) {
+          if (analyzer.status === "ACTIVE") {
+            analyzers.push(analyzer);
+          }
+        }
+        analyzerToken = resp.nextToken;
+      } while (analyzerToken);
+      if (analyzers.length === 0) {
+        warnings.push("No IAM Access Analyzer found. Create an analyzer to detect external access to your resources.");
+        return {
+          module: this.moduleName,
+          status: "success",
+          warnings,
+          resourcesScanned: 0,
+          findingsCount: 0,
+          scanTimeMs: Date.now() - startMs,
+          findings: []
+        };
+      }
+      for (const analyzer of analyzers) {
+        const analyzerArn = analyzer.arn ?? "unknown";
+        let findingToken;
+        do {
+          const listResp = await client.send(
+            new ListFindingsV2Command({
+              analyzerArn,
+              filter: {
+                status: { eq: ["ACTIVE"] }
+              },
+              nextToken: findingToken
+            })
+          );
+          for (const aaf of listResp.findings ?? []) {
+            if (!isSecurityRelevant(aaf.findingType)) {
+              continue;
+            }
+            resourcesScanned++;
+            const score = findingTypeToScore(aaf.findingType);
+            const severity = severityFromScore(score);
+            const resourceArn = aaf.resource ?? "unknown";
+            const resourceType = aaf.resourceType ?? "AWS::Unknown";
+            const resourceId = resourceArn.split("/").pop() ?? resourceArn.split(":").pop() ?? "unknown";
+            const external = isExternalAccess(aaf.findingType);
+            const descParts = [`Resource Type: ${resourceType}`];
+            if (aaf.resourceOwnerAccount) descParts.push(`Owner Account: ${aaf.resourceOwnerAccount}`);
+            if (aaf.findingType) descParts.push(`Finding Type: ${aaf.findingType}`);
+            const title = buildFindingTitle(aaf);
+            const impact = external ? `Resource is accessible from outside the account. Type: ${aaf.findingType ?? "unknown"}` : `Unused access detected \u2014 review and remove to follow least-privilege. Type: ${aaf.findingType ?? "unknown"}`;
+            const remediationSteps = external ? [
+              "Review the finding in the IAM Access Analyzer console.",
+              `Check resource ${resourceId} for unintended external access.`,
+              "Remove or restrict the resource policy to eliminate external access."
+            ] : [
+              "Review the finding in the IAM Access Analyzer console.",
+              `Check resource ${resourceId} for unused access permissions.`,
+              "Remove unused permissions, roles, or credentials to follow least-privilege."
+            ];
+            findings.push({
+              severity,
+              title,
+              resourceType: mapResourceType(resourceType),
+              resourceId,
+              resourceArn,
+              region,
+              description: descParts.join(". "),
+              impact,
+              riskScore: score,
+              remediationSteps,
+              priority: priorityFromSeverity(severity),
+              module: this.moduleName,
+              accountId: aaf.resourceOwnerAccount ?? accountId
+            });
+          }
+          findingToken = listResp.nextToken;
+        } while (findingToken);
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: `Access Analyzer scan failed: ${msg}`,
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+function buildFindingTitle(finding) {
+  const resourceType = finding.resourceType ?? "Resource";
+  const resource = finding.resource ? finding.resource.split("/").pop() ?? finding.resource.split(":").pop() ?? finding.resource : "unknown";
+  const label = isExternalAccess(finding.findingType) ? "external access detected" : "unused access detected";
+  return `[Access Analyzer] ${resourceType} ${resource} \u2014 ${label}`;
+}
+function mapResourceType(aaType) {
+  const mapping = {
+    "AWS::S3::Bucket": "AWS::S3::Bucket",
+    "AWS::IAM::Role": "AWS::IAM::Role",
+    "AWS::SQS::Queue": "AWS::SQS::Queue",
+    "AWS::Lambda::Function": "AWS::Lambda::Function",
+    "AWS::Lambda::LayerVersion": "AWS::Lambda::LayerVersion",
+    "AWS::KMS::Key": "AWS::KMS::Key",
+    "AWS::SecretsManager::Secret": "AWS::SecretsManager::Secret",
+    "AWS::SNS::Topic": "AWS::SNS::Topic",
+    "AWS::EFS::FileSystem": "AWS::EFS::FileSystem",
+    "AWS::RDS::DBSnapshot": "AWS::RDS::DBSnapshot",
+    "AWS::RDS::DBClusterSnapshot": "AWS::RDS::DBClusterSnapshot",
+    "AWS::ECR::Repository": "AWS::ECR::Repository"
+  };
+  return mapping[aaType] ?? aaType;
+}
+
+// src/scanners/patch-compliance-findings.ts
+import {
+  SSMClient,
+  DescribeInstanceInformationCommand,
+  DescribeInstancePatchStatesCommand
+} from "@aws-sdk/client-ssm";
+var PatchComplianceFindingsScanner = class {
+  moduleName = "patch_compliance_findings";
+  async scan(ctx) {
+    const { region, partition, accountId } = ctx;
+    const startMs = Date.now();
+    const findings = [];
+    const warnings = [];
+    let resourcesScanned = 0;
+    try {
+      const client = createClient(SSMClient, region, ctx.credentials);
+      let nextToken;
+      const instances = [];
+      do {
+        const resp = await client.send(
+          new DescribeInstanceInformationCommand({
+            MaxResults: 50,
+            NextToken: nextToken
+          })
+        );
+        instances.push(...resp.InstanceInformationList ?? []);
+        nextToken = resp.NextToken;
+      } while (nextToken);
+      if (instances.length === 0) {
+        warnings.push("No SSM-managed instances found in this region.");
+        return {
+          module: this.moduleName,
+          status: "success",
+          warnings,
+          resourcesScanned: 0,
+          findingsCount: 0,
+          scanTimeMs: Date.now() - startMs,
+          findings: []
+        };
+      }
+      resourcesScanned = instances.length;
+      const instanceIds = instances.map((i) => i.InstanceId).filter(Boolean);
+      const patchStateMap = /* @__PURE__ */ new Map();
+      for (let i = 0; i < instanceIds.length; i += 50) {
+        const batch = instanceIds.slice(i, i + 50);
+        let patchToken;
+        do {
+          const patchResp = await client.send(
+            new DescribeInstancePatchStatesCommand({
+              InstanceIds: batch,
+              NextToken: patchToken
+            })
+          );
+          for (const ps of patchResp.InstancePatchStates ?? []) {
+            if (ps.InstanceId) {
+              patchStateMap.set(ps.InstanceId, ps);
+            }
+          }
+          patchToken = patchResp.NextToken;
+        } while (patchToken);
+      }
+      for (const instance of instances) {
+        const instanceId = instance.InstanceId ?? "unknown";
+        const platform = instance.PlatformName ?? instance.PlatformType ?? "unknown";
+        const instanceArn = `arn:${partition}:ec2:${region}:${accountId}:instance/${instanceId}`;
+        const patchState = patchStateMap.get(instanceId);
+        if (!patchState) {
+          const riskScore2 = 3;
+          const severity2 = severityFromScore(riskScore2);
+          findings.push({
+            severity: severity2,
+            title: `Instance ${instanceId} has no patch compliance data`,
+            resourceType: "AWS::EC2::Instance",
+            resourceId: instanceId,
+            resourceArn: instanceArn,
+            region,
+            description: `Instance ${instanceId} (${platform}) is managed by SSM but has no patch compliance data. Patch Manager may not be configured for this instance.`,
+            impact: "Patch compliance status is unknown \u2014 vulnerabilities may exist.",
+            riskScore: riskScore2,
+            remediationSteps: [
+              "Configure AWS Systems Manager Patch Manager for this instance.",
+              "Create a patch baseline and maintenance window.",
+              "Run a patch scan to establish compliance status."
+            ],
+            priority: priorityFromSeverity(severity2),
+            module: this.moduleName,
+            accountId
+          });
+          continue;
+        }
+        const missingCount = patchState.MissingCount ?? 0;
+        const failedCount = patchState.FailedCount ?? 0;
+        const criticalNonCompliantCount = patchState.CriticalNonCompliantCount ?? 0;
+        const securityNonCompliantCount = patchState.SecurityNonCompliantCount ?? 0;
+        const otherNonCompliantCount = patchState.OtherNonCompliantCount ?? 0;
+        const lastScanTime = patchState.OperationEndTime?.toISOString() ?? "unknown";
+        if (missingCount === 0 && failedCount === 0 && criticalNonCompliantCount === 0 && securityNonCompliantCount === 0 && otherNonCompliantCount === 0) {
+          continue;
+        }
+        let riskScore;
+        if (criticalNonCompliantCount > 0 || securityNonCompliantCount > 0 || failedCount > 0) {
+          riskScore = 7.5;
+        } else if (otherNonCompliantCount > 0) {
+          riskScore = 5.5;
+        } else {
+          riskScore = 5.5;
+        }
+        const severity = severityFromScore(riskScore);
+        const titleParts = [];
+        if (missingCount > 0) titleParts.push(`${missingCount} missing`);
+        if (failedCount > 0) titleParts.push(`${failedCount} failed`);
+        if (criticalNonCompliantCount > 0) titleParts.push(`${criticalNonCompliantCount} critical non-compliant`);
+        if (securityNonCompliantCount > 0) titleParts.push(`${securityNonCompliantCount} security non-compliant`);
+        if (otherNonCompliantCount > 0) titleParts.push(`${otherNonCompliantCount} other non-compliant`);
+        const descParts = [
+          `Instance: ${instanceId}`,
+          `Platform: ${platform}`,
+          `Missing patches: ${missingCount}`,
+          `Failed patches: ${failedCount}`,
+          `Critical non-compliant: ${criticalNonCompliantCount}`,
+          `Security non-compliant: ${securityNonCompliantCount}`,
+          `Other non-compliant: ${otherNonCompliantCount}`,
+          `Last scan: ${lastScanTime}`
+        ];
+        findings.push({
+          severity,
+          title: `Instance ${instanceId} has ${titleParts.join(", ")} patches`,
+          resourceType: "AWS::EC2::Instance",
+          resourceId: instanceId,
+          resourceArn: instanceArn,
+          region,
+          description: descParts.join(". "),
+          impact: `Instance has ${missingCount} missing and ${failedCount} failed patches \u2014 potential security vulnerabilities.`,
+          riskScore,
+          remediationSteps: [
+            `Review patch compliance for instance ${instanceId} in the Systems Manager console.`,
+            "Apply missing patches using a maintenance window or manual patching.",
+            "Investigate and resolve any failed patch installations.",
+            "Consider enabling automatic patching through Patch Manager."
+          ],
+          priority: priorityFromSeverity(severity),
+          module: this.moduleName,
+          accountId
+        });
+      }
+      return {
+        module: this.moduleName,
+        status: "success",
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned,
+        findingsCount: findings.length,
+        scanTimeMs: Date.now() - startMs,
+        findings
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        module: this.moduleName,
+        status: "error",
+        error: `Patch compliance scan failed: ${msg}`,
+        warnings: warnings.length > 0 ? warnings : void 0,
+        resourcesScanned,
+        findingsCount: 0,
+        scanTimeMs: Date.now() - startMs,
+        findings: []
+      };
+    }
+  }
+};
+
 // src/tools/report-tool.ts
 var SEVERITY_ICON = {
   CRITICAL: "\u{1F534}",
@@ -17516,10 +18014,21 @@ function sharedCss() {
     .finding-card-body p{color:#cbd5e1;font-size:13px;margin-bottom:4px}
     .finding-card-body ol{padding-left:20px}
     .finding-card-body li{color:#cbd5e1;font-size:13px;margin-bottom:2px}
+    .rec-fold{background:#1e293b;border:1px solid #334155;border-radius:8px;margin-bottom:16px;overflow:hidden}
+    .rec-fold>summary{cursor:pointer;padding:16px 20px;display:flex;align-items:center;gap:12px;list-style:none;user-select:none}
+    .rec-fold>summary::-webkit-details-marker{display:none}
+    .rec-fold>summary::marker{content:""}
+    .rec-fold>summary::after{content:"\\25B6";font-size:12px;color:#64748b;flex-shrink:0;transition:transform 0.2s;margin-left:auto}
+    .rec-fold[open]>summary::after{transform:rotate(90deg)}
+    .rec-fold[open]>summary{border-bottom:1px solid #334155}
+    .rec-body{padding:12px 20px 16px}
+    .rec-body ol{padding-left:24px}
+    .rec-body li{margin-bottom:8px;color:#cbd5e1;font-size:13px}
+    .rec-body .badge{margin-right:6px;vertical-align:middle}
     @media print{
       body{background:#fff;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .container{max-width:100%;padding:20px}
-      .card,.score-card,.stat-card,.chart-box,.finding-fold,.top5-card,.trend-chart,.category-fold,.module-fold,.finding-card{background:#fff;border:1px solid #e2e8f0}
+      .card,.score-card,.stat-card,.chart-box,.finding-fold,.top5-card,.trend-chart,.category-fold,.module-fold,.finding-card,.rec-fold{background:#fff;border:1px solid #e2e8f0}
       .badge{border:1px solid}
       header{border-bottom-color:#e2e8f0}
       h2{border-bottom-color:#e2e8f0}
@@ -17537,10 +18046,10 @@ function sharedCss() {
       .finding-title-text{color:#1e293b}
       .finding-resource{color:#64748b}
       .check-findings li{color:#64748b}
-      .finding-fold,.top5-card,.category-fold,.module-fold,.finding-card{break-inside:avoid}
+      .finding-fold,.top5-card,.category-fold,.module-fold,.finding-card,.rec-fold{break-inside:avoid}
       .check-item{break-inside:avoid}
       svg text{fill:#1e293b !important}
-      .finding-fold[open]>summary,.category-fold[open]>summary,.module-fold[open]>summary{border-bottom-color:#e2e8f0}
+      .finding-fold[open]>summary,.category-fold[open]>summary,.module-fold[open]>summary,.rec-fold[open]>summary{border-bottom-color:#e2e8f0}
       details{display:block}
       details>summary{display:block}
       details>:not(summary){display:block !important}
@@ -17779,8 +18288,6 @@ ${rest}
       return b[1].length - a[1].length;
     });
     findingsHtml = moduleEntries.map(([modName, modFindings]) => {
-      const hasCritHigh = modFindings.some((f) => f.severity === "CRITICAL" || f.severity === "HIGH");
-      const openAttr = hasCritHigh ? " open" : "";
       const sevCounts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
       for (const f of modFindings) sevCounts[f.severity]++;
       const badges = SEVERITY_ORDER2.filter((sev) => sevCounts[sev] > 0).map((sev) => `<span class="badge badge-${sev.toLowerCase()}">${sevCounts[sev]} ${sev.charAt(0) + sev.slice(1).toLowerCase()}</span>`).join(" ");
@@ -17790,19 +18297,12 @@ ${rest}
         findings.sort((a, b) => b.riskScore - a.riskScore);
         const emoji3 = SEV_EMOJI[sev] ?? "";
         const label = sev.charAt(0) + sev.slice(1).toLowerCase();
-        const isCritHigh = sev === "CRITICAL" || sev === "HIGH";
-        if (isCritHigh) {
-          return `<div class="severity-group">
-            <h4>${emoji3} ${label} (${findings.length})</h4>
-            ${renderCards(findings)}
-          </div>`;
-        }
         return `<details class="severity-group-fold">
-          <summary><h4>${emoji3} ${label} (${findings.length}) &mdash; click to expand</h4></summary>
+          <summary><h4>${emoji3} ${label} (${findings.length})</h4></summary>
           ${renderCards(findings)}
         </details>`;
       }).filter(Boolean).join("\n");
-      return `<details class="module-fold"${openAttr}>
+      return `<details class="module-fold">
         <summary>
           <h3>&#128274; ${esc2(modName)} (${modFindings.length})</h3>
           <span class="module-badges">${badges}</span>
@@ -17833,17 +18333,43 @@ ${rest}
   ).join("\n");
   let recsHtml = "";
   if (summary.totalFindings > 0) {
-    const sorted = [...allFindings].sort((a, b) => b.riskScore - a.riskScore);
-    const items = sorted.map((f) => {
-      const pc = f.priority.toLowerCase();
+    const recMap = /* @__PURE__ */ new Map();
+    for (const f of allFindings) {
       const rem = f.remediationSteps[0] ?? "Review and remediate.";
-      return `<li><span class="priority-${esc2(pc)}">[${esc2(f.priority)}]</span> ${esc2(f.title)}: ${esc2(rem)}</li>`;
-    }).join("\n");
+      const existing = recMap.get(rem);
+      if (existing) {
+        existing.count++;
+        if (SEVERITY_ORDER2.indexOf(f.severity) < SEVERITY_ORDER2.indexOf(existing.severity)) {
+          existing.severity = f.severity;
+        }
+      } else {
+        recMap.set(rem, { text: rem, severity: f.severity, count: 1 });
+      }
+    }
+    const uniqueRecs = [...recMap.values()].sort((a, b) => {
+      const sevDiff = SEVERITY_ORDER2.indexOf(a.severity) - SEVERITY_ORDER2.indexOf(b.severity);
+      if (sevDiff !== 0) return sevDiff;
+      return b.count - a.count;
+    });
+    const renderRec = (r) => {
+      const sev = r.severity.toLowerCase();
+      const countLabel = r.count > 1 ? ` (&times; ${r.count})` : "";
+      return `<li><span class="badge badge-${esc2(sev)}">${esc2(r.severity)}</span> ${esc2(r.text)}${countLabel}</li>`;
+    };
+    const TOP_N = 10;
+    const topItems = uniqueRecs.slice(0, TOP_N).map(renderRec).join("\n");
+    const remaining = uniqueRecs.slice(TOP_N);
+    const moreHtml = remaining.length > 0 ? `
+<details><summary>Show ${remaining.length} more&hellip;</summary>
+${remaining.map(renderRec).join("\n")}
+</details>` : "";
     recsHtml = `
-      <section class="recommendations">
-        <h2>Recommendations (Priority Order)</h2>
-        <ol>${items}</ol>
-      </section>`;
+      <details class="rec-fold">
+        <summary><h2 style="margin:0;border:0;display:inline">Recommendations (${uniqueRecs.length} unique)</h2></summary>
+        <div class="rec-body">
+          <ol>${topItems}${moreHtml}</ol>
+        </div>
+      </details>`;
   }
   return `<!DOCTYPE html>
 <html lang="en">
@@ -17958,8 +18484,6 @@ function generateMlps3HtmlReport(scanResults, history) {
     const catUnknown = categoryResults.filter(
       (r) => r.status === "unknown"
     ).length;
-    const hasFailure = catFail > 0;
-    const openAttr = hasFailure ? " open" : "";
     const byId = /* @__PURE__ */ new Map();
     for (const r of categoryResults) {
       const existing = byId.get(r.check.id) ?? [];
@@ -17967,6 +18491,9 @@ function generateMlps3HtmlReport(scanResults, history) {
       byId.set(r.check.id, existing);
     }
     const groups = [...byId.entries()].map(([checkId, checkResults]) => {
+      const grpPass = checkResults.filter((r) => r.status === "pass").length;
+      const grpFail = checkResults.filter((r) => r.status === "fail").length;
+      const grpUnknown = checkResults.filter((r) => r.status === "unknown").length;
       const items = checkResults.map((r) => {
         const icon = r.status === "pass" ? "&#10004;" : r.status === "fail" ? "&#10008;" : "&#9888;";
         const cls = `check-${r.status}`;
@@ -17985,15 +18512,21 @@ function generateMlps3HtmlReport(scanResults, history) {
         }
         return `<div class="check-item ${cls}"><span class="check-icon">${icon}</span><span class="check-name">${esc2(r.check.name)}${label}</span></div>${findingsHtml}`;
       }).join("\n");
-      return `<h3>${esc2(checkId)} ${esc2(checkResults[0].check.name)}</h3>
-${items}`;
+      const statusBadges = [
+        grpPass > 0 ? `<span class="category-stat-pass">&#10003; ${grpPass}</span>` : "",
+        grpFail > 0 ? `<span class="category-stat-fail">&#10007; ${grpFail}</span>` : "",
+        grpUnknown > 0 ? `<span class="category-stat-unknown">? ${grpUnknown}</span>` : ""
+      ].filter(Boolean).join(" ");
+      return `<details class="severity-group-fold"><summary><h4>${esc2(checkId)} ${esc2(checkResults[0].check.name)} <span class="category-stats">${statusBadges}</span></h4></summary>
+${items}
+</details>`;
     }).join("\n");
     const statsHtml = [
       catPass > 0 ? `<span class="category-stat-pass">&#10003; ${catPass}</span>` : "",
       catFail > 0 ? `<span class="category-stat-fail">&#10007; ${catFail}</span>` : "",
       catUnknown > 0 ? `<span class="category-stat-unknown">? ${catUnknown}</span>` : ""
     ].filter(Boolean).join("");
-    return `<details class="category-fold"${openAttr}>
+    return `<details class="category-fold">
   <summary>
     <span class="category-title">${esc2(sectionTitle)}</span>
     <span class="category-stats">${statsHtml}</span>
@@ -18004,28 +18537,45 @@ ${items}`;
   const failedResults = results.filter((r) => r.status === "fail");
   let remediationHtml = "";
   if (failedResults.length > 0) {
-    const allFailedFindings = /* @__PURE__ */ new Map();
+    const mlpsRecMap = /* @__PURE__ */ new Map();
     for (const r of failedResults) {
       for (const f of r.relatedFindings) {
-        const key = `${f.resourceId}:${f.title}`;
-        if (!allFailedFindings.has(key)) {
-          allFailedFindings.set(key, f);
+        const rem = f.remediationSteps[0] ?? "Review and remediate.";
+        const existing = mlpsRecMap.get(rem);
+        if (existing) {
+          existing.count++;
+          if (SEVERITY_ORDER2.indexOf(f.severity) < SEVERITY_ORDER2.indexOf(existing.severity)) {
+            existing.severity = f.severity;
+          }
+        } else {
+          mlpsRecMap.set(rem, { text: rem, severity: f.severity, count: 1 });
         }
       }
     }
-    const sorted = [...allFailedFindings.values()].sort(
-      (a, b) => b.riskScore - a.riskScore
-    );
-    const items = sorted.map((f) => {
-      const p = f.riskScore >= 9 ? "P0" : f.riskScore >= 7 ? "P1" : f.riskScore >= 4 ? "P2" : "P3";
-      const rem = f.remediationSteps[0] ?? "Review and remediate.";
-      return `<li><span class="priority-${p.toLowerCase()}">[${p}]</span> ${esc2(f.title)} &mdash; ${esc2(rem)}</li>`;
-    }).join("\n");
+    const mlpsUniqueRecs = [...mlpsRecMap.values()].sort((a, b) => {
+      const sevDiff = SEVERITY_ORDER2.indexOf(a.severity) - SEVERITY_ORDER2.indexOf(b.severity);
+      if (sevDiff !== 0) return sevDiff;
+      return b.count - a.count;
+    });
+    const renderMlpsRec = (r) => {
+      const sev = r.severity.toLowerCase();
+      const countLabel = r.count > 1 ? ` (&times; ${r.count})` : "";
+      return `<li><span class="badge badge-${esc2(sev)}">${esc2(r.severity)}</span> ${esc2(r.text)}${countLabel}</li>`;
+    };
+    const MLPS_TOP_N = 10;
+    const mlpsTopItems = mlpsUniqueRecs.slice(0, MLPS_TOP_N).map(renderMlpsRec).join("\n");
+    const mlpsRemaining = mlpsUniqueRecs.slice(MLPS_TOP_N);
+    const mlpsMoreHtml = mlpsRemaining.length > 0 ? `
+<details><summary>\u663E\u793A\u5176\u4F59 ${mlpsRemaining.length} \u9879&hellip;</summary>
+${mlpsRemaining.map(renderMlpsRec).join("\n")}
+</details>` : "";
     remediationHtml = `
-      <section class="recommendations">
-        <h2>\u5EFA\u8BAE\u6574\u6539\u9879\uFF08\u6309\u4F18\u5148\u7EA7\uFF09</h2>
-        <ol>${items}</ol>
-      </section>`;
+      <details class="rec-fold">
+        <summary><h2 style="margin:0;border:0;display:inline">\u5EFA\u8BAE\u6574\u6539\u9879\uFF08${mlpsUniqueRecs.length} \u9879\u53BB\u91CD\uFF09</h2></summary>
+        <div class="rec-body">
+          <ol>${mlpsTopItems}${mlpsMoreHtml}</ol>
+        </div>
+      </details>`;
   }
   const passRateColor = percent >= 80 ? "#22c55e" : percent >= 50 ? "#eab308" : "#ef4444";
   const unknownNote = unknownCount > 0 ? `<div style="color:#94a3b8;font-size:12px;margin-top:8px">\uFF08\u672A\u68C0\u67E5\u9879\u4E0D\u8BA1\u5165\u901A\u8FC7\u7387\uFF09</div>` : "";
@@ -18184,13 +18734,13 @@ var SCAN_GROUPS = {
   mlps3_precheck: {
     name: "\u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0",
     description: "GB/T 22239-2019 \u7B49\u4FDD\u4E09\u7EA7 AWS \u4E91\u79DF\u6237\u5C42\u914D\u7F6E\u68C0\u67E5",
-    modules: ["service_detection", "secret_exposure", "ssl_certificate", "dns_dangling", "network_reachability", "iam_privilege_escalation", "tag_compliance", "disaster_recovery", "security_hub_findings", "guardduty_findings", "inspector_findings", "trusted_advisor_findings"],
+    modules: ["service_detection", "secret_exposure", "ssl_certificate", "dns_dangling", "network_reachability", "iam_privilege_escalation", "tag_compliance", "disaster_recovery", "security_hub_findings", "guardduty_findings", "inspector_findings", "trusted_advisor_findings", "config_rules_findings", "access_analyzer_findings", "patch_compliance_findings"],
     reportType: "mlps3"
   },
   hw_defense: {
     name: "\u62A4\u7F51\u84DD\u961F\u52A0\u56FA",
     description: "\u62A4\u7F51\u524D\u5B89\u5168\u81EA\u67E5 \u2014 \u653B\u51FB\u9762+\u5F31\u70B9\u8BC4\u4F30",
-    modules: ["service_detection", "secret_exposure", "network_reachability", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "inspector_findings"],
+    modules: ["service_detection", "secret_exposure", "network_reachability", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "inspector_findings", "config_rules_findings", "access_analyzer_findings", "patch_compliance_findings"],
     findingsFilter: {
       guardDutyTypes: ["Backdoor", "Trojan", "PenTest", "CryptoCurrency"],
       minSeverity: "MEDIUM"
@@ -18199,7 +18749,7 @@ var SCAN_GROUPS = {
   exposure: {
     name: "\u516C\u7F51\u66B4\u9732\u9762\u8BC4\u4F30",
     description: "\u8BC4\u4F30\u516C\u7F51\u53EF\u8FBE\u7684\u8D44\u6E90\u548C\u7AEF\u53E3",
-    modules: ["network_reachability", "dns_dangling", "public_access_verify", "ssl_certificate", "security_hub_findings"],
+    modules: ["network_reachability", "dns_dangling", "public_access_verify", "ssl_certificate", "security_hub_findings", "access_analyzer_findings"],
     findingsFilter: {
       securityHubCategories: ["network", "public", "exposure", "port"]
     }
@@ -18220,7 +18770,7 @@ var SCAN_GROUPS = {
   least_privilege: {
     name: "\u6700\u5C0F\u6743\u9650\u5BA1\u8BA1",
     description: "IAM \u6743\u9650\u6700\u5C0F\u5316\u8BC4\u4F30",
-    modules: ["iam_privilege_escalation", "security_hub_findings"],
+    modules: ["iam_privilege_escalation", "security_hub_findings", "access_analyzer_findings"],
     findingsFilter: {
       securityHubCategories: ["IAM", "iam", "access", "privilege"]
     }
@@ -18256,17 +18806,17 @@ var SCAN_GROUPS = {
   new_account_baseline: {
     name: "\u65B0\u8D26\u6237\u57FA\u7EBF\u68C0\u67E5",
     description: "\u65B0 AWS \u8D26\u6237\u5B89\u5168\u57FA\u7EBF",
-    modules: ["service_detection", "secret_exposure", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings"]
+    modules: ["service_detection", "secret_exposure", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "access_analyzer_findings"]
   },
   aggregation: {
     name: "\u5B89\u5168\u670D\u52A1\u805A\u5408",
     description: "\u4ECE Security Hub / GuardDuty / Inspector / Trusted Advisor \u805A\u5408\u6240\u6709\u5B89\u5168\u53D1\u73B0",
-    modules: ["security_hub_findings", "guardduty_findings", "inspector_findings", "trusted_advisor_findings"]
+    modules: ["security_hub_findings", "guardduty_findings", "inspector_findings", "trusted_advisor_findings", "config_rules_findings", "access_analyzer_findings", "patch_compliance_findings"]
   }
 };
 
 // src/resources/index.ts
-var SECURITY_RULES_CONTENT = `# AWS Security Scan Modules & Rules
+var SECURITY_RULES_CONTENT = `# AWS Security Scan Modules & Rules (17 modules)
 
 ## 1. Service Detection (service_detection)
 Detects which AWS security services are enabled and assesses overall security maturity.
@@ -18335,6 +18885,31 @@ Finds unused/idle AWS resources (unattached EBS volumes, unused EIPs, stopped in
 
 ## 14. Disaster Recovery (disaster_recovery)
 Assesses disaster recovery readiness \u2014 RDS Multi-AZ & backups, EBS snapshot coverage, S3 versioning & cross-region replication.
+
+## 15. Config Rules Findings (config_rules_findings)
+Pulls non-compliant AWS Config Rule evaluation results.
+- Lists all Config Rules and their compliance status.
+- For NON_COMPLIANT rules, retrieves specific non-compliant resources.
+- Security-related rules (encryption, IAM, public access, etc.) mapped to HIGH severity (7.5).
+- Other non-compliant rules mapped to MEDIUM severity (5.5).
+- Gracefully handles regions where AWS Config is not enabled.
+
+## 16. IAM Access Analyzer Findings (access_analyzer_findings)
+Pulls active IAM Access Analyzer findings \u2014 resources accessible from outside the account.
+- Lists active analyzers (ACCOUNT or ORGANIZATION type).
+- Retrieves ACTIVE findings showing external access to resources.
+- Covers S3 buckets, IAM roles, SQS queues, Lambda functions, KMS keys, and more.
+- Severity mapped: CRITICAL \u2192 9.5, HIGH \u2192 8.0, MEDIUM \u2192 5.5, LOW \u2192 3.0.
+- Returns warning if no analyzer is configured.
+
+## 17. SSM Patch Compliance (patch_compliance_findings)
+Checks patch compliance status for SSM-managed instances.
+- Lists all managed instances via SSM.
+- Retrieves patch compliance state for each instance.
+- Missing security patches or failed patches \u2192 HIGH (7.5).
+- Missing non-security patches \u2192 MEDIUM (5.5).
+- Instances without patch data flagged as LOW (3.0) for visibility.
+- Includes platform info, missing/failed counts, and last scan time.
 `;
 var RISK_SCORING_CONTENT = `# Risk Scoring Model
 
@@ -18396,7 +18971,10 @@ var MODULE_DESCRIPTIONS = {
   security_hub_findings: "Aggregates active findings from AWS Security Hub \u2014 replaces individual config scanners with centralized compliance checks.",
   guardduty_findings: "Aggregates threat detection findings from Amazon GuardDuty \u2014 account compromise, instance compromise, and reconnaissance.",
   inspector_findings: "Aggregates vulnerability findings from Amazon Inspector \u2014 CVEs in EC2, Lambda, and container images.",
-  trusted_advisor_findings: "Aggregates security checks from AWS Trusted Advisor \u2014 requires Business or Enterprise Support plan."
+  trusted_advisor_findings: "Aggregates security checks from AWS Trusted Advisor \u2014 requires Business or Enterprise Support plan.",
+  config_rules_findings: "Pulls non-compliant AWS Config Rule evaluation results \u2014 configuration compliance violations across all resource types.",
+  access_analyzer_findings: "Pulls active IAM Access Analyzer findings \u2014 resources accessible from outside the account (external principals, public access).",
+  patch_compliance_findings: "Checks SSM Patch Manager compliance \u2014 managed instances with missing or failed security and system patches."
 };
 function summarizeResult(result) {
   const { summary } = result;
@@ -18445,7 +19023,10 @@ function createServer(defaultRegion) {
     new SecurityHubFindingsScanner(),
     new GuardDutyFindingsScanner(),
     new InspectorFindingsScanner(),
-    new TrustedAdvisorFindingsScanner()
+    new TrustedAdvisorFindingsScanner(),
+    new ConfigRulesFindingsScanner(),
+    new AccessAnalyzerFindingsScanner(),
+    new PatchComplianceFindingsScanner()
   ];
   const scannerMap = /* @__PURE__ */ new Map();
   for (const s of allScanners) {
@@ -18498,7 +19079,10 @@ function createServer(defaultRegion) {
     { toolName: "scan_security_hub_findings", moduleName: "security_hub_findings", label: "Security Hub Findings" },
     { toolName: "scan_guardduty_findings", moduleName: "guardduty_findings", label: "GuardDuty Findings" },
     { toolName: "scan_inspector_findings", moduleName: "inspector_findings", label: "Inspector Findings" },
-    { toolName: "scan_trusted_advisor_findings", moduleName: "trusted_advisor_findings", label: "Trusted Advisor Findings" }
+    { toolName: "scan_trusted_advisor_findings", moduleName: "trusted_advisor_findings", label: "Trusted Advisor Findings" },
+    { toolName: "scan_config_rules_findings", moduleName: "config_rules_findings", label: "Config Rules Findings" },
+    { toolName: "scan_access_analyzer_findings", moduleName: "access_analyzer_findings", label: "Access Analyzer Findings" },
+    { toolName: "scan_patch_compliance_findings", moduleName: "patch_compliance_findings", label: "Patch Compliance Findings" }
   ];
   for (const { toolName, moduleName, label } of individualScanners) {
     server.tool(
@@ -18930,7 +19514,7 @@ Deploy this as a StackSet from your Management Account to all member accounts.` 
   server.resource(
     "security-rules",
     "security://rules",
-    { description: "Describes all 14 scan modules and their check rules", mimeType: "text/markdown" },
+    { description: "Describes all 17 scan modules and their check rules", mimeType: "text/markdown" },
     async () => ({
       contents: [{ uri: "security://rules", text: SECURITY_RULES_CONTENT, mimeType: "text/markdown" }]
     })

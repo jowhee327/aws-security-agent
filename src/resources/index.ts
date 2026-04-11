@@ -1,4 +1,4 @@
-export const SECURITY_RULES_CONTENT = `# AWS Security Scan Modules & Rules
+export const SECURITY_RULES_CONTENT = `# AWS Security Scan Modules & Rules (17 modules)
 
 ## 1. Service Detection (service_detection)
 Detects which AWS security services are enabled and assesses overall security maturity.
@@ -67,6 +67,31 @@ Finds unused/idle AWS resources (unattached EBS volumes, unused EIPs, stopped in
 
 ## 14. Disaster Recovery (disaster_recovery)
 Assesses disaster recovery readiness — RDS Multi-AZ & backups, EBS snapshot coverage, S3 versioning & cross-region replication.
+
+## 15. Config Rules Findings (config_rules_findings)
+Pulls non-compliant AWS Config Rule evaluation results.
+- Lists all Config Rules and their compliance status.
+- For NON_COMPLIANT rules, retrieves specific non-compliant resources.
+- Security-related rules (encryption, IAM, public access, etc.) mapped to HIGH severity (7.5).
+- Other non-compliant rules mapped to MEDIUM severity (5.5).
+- Gracefully handles regions where AWS Config is not enabled.
+
+## 16. IAM Access Analyzer Findings (access_analyzer_findings)
+Pulls active IAM Access Analyzer findings — resources accessible from outside the account.
+- Lists active analyzers (ACCOUNT or ORGANIZATION type).
+- Retrieves ACTIVE findings showing external access to resources.
+- Covers S3 buckets, IAM roles, SQS queues, Lambda functions, KMS keys, and more.
+- Severity mapped: CRITICAL → 9.5, HIGH → 8.0, MEDIUM → 5.5, LOW → 3.0.
+- Returns warning if no analyzer is configured.
+
+## 17. SSM Patch Compliance (patch_compliance_findings)
+Checks patch compliance status for SSM-managed instances.
+- Lists all managed instances via SSM.
+- Retrieves patch compliance state for each instance.
+- Missing security patches or failed patches → HIGH (7.5).
+- Missing non-security patches → MEDIUM (5.5).
+- Instances without patch data flagged as LOW (3.0) for visibility.
+- Includes platform info, missing/failed counts, and last scan time.
 `;
 
 export const RISK_SCORING_CONTENT = `# Risk Scoring Model

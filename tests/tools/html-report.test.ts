@@ -131,8 +131,9 @@ describe("generateHtmlReport", () => {
     ]);
     const html = generateHtmlReport(result);
 
-    expect(html).toContain("Recommendations (Priority Order)");
-    expect(html).toContain("[P0]");
+    expect(html).toContain("Recommendations (");
+    expect(html).toContain("unique)");
+    expect(html).toContain("rec-fold");
   });
 
   it("shows clean state when no findings", () => {
@@ -335,7 +336,8 @@ describe("generateMlps3HtmlReport", () => {
     const html = generateMlps3HtmlReport(result);
 
     expect(html).toContain("建议整改项");
-    expect(html).toContain("[P2]");
+    expect(html).toContain("rec-fold");
+    expect(html).toContain("Set minimum password length");
   });
 
   it("includes print styles", () => {
