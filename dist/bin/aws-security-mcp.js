@@ -237,7 +237,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 
 // src/version.ts
-var VERSION = "0.6.3";
+var VERSION = "0.7.0";
 
 // src/utils/aws-client.ts
 import { STSClient, GetCallerIdentityCommand } from "@aws-sdk/client-sts";
