@@ -125,11 +125,11 @@ For multi-account scanning across an AWS Organization:
 | `scan_idle_resources` | Find unused/idle resources |
 | `scan_disaster_recovery` | Assess disaster recovery readiness |
 | `scan_security_hub_findings` | Aggregate findings from AWS Security Hub |
-| `scan_guardduty_findings` | Aggregate findings from Amazon GuardDuty |
-| `scan_inspector_findings` | Aggregate findings from Amazon Inspector |
+| `scan_guardduty_findings` | Check if GuardDuty is enabled (findings via Security Hub) |
+| `scan_inspector_findings` | Check if Inspector is enabled (findings via Security Hub) |
 | `scan_trusted_advisor_findings` | Aggregate findings from AWS Trusted Advisor |
-| `scan_config_rules_findings` | Aggregate findings from AWS Config Rules |
-| `scan_access_analyzer_findings` | Aggregate findings from IAM Access Analyzer |
+| `scan_config_rules_findings` | Check if Config is enabled (findings via Security Hub) |
+| `scan_access_analyzer_findings` | Check if Access Analyzer is enabled (findings via Security Hub) |
 | `scan_patch_compliance_findings` | Aggregate findings from SSM Patch Compliance |
 | `scan_imdsv2_enforcement` | Check EC2 instances for IMDSv2 enforcement |
 | `scan_waf_coverage` | Check internet-facing ALBs for WAF Web ACL protection |
@@ -206,8 +206,6 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
         "lambda:ListFunctions",
         "lambda:GetFunction",
 
-        "macie2:GetMacieSession",
-
         "organizations:ListAccounts",
 
         "rds:DescribeDBInstances",
@@ -248,7 +246,7 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
 
 | Module | What It Checks | Risk Score Range |
 |--------|---------------|-----------------|
-| **Service Detection** | Enabled security services (Security Hub, GuardDuty, Inspector, Config, Macie, CloudTrail) and maturity level | 5.0 - 7.5 |
+| **Service Detection** | Enabled security services (Security Hub, GuardDuty, Inspector, Config, CloudTrail) and maturity level | 5.0 - 7.5 |
 | **Secret Exposure** | Lambda env vars and EC2 userData for exposed secrets (AWS keys, private keys, passwords) | 7.0 - 9.5 |
 | **SSL Certificate** | ACM certificate expiry, failed status, upcoming renewals | 5.5 - 9.0 |
 | **Dangling DNS** | Route53 CNAME records pointing to non-existent resources (subdomain takeover) | 7.0 - 8.5 |

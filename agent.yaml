@@ -23,7 +23,7 @@ scanner_modules:
   unique:
     - name: service_detection
       file: src/scanners/service-detection.ts
-      description: Detects enabled security services (Security Hub, GuardDuty, Inspector, Config, Macie) and assesses maturity
+      description: Detects enabled security services (Security Hub, GuardDuty, Inspector, Config) and assesses maturity
     - name: secret_exposure
       file: src/scanners/secret-exposure.ts
       description: Checks Lambda env vars and EC2 userData for exposed secrets

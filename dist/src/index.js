@@ -3707,12 +3707,12 @@ var zhI18n = {
   },
   // Security Hub sub-categories
   securityHubSubCategories: {
-    FSBP: { icon: "\u{1F4CB}", label: "\u5B89\u5168\u6700\u4F73\u5B9E\u8DF5" },
-    Inspector: { icon: "\u{1F50D}", label: "\u8F6F\u4EF6\u6F0F\u6D1E" },
-    GuardDuty: { icon: "\u{1F6E1}\uFE0F", label: "\u5A01\u80C1\u68C0\u6D4B" },
-    Config: { icon: "\u2699\uFE0F", label: "\u914D\u7F6E\u5408\u89C4" },
-    "Access Analyzer": { icon: "\u{1F511}", label: "\u5916\u90E8\u8BBF\u95EE" },
-    Other: { icon: "\u{1F4E6}", label: "\u5176\u4ED6\u5B89\u5168\u53D1\u73B0" }
+    FSBP: { label: "\u5B89\u5168\u6700\u4F73\u5B9E\u8DF5" },
+    Inspector: { label: "\u8F6F\u4EF6\u6F0F\u6D1E" },
+    GuardDuty: { label: "\u5A01\u80C1\u68C0\u6D4B" },
+    Config: { label: "\u914D\u7F6E\u5408\u89C4" },
+    "Access Analyzer": { label: "\u5916\u90E8\u8BBF\u95EE" },
+    Other: { label: "\u5176\u4ED6\u5B89\u5168\u53D1\u73B0" }
   },
   // Service Recommendations
   notEnabled: "\u672A\u542F\u7528",
@@ -3977,12 +3977,12 @@ var enI18n = {
   },
   // Security Hub sub-categories
   securityHubSubCategories: {
-    FSBP: { icon: "\u{1F4CB}", label: "Security Best Practices" },
-    Inspector: { icon: "\u{1F50D}", label: "Software Vulnerabilities" },
-    GuardDuty: { icon: "\u{1F6E1}\uFE0F", label: "Threat Detection" },
-    Config: { icon: "\u2699\uFE0F", label: "Configuration Compliance" },
-    "Access Analyzer": { icon: "\u{1F511}", label: "External Access" },
-    Other: { icon: "\u{1F4E6}", label: "Other Security Findings" }
+    FSBP: { label: "Security Best Practices" },
+    Inspector: { label: "Software Vulnerabilities" },
+    GuardDuty: { label: "Threat Detection" },
+    Config: { label: "Configuration Compliance" },
+    "Access Analyzer": { label: "External Access" },
+    Other: { label: "Other Security Findings" }
   },
   // Service Recommendations
   notEnabled: "Not Enabled",

@@ -189,12 +189,12 @@ export const enI18n: I18n = {
 
   // Security Hub sub-categories
   securityHubSubCategories: {
-    FSBP: { icon: "\ud83d\udccb", label: "Security Best Practices" },
-    Inspector: { icon: "\ud83d\udd0d", label: "Software Vulnerabilities" },
-    GuardDuty: { icon: "\ud83d\udee1\ufe0f", label: "Threat Detection" },
-    Config: { icon: "\u2699\ufe0f", label: "Configuration Compliance" },
-    "Access Analyzer": { icon: "\ud83d\udd11", label: "External Access" },
-    Other: { icon: "\ud83d\udce6", label: "Other Security Findings" },
+    FSBP: { label: "Security Best Practices" },
+    Inspector: { label: "Software Vulnerabilities" },
+    GuardDuty: { label: "Threat Detection" },
+    Config: { label: "Configuration Compliance" },
+    "Access Analyzer": { label: "External Access" },
+    Other: { label: "Other Security Findings" },
   },
 
   // Service Recommendations

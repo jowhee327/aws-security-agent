@@ -111,7 +111,7 @@ export interface I18n {
   moduleNames: Record<string, string>;
 
   // Security Hub sub-categories
-  securityHubSubCategories: Record<string, { icon: string; label: string }>;
+  securityHubSubCategories: Record<string, { label: string }>;
 
   // Service recommendations (per service)
   notEnabled: string;
