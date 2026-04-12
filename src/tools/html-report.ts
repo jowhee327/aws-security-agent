@@ -552,6 +552,43 @@ export function generateHtmlReport(
     m.findings.map((f) => ({ ...f, module: f.module ?? m.module })),
   );
 
+  // Pre-compute Security Hub sub-categories for bar chart and stats table
+  const shModule = modules.find(m => m.module === "security_hub_findings");
+  const shSubCats: Array<{ key: string; label: string; count: number; findings: Finding[] }> = [];
+  if (shModule && shModule.findingsCount > 0) {
+    const catMap: Record<string, Finding[]> = {};
+    for (const f of shModule.findings) {
+      const cat = getSecurityHubSource(f);
+      if (!catMap[cat]) catMap[cat] = [];
+      catMap[cat].push(f);
+    }
+    for (const cat of SECURITY_HUB_SUB_CAT_ORDER) {
+      const catFindings = catMap[cat];
+      if (catFindings && catFindings.length > 0) {
+        const meta = t.securityHubSubCategories[cat];
+        shSubCats.push({
+          key: cat,
+          label: meta ? `${meta.icon} ${meta.label}` : cat,
+          count: catFindings.length,
+          findings: catFindings,
+        });
+      }
+    }
+  }
+
+  // Expand SH module into sub-categories for bar chart
+  const barChartModules: ScanResult[] = modules.flatMap(m => {
+    if (m.module === "security_hub_findings" && shSubCats.length > 0) {
+      return shSubCats.map(sc => ({
+        ...m,
+        module: `SH / ${sc.key}`,
+        findingsCount: sc.count,
+        findings: sc.findings,
+      }));
+    }
+    return [m];
+  });
+
   // --- Top 5 Findings ---
   let top5Html = "";
   if (allFindings.length > 0) {
@@ -729,8 +766,15 @@ export function generateHtmlReport(
   // --- Statistics table ---
   const statsRows = modules
     .map(
-      (m) =>
-        `<tr><td>${esc(m.module)}</td><td>${m.resourcesScanned}</td><td>${m.findingsCount}</td><td>${m.status === "success" ? "&#10003;" : "&#10007;"}</td></tr>`,
+      (m) => {
+        let row = `<tr><td>${esc(m.module)}</td><td>${m.resourcesScanned}</td><td>${m.findingsCount}</td><td>${m.status === "success" ? "&#10003;" : "&#10007;"}</td></tr>`;
+        if (m.module === "security_hub_findings" && shSubCats.length > 0) {
+          for (const sc of shSubCats) {
+            row += `\n<tr style="color:#94a3b8"><td style="padding-left:32px;font-size:12px">\u2514 ${esc(sc.label)}</td><td></td><td style="font-size:12px">${sc.count}</td><td></td></tr>`;
+          }
+        }
+        return row;
+      },
     )
     .join("\n");
 
@@ -911,7 +955,7 @@ export function generateHtmlReport(
   </div>
   <div class="chart-box">
     <div class="chart-title">${esc(t.findingsByModule)}</div>
-    ${barChart(modules, t.allModulesClean)}
+    ${barChart(barChartModules, t.allModulesClean)}
   </div>
 </section>
 

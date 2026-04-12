@@ -7417,6 +7417,39 @@ function generateHtmlReport(scanResults, history, lang) {
   const allFindings = modules.flatMap(
     (m) => m.findings.map((f) => ({ ...f, module: f.module ?? m.module }))
   );
+  const shModule = modules.find((m) => m.module === "security_hub_findings");
+  const shSubCats = [];
+  if (shModule && shModule.findingsCount > 0) {
+    const catMap = {};
+    for (const f of shModule.findings) {
+      const cat = getSecurityHubSource(f);
+      if (!catMap[cat]) catMap[cat] = [];
+      catMap[cat].push(f);
+    }
+    for (const cat of SECURITY_HUB_SUB_CAT_ORDER) {
+      const catFindings = catMap[cat];
+      if (catFindings && catFindings.length > 0) {
+        const meta = t.securityHubSubCategories[cat];
+        shSubCats.push({
+          key: cat,
+          label: meta ? `${meta.icon} ${meta.label}` : cat,
+          count: catFindings.length,
+          findings: catFindings
+        });
+      }
+    }
+  }
+  const barChartModules = modules.flatMap((m) => {
+    if (m.module === "security_hub_findings" && shSubCats.length > 0) {
+      return shSubCats.map((sc) => ({
+        ...m,
+        module: `SH / ${sc.key}`,
+        findingsCount: sc.count,
+        findings: sc.findings
+      }));
+    }
+    return [m];
+  });
   let top5Html = "";
   if (allFindings.length > 0) {
     const top5 = [...allFindings].sort((a, b) => b.riskScore - a.riskScore).slice(0, 5);
@@ -7562,7 +7595,16 @@ ${rest}
     </section>`;
   }
   const statsRows = modules.map(
-    (m) => `<tr><td>${esc(m.module)}</td><td>${m.resourcesScanned}</td><td>${m.findingsCount}</td><td>${m.status === "success" ? "&#10003;" : "&#10007;"}</td></tr>`
+    (m) => {
+      let row = `<tr><td>${esc(m.module)}</td><td>${m.resourcesScanned}</td><td>${m.findingsCount}</td><td>${m.status === "success" ? "&#10003;" : "&#10007;"}</td></tr>`;
+      if (m.module === "security_hub_findings" && shSubCats.length > 0) {
+        for (const sc of shSubCats) {
+          row += `
+<tr style="color:#94a3b8"><td style="padding-left:32px;font-size:12px">\u2514 ${esc(sc.label)}</td><td></td><td style="font-size:12px">${sc.count}</td><td></td></tr>`;
+        }
+      }
+      return row;
+    }
   ).join("\n");
   let recsHtml = "";
   if (summary.totalFindings > 0) {
@@ -7715,7 +7757,7 @@ ${remaining.map(renderRec).join("\n")}
   </div>
   <div class="chart-box">
     <div class="chart-title">${esc(t.findingsByModule)}</div>
-    ${barChart(modules, t.allModulesClean)}
+    ${barChart(barChartModules, t.allModulesClean)}
   </div>
 </section>
 
