@@ -6,7 +6,6 @@ Detects which AWS security services are enabled and assesses overall security ma
 - **GuardDuty not enabled** — Risk 7.5: Provides continuous threat detection.
 - **Inspector not enabled** — Risk 6.0: Scans for software vulnerabilities.
 - **AWS Config not enabled** — Risk 6.0: Tracks configuration changes.
-- **Macie not enabled** — Risk 5.0: Detects sensitive data in S3 (not available in China regions).
 - CloudTrail detection is included for coverage metrics.
 
 ### Maturity Levels
@@ -14,8 +13,8 @@ Detects which AWS security services are enabled and assesses overall security ma
 |------------------|-------|
 | 0–1 | Basic |
 | 2–3 | Intermediate |
-| 4–5 | Advanced |
-| 6   | Comprehensive |
+| 4   | Advanced |
+| 5   | Comprehensive |
 
 ## 2. Security Hub Findings (security_hub_findings)
 Aggregates active findings from AWS Security Hub. Replaces individual config scanners (SG, S3, IAM, CloudTrail, RDS, EBS, VPC, etc.) with centralized compliance checks from FSBP, CIS, and PCI DSS standards.

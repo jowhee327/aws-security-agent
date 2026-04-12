@@ -275,10 +275,6 @@ import {
   DescribeConfigurationRecordersCommand
 } from "@aws-sdk/client-config-service";
 import {
-  Macie2Client,
-  GetMacieSessionCommand
-} from "@aws-sdk/client-macie2";
-import {
   CloudTrailClient,
   DescribeTrailsCommand
 } from "@aws-sdk/client-cloudtrail";
@@ -321,7 +317,7 @@ function isNotEnabled(err) {
   err.name === "DisabledException" || err.message.includes("not enabled") || err.message.includes("not subscribed");
 }
 function computeMaturityLevel(enabledCount) {
-  if (enabledCount >= 6) return "comprehensive";
+  if (enabledCount >= 5) return "comprehensive";
   if (enabledCount >= 4) return "advanced";
   if (enabledCount >= 2) return "intermediate";
   return "basic";
@@ -623,53 +619,6 @@ var ServiceDetectionScanner = class {
       } else {
         warnings.push(`AWS Config detection failed: ${err instanceof Error ? err.message : String(err)}`);
         services.push({ name: "AWS Config", enabled: null, details: "Detection error" });
-      }
-    }
-    if (region.startsWith("cn-")) {
-      services.push({ name: "Macie", enabled: null, details: "Not available in China regions" });
-      warnings.push("Macie is not available in AWS China regions.");
-    } else {
-      try {
-        const mc = createClient(Macie2Client, region, ctx.credentials);
-        await mc.send(new GetMacieSessionCommand({}));
-        services.push({
-          name: "Macie",
-          enabled: true,
-          details: "Sensitive data detection active"
-        });
-      } catch (err) {
-        if (isAccessDenied(err)) {
-          warnings.push("Macie: insufficient permissions to check status");
-          services.push({ name: "Macie", enabled: null, details: "Access denied" });
-        } else if (isNotEnabled(err)) {
-          services.push({
-            name: "Macie",
-            enabled: false,
-            recommendation: "Enable Macie to detect sensitive data in S3",
-            freeTrialAvailable: true
-          });
-          findings.push(
-            makeFinding({
-              riskScore: 5,
-              title: "Amazon Macie is not enabled",
-              resourceType: "AWS::Macie::Session",
-              resourceId: "macie",
-              resourceArn: `arn:${partition}:macie2:${region}:${accountId}:session`,
-              region,
-              description: "Amazon Macie is not enabled in this region. Macie uses machine learning to discover and protect sensitive data stored in S3.",
-              impact: "Detects sensitive data (PII, credentials, financial data) in S3 buckets. Without it, sensitive data exposure may go unnoticed.",
-              remediationSteps: [
-                "Open the Amazon Macie console.",
-                "Click 'Get Started' and enable Macie.",
-                "Macie offers a 30-day free trial for sensitive data discovery.",
-                "Configure automated sensitive data discovery jobs."
-              ]
-            })
-          );
-        } else {
-          warnings.push(`Macie detection failed: ${err instanceof Error ? err.message : String(err)}`);
-          services.push({ name: "Macie", enabled: null, details: "Detection error" });
-        }
       }
     }
     const knownServices = services.filter((s) => s.enabled !== null);
@@ -3729,12 +3678,12 @@ var zhI18n = {
   },
   // Security Hub sub-categories
   securityHubSubCategories: {
-    FSBP: { icon: "\u{1F4CB}", label: "\u57FA\u7840\u5B89\u5168\u6700\u4F73\u5B9E\u8DF5 (FSBP)" },
-    Inspector: { icon: "\u{1F50D}", label: "Inspector \u6F0F\u6D1E" },
-    GuardDuty: { icon: "\u{1F6E1}\uFE0F", label: "GuardDuty \u5A01\u80C1" },
-    Config: { icon: "\u2699\uFE0F", label: "Config Rules" },
-    "Access Analyzer": { icon: "\u{1F511}", label: "Access Analyzer" },
-    Other: { icon: "\u{1F4E6}", label: "\u5176\u4ED6" }
+    FSBP: { icon: "\u{1F4CB}", label: "\u5B89\u5168\u6700\u4F73\u5B9E\u8DF5" },
+    Inspector: { icon: "\u{1F50D}", label: "\u8F6F\u4EF6\u6F0F\u6D1E" },
+    GuardDuty: { icon: "\u{1F6E1}\uFE0F", label: "\u5A01\u80C1\u68C0\u6D4B" },
+    Config: { icon: "\u2699\uFE0F", label: "\u914D\u7F6E\u5408\u89C4" },
+    "Access Analyzer": { icon: "\u{1F511}", label: "\u5916\u90E8\u8BBF\u95EE" },
+    Other: { icon: "\u{1F4E6}", label: "\u5176\u4ED6\u5B89\u5168\u53D1\u73B0" }
   },
   // Service Recommendations
   notEnabled: "\u672A\u542F\u7528",
@@ -3970,12 +3919,12 @@ var enI18n = {
   },
   // Security Hub sub-categories
   securityHubSubCategories: {
-    FSBP: { icon: "\u{1F4CB}", label: "Foundational Security Best Practices (FSBP)" },
-    Inspector: { icon: "\u{1F50D}", label: "Inspector Vulnerabilities" },
-    GuardDuty: { icon: "\u{1F6E1}\uFE0F", label: "GuardDuty Threats" },
-    Config: { icon: "\u2699\uFE0F", label: "Config Rules" },
-    "Access Analyzer": { icon: "\u{1F511}", label: "Access Analyzer" },
-    Other: { icon: "\u{1F4E6}", label: "Other" }
+    FSBP: { icon: "\u{1F4CB}", label: "Security Best Practices" },
+    Inspector: { icon: "\u{1F50D}", label: "Software Vulnerabilities" },
+    GuardDuty: { icon: "\u{1F6E1}\uFE0F", label: "Threat Detection" },
+    Config: { icon: "\u2699\uFE0F", label: "Configuration Compliance" },
+    "Access Analyzer": { icon: "\u{1F511}", label: "External Access" },
+    Other: { icon: "\u{1F4E6}", label: "Other Security Findings" }
   },
   // Service Recommendations
   notEnabled: "Not Enabled",
@@ -7522,7 +7471,18 @@ ${rest}
       if (!moduleMap.has(mod)) moduleMap.set(mod, []);
       moduleMap.get(mod).push(f);
     }
-    const moduleEntries = [...moduleMap.entries()].filter(([mod]) => !DETECTION_ONLY_MODULES.has(mod)).sort((a, b) => {
+    const expandedEntries = [];
+    for (const [mod, findings] of moduleMap.entries()) {
+      if (DETECTION_ONLY_MODULES.has(mod)) continue;
+      if (mod === "security_hub_findings" && shSubCats.length > 0) {
+        for (const sc of shSubCats) {
+          expandedEntries.push([sc.key, sc.findings, sc.label]);
+        }
+      } else {
+        expandedEntries.push([mod, findings, null]);
+      }
+    }
+    const moduleEntries = expandedEntries.sort((a, b) => {
       const aHasCritHigh = a[1].some((f) => f.severity === "CRITICAL" || f.severity === "HIGH");
       const bHasCritHigh = b[1].some((f) => f.severity === "CRITICAL" || f.severity === "HIGH");
       if (aHasCritHigh !== bHasCritHigh) return aHasCritHigh ? -1 : 1;
@@ -7546,38 +7506,12 @@ ${rest}
       for (const f of findings) sevCounts[f.severity]++;
       return SEVERITY_ORDER2.filter((sev) => sevCounts[sev] > 0).map((sev) => `<span class="badge badge-${sev.toLowerCase()}">${sevCounts[sev]} ${sev.charAt(0) + sev.slice(1).toLowerCase()}</span>`).join(" ");
     };
-    findingsHtml = moduleEntries.map(([modName, modFindings]) => {
+    findingsHtml = moduleEntries.map(([modName, modFindings, subCatLabel]) => {
       const badges = renderModuleBadges(modFindings);
-      if (modName === "security_hub_findings") {
-        const subCatMap = /* @__PURE__ */ new Map();
-        for (const f of modFindings) {
-          const source = getSecurityHubSource(f);
-          if (!subCatMap.has(source)) subCatMap.set(source, []);
-          subCatMap.get(source).push(f);
-        }
-        const subCatGroups = SECURITY_HUB_SUB_CAT_ORDER.map((cat) => {
-          const catFindings = subCatMap.get(cat);
-          if (!catFindings || catFindings.length === 0) return "";
-          const catMeta = t.securityHubSubCategories[cat] ?? { icon: "\u{1F4E6}", label: cat };
-          const catBadges = renderModuleBadges(catFindings);
-          return `<details class="severity-group-fold">
-            <summary><h4>${catMeta.icon} ${esc(catMeta.label)} (${catFindings.length})</h4> <span class="module-badges">${catBadges}</span></summary>
-            ${renderSeverityGroups(catFindings)}
-          </details>`;
-        }).filter(Boolean).join("\n");
-        return `<details class="module-fold">
-          <summary>
-            <h3>&#128274; ${esc(modName)} (${modFindings.length})</h3>
-            <span class="module-badges">${badges}</span>
-          </summary>
-          <div class="module-body">
-            ${subCatGroups}
-          </div>
-        </details>`;
-      }
+      const displayName = subCatLabel ?? modName;
       return `<details class="module-fold">
         <summary>
-          <h3>&#128274; ${esc(modName)} (${modFindings.length})</h3>
+          <h3>&#128274; ${esc(displayName)} (${modFindings.length})</h3>
           <span class="module-badges">${badges}</span>
         </summary>
         <div class="module-body">
@@ -8325,7 +8259,6 @@ Detects which AWS security services are enabled and assesses overall security ma
 - **GuardDuty not enabled** \u2014 Risk 7.5: Provides continuous threat detection.
 - **Inspector not enabled** \u2014 Risk 6.0: Scans for software vulnerabilities.
 - **AWS Config not enabled** \u2014 Risk 6.0: Tracks configuration changes.
-- **Macie not enabled** \u2014 Risk 5.0: Detects sensitive data in S3 (not available in China regions).
 - CloudTrail detection is included for coverage metrics.
 
 ### Maturity Levels
@@ -8333,8 +8266,8 @@ Detects which AWS security services are enabled and assesses overall security ma
 |------------------|-------|
 | 0\u20131 | Basic |
 | 2\u20133 | Intermediate |
-| 4\u20135 | Advanced |
-| 6   | Comprehensive |
+| 4   | Advanced |
+| 5   | Comprehensive |
 
 ## 2. Security Hub Findings (security_hub_findings)
 Aggregates active findings from AWS Security Hub. Replaces individual config scanners (SG, S3, IAM, CloudTrail, RDS, EBS, VPC, etc.) with centralized compliance checks from FSBP, CIS, and PCI DSS standards.
@@ -8468,7 +8401,7 @@ import { readFileSync as readFileSync2 } from "fs";
 import { join as join2, dirname } from "path";
 import { fileURLToPath } from "url";
 var MODULE_DESCRIPTIONS = {
-  service_detection: "Detects which AWS security services (Security Hub, GuardDuty, Inspector, Config, Macie) are enabled and assesses security maturity.",
+  service_detection: "Detects which AWS security services (Security Hub, GuardDuty, Inspector, Config) are enabled and assesses security maturity.",
   secret_exposure: "Checks Lambda env vars and EC2 userData for exposed secrets (AWS keys, private keys, passwords).",
   ssl_certificate: "Checks ACM certificates for expiry, failed status, and upcoming renewals.",
   dns_dangling: "Checks Route53 CNAME records for dangling DNS (subdomain takeover risk).",
@@ -8903,14 +8836,12 @@ function createServer(defaultRegion) {
           "Security Hub": "+300 security checks",
           "GuardDuty": "Threat detection",
           "Inspector": "Vulnerability scanning",
-          "AWS Config": "Configuration tracking",
-          "Macie": "Sensitive data detection"
+          "AWS Config": "Configuration tracking"
         };
         const serviceFreeTrials = {
           "Security Hub": true,
           "GuardDuty": true,
-          "Inspector": true,
-          "Macie": true
+          "Inspector": true
         };
         const services = detection.services;
         const coveragePercent = detection.coveragePercent;
@@ -8945,7 +8876,7 @@ function createServer(defaultRegion) {
           lines.push("");
           lines.push("### Recommendations (Priority Order)");
           lines.push("");
-          const priorityOrder = ["Security Hub", "GuardDuty", "Inspector", "AWS Config", "Macie", "CloudTrail"];
+          const priorityOrder = ["Security Hub", "GuardDuty", "Inspector", "AWS Config", "CloudTrail"];
           const sorted = disabled.sort(
             (a, b) => priorityOrder.indexOf(a.name) - priorityOrder.indexOf(b.name)
           );
@@ -8968,7 +8899,7 @@ function createServer(defaultRegion) {
           const nextMilestones = {
             basic: { level: "Intermediate", target: 2, suggestions: ["Security Hub", "GuardDuty"] },
             intermediate: { level: "Advanced", target: 4, suggestions: ["Inspector", "AWS Config"] },
-            advanced: { level: "Comprehensive", target: 6, suggestions: ["Macie"] }
+            advanced: { level: "Comprehensive", target: 5, suggestions: ["CloudTrail"] }
           };
           const next = nextMilestones[maturityLevel];
           if (next) {

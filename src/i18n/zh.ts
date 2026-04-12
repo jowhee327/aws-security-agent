@@ -157,12 +157,12 @@ export const zhI18n: I18n = {
 
   // Security Hub sub-categories
   securityHubSubCategories: {
-    FSBP: { icon: "\ud83d\udccb", label: "\u57fa\u7840\u5b89\u5168\u6700\u4f73\u5b9e\u8df5 (FSBP)" },
-    Inspector: { icon: "\ud83d\udd0d", label: "Inspector \u6f0f\u6d1e" },
-    GuardDuty: { icon: "\ud83d\udee1\ufe0f", label: "GuardDuty \u5a01\u80c1" },
-    Config: { icon: "\u2699\ufe0f", label: "Config Rules" },
-    "Access Analyzer": { icon: "\ud83d\udd11", label: "Access Analyzer" },
-    Other: { icon: "\ud83d\udce6", label: "\u5176\u4ed6" },
+    FSBP: { icon: "\ud83d\udccb", label: "安全最佳实践" },
+    Inspector: { icon: "\ud83d\udd0d", label: "软件漏洞" },
+    GuardDuty: { icon: "\ud83d\udee1\ufe0f", label: "威胁检测" },
+    Config: { icon: "\u2699\ufe0f", label: "配置合规" },
+    "Access Analyzer": { icon: "\ud83d\udd11", label: "外部访问" },
+    Other: { icon: "\ud83d\udce6", label: "其他安全发现" },
   },
 
   // Service Recommendations

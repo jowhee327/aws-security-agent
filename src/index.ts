@@ -63,7 +63,7 @@ export type {
 
 const MODULE_DESCRIPTIONS: Record<string, string> = {
   service_detection:
-    "Detects which AWS security services (Security Hub, GuardDuty, Inspector, Config, Macie) are enabled and assesses security maturity.",
+    "Detects which AWS security services (Security Hub, GuardDuty, Inspector, Config) are enabled and assesses security maturity.",
   secret_exposure:
     "Checks Lambda env vars and EC2 userData for exposed secrets (AWS keys, private keys, passwords).",
   ssl_certificate:
@@ -572,13 +572,11 @@ export function createServer(defaultRegion: string): McpServer {
           "GuardDuty": "Threat detection",
           "Inspector": "Vulnerability scanning",
           "AWS Config": "Configuration tracking",
-          "Macie": "Sensitive data detection",
         };
         const serviceFreeTrials: Record<string, boolean> = {
           "Security Hub": true,
           "GuardDuty": true,
           "Inspector": true,
-          "Macie": true,
         };
 
         const services = detection.services;
@@ -620,8 +618,8 @@ export function createServer(defaultRegion: string): McpServer {
           lines.push("");
           lines.push("### Recommendations (Priority Order)");
           lines.push("");
-          // Priority order: Security Hub, GuardDuty, Inspector, Config, Macie, CloudTrail
-          const priorityOrder = ["Security Hub", "GuardDuty", "Inspector", "AWS Config", "Macie", "CloudTrail"];
+          // Priority order: Security Hub, GuardDuty, Inspector, Config, CloudTrail
+          const priorityOrder = ["Security Hub", "GuardDuty", "Inspector", "AWS Config", "CloudTrail"];
           const sorted = disabled.sort(
             (a, b) => priorityOrder.indexOf(a.name) - priorityOrder.indexOf(b.name),
           );
@@ -647,7 +645,7 @@ export function createServer(defaultRegion: string): McpServer {
           const nextMilestones: Record<string, { level: string; target: number; suggestions: string[] }> = {
             basic: { level: "Intermediate", target: 2, suggestions: ["Security Hub", "GuardDuty"] },
             intermediate: { level: "Advanced", target: 4, suggestions: ["Inspector", "AWS Config"] },
-            advanced: { level: "Comprehensive", target: 6, suggestions: ["Macie"] },
+            advanced: { level: "Comprehensive", target: 5, suggestions: ["CloudTrail"] },
           };
           const next = nextMilestones[maturityLevel];
           if (next) {

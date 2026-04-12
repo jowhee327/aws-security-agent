@@ -15,10 +15,6 @@ import {
   DescribeConfigurationRecordersCommand,
 } from "@aws-sdk/client-config-service";
 import {
-  Macie2Client,
-  GetMacieSessionCommand,
-} from "@aws-sdk/client-macie2";
-import {
   CloudTrailClient,
   DescribeTrailsCommand,
 } from "@aws-sdk/client-cloudtrail";
@@ -86,7 +82,7 @@ function isNotEnabled(err: unknown): boolean {
 function computeMaturityLevel(
   enabledCount: number,
 ): "basic" | "intermediate" | "advanced" | "comprehensive" {
-  if (enabledCount >= 6) return "comprehensive";
+  if (enabledCount >= 5) return "comprehensive";
   if (enabledCount >= 4) return "advanced";
   if (enabledCount >= 2) return "intermediate";
   return "basic";
@@ -417,57 +413,6 @@ export class ServiceDetectionScanner implements Scanner {
       } else {
         warnings.push(`AWS Config detection failed: ${err instanceof Error ? err.message : String(err)}`);
         services.push({ name: "AWS Config", enabled: null, details: "Detection error" });
-      }
-    }
-
-    // --- Macie (not available in AWS China regions) ---
-    if (region.startsWith("cn-")) {
-      services.push({ name: "Macie", enabled: null, details: "Not available in China regions" });
-      warnings.push("Macie is not available in AWS China regions.");
-    } else {
-      try {
-        const mc = createClient(Macie2Client, region, ctx.credentials);
-        await mc.send(new GetMacieSessionCommand({}));
-        services.push({
-          name: "Macie",
-          enabled: true,
-          details: "Sensitive data detection active",
-        });
-      } catch (err) {
-        if (isAccessDenied(err)) {
-          warnings.push("Macie: insufficient permissions to check status");
-          services.push({ name: "Macie", enabled: null, details: "Access denied" });
-        } else if (isNotEnabled(err)) {
-          services.push({
-            name: "Macie",
-            enabled: false,
-            recommendation: "Enable Macie to detect sensitive data in S3",
-            freeTrialAvailable: true,
-          });
-          findings.push(
-            makeFinding({
-              riskScore: 5.0,
-              title: "Amazon Macie is not enabled",
-              resourceType: "AWS::Macie::Session",
-              resourceId: "macie",
-              resourceArn: `arn:${partition}:macie2:${region}:${accountId}:session`,
-              region,
-              description:
-                "Amazon Macie is not enabled in this region. Macie uses machine learning to discover and protect sensitive data stored in S3.",
-              impact:
-                "Detects sensitive data (PII, credentials, financial data) in S3 buckets. Without it, sensitive data exposure may go unnoticed.",
-              remediationSteps: [
-                "Open the Amazon Macie console.",
-                "Click 'Get Started' and enable Macie.",
-                "Macie offers a 30-day free trial for sensitive data discovery.",
-                "Configure automated sensitive data discovery jobs.",
-              ],
-            }),
-          );
-        } else {
-          warnings.push(`Macie detection failed: ${err instanceof Error ? err.message : String(err)}`);
-          services.push({ name: "Macie", enabled: null, details: "Detection error" });
-        }
       }
     }
 

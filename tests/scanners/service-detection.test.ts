@@ -18,12 +18,6 @@ const ctx: ScanContext = {
   accountId: "123456789012",
 };
 
-const ctxChina: ScanContext = {
-  region: "cn-north-1",
-  partition: "aws-cn",
-  accountId: "123456789012",
-};
-
 type ScanResultWithDetection = Awaited<ReturnType<ServiceDetectionScanner["scan"]>> & {
   serviceDetection?: ServiceDetectionResult;
 };
@@ -49,8 +43,6 @@ describe("ServiceDetectionScanner", () => {
           return { accounts: [{ state: { status: "ENABLED" } }] };
         case "DescribeConfigurationRecordersCommand":
           return { ConfigurationRecorders: [{ name: "default" }] };
-        case "GetMacieSessionCommand":
-          return { status: "ENABLED" };
         default:
           return {};
       }
@@ -64,7 +56,7 @@ describe("ServiceDetectionScanner", () => {
     expect(result.serviceDetection).toBeDefined();
     expect(result.serviceDetection!.coveragePercent).toBe(100);
     expect(result.serviceDetection!.maturityLevel).toBe("comprehensive");
-    expect(result.serviceDetection!.services).toHaveLength(6);
+    expect(result.serviceDetection!.services).toHaveLength(5);
     for (const svc of result.serviceDetection!.services) {
       expect(svc.enabled).toBe(true);
     }
@@ -84,8 +76,6 @@ describe("ServiceDetectionScanner", () => {
           return { accounts: [{ state: { status: "DISABLED" } }] };
         case "DescribeConfigurationRecordersCommand":
           return { ConfigurationRecorders: [] };
-        case "GetMacieSessionCommand":
-          throw new Error("Macie is not enabled");
         default:
           return {};
       }
@@ -94,29 +84,24 @@ describe("ServiceDetectionScanner", () => {
     const result = (await scanner.scan(ctx)) as ScanResultWithDetection;
 
     expect(result.status).toBe("success");
-    // 5 findings: Security Hub, GuardDuty, Inspector, Config, Macie (not CloudTrail)
-    expect(result.findingsCount).toBe(5);
-    expect(result.findings).toHaveLength(5);
+    // 4 findings: Security Hub, GuardDuty, Inspector, Config (not CloudTrail)
+    expect(result.findingsCount).toBe(4);
+    expect(result.findings).toHaveLength(4);
 
     const titles = result.findings.map((f) => f.title);
     expect(titles).toContain("AWS Security Hub is not enabled");
     expect(titles).toContain("Amazon GuardDuty is not enabled");
     expect(titles).toContain("Amazon Inspector is not enabled");
     expect(titles).toContain("AWS Config is not enabled");
-    expect(titles).toContain("Amazon Macie is not enabled");
 
     expect(result.serviceDetection).toBeDefined();
-    expect(result.serviceDetection!.coveragePercent).toBe(17); // 1/6 rounded
+    expect(result.serviceDetection!.coveragePercent).toBe(20); // 1/5 rounded
     expect(result.serviceDetection!.maturityLevel).toBe("basic");
 
     // Verify severity levels
     const shFinding = result.findings.find((f) => f.title.includes("Security Hub"));
     expect(shFinding!.severity).toBe("HIGH");
     expect(shFinding!.riskScore).toBe(7.5);
-
-    const macieFinding = result.findings.find((f) => f.title.includes("Macie"));
-    expect(macieFinding!.severity).toBe("MEDIUM");
-    expect(macieFinding!.riskScore).toBe(5.0);
 
     // All ARNs use correct partition
     for (const f of result.findings) {
@@ -143,8 +128,6 @@ describe("ServiceDetectionScanner", () => {
           return { accounts: [{ state: { status: "ENABLED" } }] };
         case "DescribeConfigurationRecordersCommand":
           return { ConfigurationRecorders: [{ name: "default" }] };
-        case "GetMacieSessionCommand":
-          return { status: "ENABLED" };
         default:
           return {};
       }
@@ -158,44 +141,6 @@ describe("ServiceDetectionScanner", () => {
     // Should have a warning about access denied
     expect(result.warnings).toBeDefined();
     expect(result.warnings!.some((w) => w.includes("Security Hub") && w.includes("insufficient permissions"))).toBe(true);
-  });
-
-  it("skips Macie in China regions (not available)", async () => {
-    mockSend.mockImplementation((cmd: { constructor: { name: string } }) => {
-      const name = cmd.constructor.name;
-      switch (name) {
-        case "DescribeTrailsCommand":
-          return { trailList: [{ Name: "main-trail" }] };
-        case "DescribeHubCommand":
-          return { HubArn: "arn:aws-cn:securityhub:cn-north-1:123456789012:hub/default" };
-        case "ListDetectorsCommand":
-          return { DetectorIds: ["abc123"] };
-        case "BatchGetAccountStatusCommand":
-          return { accounts: [{ state: { status: "ENABLED" } }] };
-        case "DescribeConfigurationRecordersCommand":
-          return { ConfigurationRecorders: [{ name: "default" }] };
-        case "GetMacieSessionCommand":
-          throw new Error("GetMacieSessionCommand should not be called in China regions");
-        default:
-          return {};
-      }
-    });
-
-    const result = (await scanner.scan(ctxChina)) as ScanResultWithDetection;
-
-    expect(result.status).toBe("success");
-    expect(result.findings).toHaveLength(0);
-    // Macie should be skipped (null) in China regions, not queried
-    const macieService = result.serviceDetection!.services.find((s) => s.name === "Macie");
-    expect(macieService).toBeDefined();
-    expect(macieService!.enabled).toBeNull();
-    expect(macieService!.details).toBe("Not available in China regions");
-    // Coverage should be 100% of known services (5 known, 5 enabled; Macie is unknown)
-    expect(result.serviceDetection!.coveragePercent).toBe(100);
-    expect(result.serviceDetection!.maturityLevel).toBe("advanced"); // 5 enabled = advanced
-    // Warning about Macie
-    expect(result.warnings).toBeDefined();
-    expect(result.warnings!.some((w) => w.includes("Macie") && w.includes("China"))).toBe(true);
   });
 
   it("computes intermediate maturity for 2-3 enabled services", async () => {
@@ -212,8 +157,6 @@ describe("ServiceDetectionScanner", () => {
           return { accounts: [{ state: { status: "DISABLED" } }] };
         case "DescribeConfigurationRecordersCommand":
           return { ConfigurationRecorders: [] };
-        case "GetMacieSessionCommand":
-          throw new Error("Macie is not enabled");
         default:
           return {};
       }
@@ -221,11 +164,11 @@ describe("ServiceDetectionScanner", () => {
 
     const result = (await scanner.scan(ctx)) as ScanResultWithDetection;
 
-    expect(result.serviceDetection!.coveragePercent).toBe(33); // 2/6
+    expect(result.serviceDetection!.coveragePercent).toBe(40); // 2/5
     expect(result.serviceDetection!.maturityLevel).toBe("intermediate");
   });
 
-  it("computes advanced maturity for 4-5 enabled services", async () => {
+  it("computes advanced maturity for 4 enabled services", async () => {
     mockSend.mockImplementation((cmd: { constructor: { name: string } }) => {
       const name = cmd.constructor.name;
       switch (name) {
@@ -239,8 +182,6 @@ describe("ServiceDetectionScanner", () => {
           return { accounts: [{ state: { status: "ENABLED" } }] };
         case "DescribeConfigurationRecordersCommand":
           return { ConfigurationRecorders: [] };
-        case "GetMacieSessionCommand":
-          throw new Error("Macie is not enabled");
         default:
           return {};
       }
@@ -248,7 +189,7 @@ describe("ServiceDetectionScanner", () => {
 
     const result = (await scanner.scan(ctx)) as ScanResultWithDetection;
 
-    expect(result.serviceDetection!.coveragePercent).toBe(67); // 4/6
+    expect(result.serviceDetection!.coveragePercent).toBe(80); // 4/5
     expect(result.serviceDetection!.maturityLevel).toBe("advanced");
   });
 });

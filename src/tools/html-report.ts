@@ -673,9 +673,21 @@ export function generateHtmlReport(
       moduleMap.get(mod)!.push(f);
     }
 
+    // Expand security_hub_findings into per-sub-category entries, filter detection-only scanners
+    const expandedEntries: Array<[string, Finding[], string | null]> = []; // [key, findings, subCatLabel]
+    for (const [mod, findings] of moduleMap.entries()) {
+      if (DETECTION_ONLY_MODULES.has(mod)) continue;
+      if (mod === "security_hub_findings" && shSubCats.length > 0) {
+        for (const sc of shSubCats) {
+          expandedEntries.push([sc.key, sc.findings, sc.label]);
+        }
+      } else {
+        expandedEntries.push([mod, findings, null]);
+      }
+    }
+
     // Sort modules: those with critical/high first, then by count
-    // Filter out detection-only scanners (their findings are in SH sub-categories)
-    const moduleEntries = [...moduleMap.entries()].filter(([mod]) => !DETECTION_ONLY_MODULES.has(mod)).sort((a, b) => {
+    const moduleEntries = expandedEntries.sort((a, b) => {
       const aHasCritHigh = a[1].some((f) => f.severity === "CRITICAL" || f.severity === "HIGH");
       const bHasCritHigh = b[1].some((f) => f.severity === "CRITICAL" || f.severity === "HIGH");
       if (aHasCritHigh !== bHasCritHigh) return aHasCritHigh ? -1 : 1;
@@ -707,46 +719,13 @@ export function generateHtmlReport(
         .join(" ");
     };
 
-    findingsHtml = moduleEntries.map(([modName, modFindings]) => {
+    findingsHtml = moduleEntries.map(([modName, modFindings, subCatLabel]) => {
       const badges = renderModuleBadges(modFindings);
+      const displayName = subCatLabel ?? modName;
 
-      // Special sub-category rendering for Security Hub
-      if (modName === "security_hub_findings") {
-        const subCatMap = new Map<string, Finding[]>();
-        for (const f of modFindings) {
-          const source = getSecurityHubSource(f);
-          if (!subCatMap.has(source)) subCatMap.set(source, []);
-          subCatMap.get(source)!.push(f);
-        }
-
-        const subCatGroups = SECURITY_HUB_SUB_CAT_ORDER.map((cat) => {
-          const catFindings = subCatMap.get(cat);
-          if (!catFindings || catFindings.length === 0) return "";
-
-          const catMeta = t.securityHubSubCategories[cat] ?? { icon: "\ud83d\udce6", label: cat };
-          const catBadges = renderModuleBadges(catFindings);
-
-          return `<details class="severity-group-fold">
-            <summary><h4>${catMeta.icon} ${esc(catMeta.label)} (${catFindings.length})</h4> <span class="module-badges">${catBadges}</span></summary>
-            ${renderSeverityGroups(catFindings)}
-          </details>`;
-        }).filter(Boolean).join("\n");
-
-        return `<details class="module-fold">
-          <summary>
-            <h3>&#128274; ${esc(modName)} (${modFindings.length})</h3>
-            <span class="module-badges">${badges}</span>
-          </summary>
-          <div class="module-body">
-            ${subCatGroups}
-          </div>
-        </details>`;
-      }
-
-      // Default: flat severity grouping for all other modules
       return `<details class="module-fold">
         <summary>
-          <h3>&#128274; ${esc(modName)} (${modFindings.length})</h3>
+          <h3>&#128274; ${esc(displayName)} (${modFindings.length})</h3>
           <span class="module-badges">${badges}</span>
         </summary>
         <div class="module-body">
