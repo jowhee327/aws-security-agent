@@ -1,4 +1,5 @@
 import type { FullScanResult, Finding, Severity } from "../types.js";
+import type { Lang } from "../i18n/index.js";
 
 const SEVERITY_ICON: Record<Severity, string> = {
   CRITICAL: "🔴",
@@ -36,7 +37,7 @@ function renderFinding(f: Finding): string {
   ].join("\n");
 }
 
-export function generateMarkdownReport(scanResults: FullScanResult): string {
+export function generateMarkdownReport(scanResults: FullScanResult, _lang?: Lang): string {
   const { summary, modules, accountId, region, scanStart, scanEnd } =
     scanResults;
   const date = scanStart.split("T")[0];

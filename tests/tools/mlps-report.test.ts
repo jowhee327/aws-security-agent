@@ -81,7 +81,7 @@ describe("generateMlps3Report", () => {
 
     // Header — full 184-item checklist
     expect(report).toContain("# 等保三级预检报告");
-    expect(report).toContain("Account: 123456789012");
+    expect(report).toContain("123456789012");
     expect(report).toContain("cn-north-1");
     expect(report).toContain("184");
 

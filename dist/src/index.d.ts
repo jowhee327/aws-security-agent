@@ -1,5 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
+type Lang = "zh" | "en";
+
 type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 type Priority = "P0" | "P1" | "P2" | "P3";
 interface Finding {
@@ -119,10 +121,10 @@ interface OrgAccount {
 }
 declare function listOrgAccounts(region: string): Promise<OrgAccount[]>;
 
-declare function generateMarkdownReport(scanResults: FullScanResult): string;
+declare function generateMarkdownReport(scanResults: FullScanResult, _lang?: Lang): string;
 
-declare function generateHtmlReport(scanResults: FullScanResult, history?: DashboardHistoryEntry[]): string;
-declare function generateMlps3HtmlReport(scanResults: FullScanResult, history?: DashboardHistoryEntry[]): string;
+declare function generateHtmlReport(scanResults: FullScanResult, history?: DashboardHistoryEntry[], lang?: Lang): string;
+declare function generateMlps3HtmlReport(scanResults: FullScanResult, history?: DashboardHistoryEntry[], lang?: Lang): string;
 
 declare function calculateScore(summary: FullScanResult["summary"]): number;
 declare function saveResults(scanResults: FullScanResult, outputDir?: string): string;
@@ -130,4 +132,4 @@ declare function saveResults(scanResults: FullScanResult, outputDir?: string): s
 declare function createServer(defaultRegion: string): McpServer;
 declare function startServer(defaultRegion: string): Promise<void>;
 
-export { type DashboardData, type DashboardHistoryEntry, type Finding, type FullScanResult, type OrgAccount, type Priority, type ScanContext, type ScanResult, type Scanner, type Severity, assumeRole, buildRoleArn, calculateScore, createServer, generateHtmlReport, generateMarkdownReport, generateMlps3HtmlReport, getCurrentAccountId, listOrgAccounts, runAllScanners, runMultiAccountScanners, saveResults, startServer };
+export { type DashboardData, type DashboardHistoryEntry, type Finding, type FullScanResult, type Lang, type OrgAccount, type Priority, type ScanContext, type ScanResult, type Scanner, type Severity, assumeRole, buildRoleArn, calculateScore, createServer, generateHtmlReport, generateMarkdownReport, generateMlps3HtmlReport, getCurrentAccountId, listOrgAccounts, runAllScanners, runMultiAccountScanners, saveResults, startServer };

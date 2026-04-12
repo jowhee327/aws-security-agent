@@ -8,6 +8,7 @@ import {
   type MlpsChecklistItem,
   type MlpsCheckMapping,
 } from "../data/mlps3-check-mapping.js";
+import { getI18n, type Lang } from "../i18n/index.js";
 
 // Re-export for use by html-report and tests
 export {
@@ -317,7 +318,9 @@ export function evaluateCheck(
   };
 }
 
-export function generateMlps3Report(scanResults: FullScanResult): string {
+export function generateMlps3Report(scanResults: FullScanResult, lang?: Lang): string {
+  const t = getI18n(lang ?? "zh");
+  const isEn = (lang ?? "zh") === "en";
   const { accountId, region, scanStart } = scanResults;
   const scanTime = scanStart.replace("T", " ").replace(/\.\d+Z$/, " UTC");
 
@@ -334,35 +337,38 @@ export function generateMlps3Report(scanResults: FullScanResult): string {
   const manualCount = results.filter((r) => r.status === "manual").length;
   const naCount = results.filter((r) => r.status === "not_applicable").length;
 
+  // Helpers for language-aware item text
+  const itemControl = (r: FullCheckResult) => isEn ? r.item.controlEn : r.item.controlCn;
+  const itemReq = (r: FullCheckResult) => isEn ? r.item.requirementEn : r.item.requirementCn;
+
   const lines: string[] = [];
 
   // Header
-  lines.push("# 等保三级预检报告");
-  lines.push("> **本报告为等保三级预检参考，提供云平台配置检查数据与建议。合规判定（符合/部分符合/不符合）需由持证测评机构根据实际情况确认。**");
-  lines.push("> **（GB/T 22239-2019 完整检查清单 184 项）**");
+  lines.push(`# ${t.mlpsTitle}`);
+  lines.push(`> **${t.mlpsDisclaimer}**`);
   lines.push("");
 
   // Account info
-  lines.push("## 账户信息");
-  lines.push(`- Account: ${accountId} | Region: ${region} | 扫描时间: ${scanTime}`);
+  lines.push(`## ${t.accountInfo}`);
+  lines.push(`- ${t.account}: ${accountId} | ${t.region}: ${region} | ${t.scanTime}: ${scanTime}`);
   lines.push("");
 
   // Summary
-  lines.push("## 预检总览");
-  lines.push(`- 已检查: ${checkedTotal} 项（未发现问题: ${autoClean} 项 | 发现问题: ${autoIssues} 项）`);
+  lines.push(`## ${t.preCheckOverview}`);
+  lines.push(`- ${t.checkedCount(checkedTotal, autoClean, autoIssues)}`);
   if (autoUnknown > 0) {
-    lines.push(`- 未检查: ${autoUnknown} 项（对应扫描模块未运行）`);
+    lines.push(`- ${t.uncheckedCount(autoUnknown)}`);
   }
-  lines.push(`- 云平台负责: ${cloudCount} 项`);
-  lines.push(`- 需人工评估: ${manualCount} 项`);
+  lines.push(`- ${t.cloudProviderCount(cloudCount)}`);
+  lines.push(`- ${t.manualReviewCount(manualCount)}`);
   if (naCount > 0) {
-    lines.push(`- 不适用: ${naCount} 项`);
+    lines.push(`- ${t.naCount(naCount)}`);
   }
   lines.push("");
 
   // Group results by categoryCn (skip N/A items)
   for (const category of MLPS3_CATEGORY_ORDER) {
-    const sectionTitle = MLPS3_CATEGORY_SECTION[category];
+    const sectionTitle = t.mlpsCategorySection[category] ?? category;
     const catResults = results.filter(
       (r) => r.item.categoryCn === category && r.status !== "not_applicable",
     );
@@ -371,7 +377,7 @@ export function generateMlps3Report(scanResults: FullScanResult): string {
     lines.push(`## ${sectionTitle}`);
     lines.push("");
 
-    // Group by controlCn within category
+    // Group by control within category
     const controlMap = new Map<string, FullCheckResult[]>();
     for (const r of catResults) {
       const key = r.item.controlCn;
@@ -379,7 +385,8 @@ export function generateMlps3Report(scanResults: FullScanResult): string {
       controlMap.get(key)!.push(r);
     }
 
-    for (const [controlName, controlResults] of controlMap) {
+    for (const [_controlKey, controlResults] of controlMap) {
+      const controlName = itemControl(controlResults[0]);
       lines.push(`### ${controlName}`);
       for (const r of controlResults) {
         const icon = r.status === "clean" ? "\u2705"
@@ -387,19 +394,20 @@ export function generateMlps3Report(scanResults: FullScanResult): string {
           : r.status === "unknown" ? "\u26a0\ufe0f"
           : r.status === "manual" ? "\ud83d\udccb"
           : "\ud83c\udfe2";
-        const suffix = r.status === "unknown" ? " — 未检查"
-          : r.status === "manual" ? ` — ${r.mapping.guidance ?? "需人工评估"}`
-          : r.status === "cloud_provider" ? ` — ${r.mapping.note ?? "云平台负责"}`
-          : r.status === "clean" ? " 未发现问题"
-          : " 发现问题";
+        const suffix = r.status === "unknown" ? ` \u2014 ${t.notChecked}`
+          : r.status === "manual" ? ` \u2014 ${r.mapping.guidance ?? t.manualReview}`
+          : r.status === "cloud_provider" ? ` \u2014 ${r.mapping.note ?? t.cloudProvider}`
+          : r.status === "clean" ? ` ${t.noIssues}`
+          : ` ${t.issuesFound}`;
 
-        lines.push(`- [${icon}] ${r.item.id} ${r.item.requirementCn.slice(0, 60)}${r.item.requirementCn.length > 60 ? "\u2026" : ""}${suffix}`);
+        const reqText = itemReq(r);
+        lines.push(`- [${icon}] ${r.item.id} ${reqText.slice(0, 60)}${reqText.length > 60 ? "\u2026" : ""}${suffix}`);
         if (r.status === "issues" && r.relatedFindings.length > 0) {
           for (const f of r.relatedFindings.slice(0, 3)) {
             lines.push(`  - ${f.severity}: ${f.title}`);
           }
           if (r.relatedFindings.length > 3) {
-            lines.push(`  - ... 及其他 ${r.relatedFindings.length - 3} 项`);
+            lines.push(`  - ${t.andMore(r.relatedFindings.length - 3)}`);
           }
         }
       }
@@ -410,7 +418,7 @@ export function generateMlps3Report(scanResults: FullScanResult): string {
   // Remediation recommendations sorted by priority
   const failedResults = results.filter((r) => r.status === "issues");
   if (failedResults.length > 0) {
-    lines.push("## 建议整改项（按优先级）");
+    lines.push(`## ${t.remediationByPriority}`);
     lines.push("");
 
     // Collect all related findings from failed checks, deduplicate, sort by riskScore
@@ -439,7 +447,7 @@ export function generateMlps3Report(scanResults: FullScanResult): string {
 
   // N/A note
   if (naCount > 0) {
-    lines.push(`> 不适用项: ${naCount} 项（物联网/无线网络/移动终端/工控系统/可信验证等）`);
+    lines.push(`> ${t.naNote(naCount)}`);
     lines.push("");
   }
 

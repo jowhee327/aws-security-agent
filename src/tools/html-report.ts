@@ -2,10 +2,10 @@ import type { FullScanResult, Finding, Severity, DashboardHistoryEntry, ScanResu
 import {
   evaluateAllFullChecks,
   MLPS3_CATEGORY_ORDER,
-  MLPS3_CATEGORY_SECTION,
   type FullCheckResult,
 } from "./mlps-report.js";
 import { VERSION } from "../version.js";
+import { getI18n, type Lang } from "../i18n/index.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -57,50 +57,7 @@ function scoreColor(score: number): string {
 // Service Dependency Reminder
 // ---------------------------------------------------------------------------
 
-const SERVICE_RECOMMENDATIONS: Record<string, { icon: string; service: string; impact: string; action: string }> = {
-  security_hub_findings: {
-    icon: "\ud83d\udd34",
-    service: "Security Hub",
-    impact: "\u65e0\u6cd5\u83b7\u53d6 300+ \u9879\u81ea\u52a8\u5316\u5b89\u5168\u68c0\u67e5\uff08FSBP/CIS/PCI DSS \u6807\u51c6\uff09",
-    action: "\u542f\u7528 Security Hub \u83b7\u5f97\u6700\u5168\u9762\u7684\u5b89\u5168\u6001\u52bf\u8bc4\u4f30",
-  },
-  guardduty_findings: {
-    icon: "\ud83d\udd34",
-    service: "GuardDuty",
-    impact: "\u65e0\u6cd5\u68c0\u6d4b\u5a01\u80c1\u6d3b\u52a8\uff08\u6076\u610f IP\u3001\u5f02\u5e38 API \u8c03\u7528\u3001\u52a0\u5bc6\u8d27\u5e01\u6316\u77ff\u7b49\uff09",
-    action: "\u542f\u7528 GuardDuty \u83b7\u5f97\u6301\u7eed\u5a01\u80c1\u68c0\u6d4b\u80fd\u529b",
-  },
-  inspector_findings: {
-    icon: "\ud83d\udfe1",
-    service: "Inspector",
-    impact: "\u65e0\u6cd5\u626b\u63cf EC2/Lambda/\u5bb9\u5668\u7684\u8f6f\u4ef6\u6f0f\u6d1e\uff08CVE\uff09",
-    action: "\u542f\u7528 Inspector \u53d1\u73b0\u5df2\u77e5\u5b89\u5168\u6f0f\u6d1e",
-  },
-  trusted_advisor_findings: {
-    icon: "\ud83d\udfe1",
-    service: "Trusted Advisor",
-    impact: "\u65e0\u6cd5\u83b7\u53d6 AWS \u6700\u4f73\u5b9e\u8df5\u5b89\u5168\u68c0\u67e5",
-    action: "\u5347\u7ea7\u81f3 Business/Enterprise Support \u8ba1\u5212\u4ee5\u4f7f\u7528 Trusted Advisor \u5b89\u5168\u68c0\u67e5",
-  },
-  config_rules_findings: {
-    icon: "\ud83d\udfe1",
-    service: "AWS Config",
-    impact: "\u65e0\u6cd5\u68c0\u67e5\u8d44\u6e90\u914d\u7f6e\u5408\u89c4\u72b6\u6001",
-    action: "\u542f\u7528 AWS Config \u5e76\u914d\u7f6e Config Rules",
-  },
-  access_analyzer_findings: {
-    icon: "\ud83d\udfe1",
-    service: "IAM Access Analyzer",
-    impact: "\u65e0\u6cd5\u68c0\u6d4b\u8d44\u6e90\u662f\u5426\u88ab\u5916\u90e8\u8d26\u53f7\u6216\u516c\u7f51\u8bbf\u95ee",
-    action: "\u521b\u5efa IAM Access Analyzer\uff08\u8d26\u6237\u7ea7\u6216\u7ec4\u7ec7\u7ea7\uff09",
-  },
-  patch_compliance_findings: {
-    icon: "\ud83d\udfe1",
-    service: "SSM Patch Manager",
-    impact: "\u65e0\u6cd5\u68c0\u67e5\u5b9e\u4f8b\u8865\u4e01\u5408\u89c4\u72b6\u6001",
-    action: "\u5b89\u88c5 SSM Agent \u5e76\u914d\u7f6e Patch Manager",
-  },
-};
+// SERVICE_RECOMMENDATIONS are now in the i18n module (t.serviceRecommendations)
 
 const SERVICE_NOT_ENABLED_PATTERNS = [
   "not enabled",
@@ -112,10 +69,11 @@ const SERVICE_NOT_ENABLED_PATTERNS = [
   "is not enabled",
 ];
 
-function getDisabledServices(modules: ScanResult[]): Array<{ icon: string; service: string; impact: string; action: string }> {
+function getDisabledServices(modules: ScanResult[], lang?: Lang): Array<{ icon: string; service: string; impact: string; action: string }> {
+  const t = getI18n(lang ?? "zh");
   const disabled: Array<{ icon: string; service: string; impact: string; action: string }> = [];
   for (const mod of modules) {
-    const rec = SERVICE_RECOMMENDATIONS[mod.module];
+    const rec = t.serviceRecommendations[mod.module];
     if (!rec) continue;
     if (!mod.warnings?.length) continue;
     const hasNotEnabled = mod.warnings.some((w) =>
@@ -128,23 +86,24 @@ function getDisabledServices(modules: ScanResult[]): Array<{ icon: string; servi
   return disabled;
 }
 
-function buildServiceReminderHtml(modules: ScanResult[]): string {
-  const disabled = getDisabledServices(modules);
+function buildServiceReminderHtml(modules: ScanResult[], lang?: Lang): string {
+  const t = getI18n(lang ?? "zh");
+  const disabled = getDisabledServices(modules, lang);
   if (disabled.length === 0) return "";
 
   const items = disabled.map((svc) => `
     <div style="margin-bottom:12px">
-      <div style="font-weight:600;font-size:15px">${esc(svc.icon)} ${esc(svc.service)} \u672a\u542f\u7528</div>
-      <div style="margin-left:28px;color:#cbd5e1;font-size:13px">\u5f71\u54cd\uff1a${esc(svc.impact)}</div>
-      <div style="margin-left:28px;color:#cbd5e1;font-size:13px">\u5efa\u8bae\uff1a${esc(svc.action)}</div>
+      <div style="font-weight:600;font-size:15px">${esc(svc.icon)} ${esc(svc.service)} ${esc(t.notEnabled)}</div>
+      <div style="margin-left:28px;color:#cbd5e1;font-size:13px">${esc(t.serviceImpact)}\uff1a${esc(svc.impact)}</div>
+      <div style="margin-left:28px;color:#cbd5e1;font-size:13px">${esc(t.serviceAction)}\uff1a${esc(svc.action)}</div>
     </div>`).join("\n");
 
   return `
   <section>
     <div style="background:#2d1f00;border:1px solid #b45309;border-radius:8px;padding:20px;margin-bottom:32px">
-      <div style="font-size:17px;font-weight:700;margin-bottom:12px">&#9889; \u4ee5\u4e0b\u5b89\u5168\u670d\u52a1\u672a\u542f\u7528\uff0c\u90e8\u5206\u68c0\u67e5\u65e0\u6cd5\u6267\u884c\uff1a</div>
+      <div style="font-size:17px;font-weight:700;margin-bottom:12px">${esc(t.serviceReminderTitle)}</div>
       ${items}
-      <div style="margin-top:12px;font-size:13px;color:#fbbf24;font-weight:500">\u542f\u7528\u4ee5\u4e0a\u670d\u52a1\u540e\u91cd\u65b0\u626b\u63cf\u53ef\u83b7\u5f97\u66f4\u5b8c\u6574\u7684\u5b89\u5168\u8bc4\u4f30\u3002</div>
+      <div style="margin-top:12px;font-size:13px;color:#fbbf24;font-weight:500">${esc(t.serviceReminderFooter)}</div>
     </div>
   </section>`;
 }
@@ -361,7 +320,7 @@ function donutChart(summary: FullScanResult["summary"]): string {
   ].join("\n");
 }
 
-function barChart(modules: FullScanResult["modules"]): string {
+function barChart(modules: FullScanResult["modules"], allCleanLabel = "All modules clean"): string {
   const withFindings = modules
     .filter((m) => m.findingsCount > 0)
     .sort((a, b) => b.findingsCount - a.findingsCount)
@@ -370,7 +329,7 @@ function barChart(modules: FullScanResult["modules"]): string {
   if (withFindings.length === 0) {
     return [
       '<svg viewBox="0 0 400 50" width="100%">',
-      '  <text x="200" y="30" text-anchor="middle" fill="#22c55e" font-size="14" font-weight="600">All modules clean</text>',
+      `  <text x="200" y="30" text-anchor="middle" fill="#22c55e" font-size="14" font-weight="600">${esc(allCleanLabel)}</text>`,
       "</svg>",
     ].join("\n");
   }
@@ -537,7 +496,10 @@ function scoreTrendChart(history: DashboardHistoryEntry[]): string {
 export function generateHtmlReport(
   scanResults: FullScanResult,
   history?: DashboardHistoryEntry[],
+  lang?: Lang,
 ): string {
+  const t = getI18n(lang ?? "en");
+  const htmlLang = (lang ?? "en") === "zh" ? "zh-CN" : "en";
   const { summary, modules, accountId, region, scanStart, scanEnd } =
     scanResults;
   const date = scanStart.split("T")[0];
@@ -562,10 +524,10 @@ export function generateHtmlReport(
         <div class="top5-content">
           <span class="badge badge-${esc(f.severity.toLowerCase())}">${esc(f.severity)}</span>
           <div class="top5-title">${esc(f.title)}</div>
-          <div class="top5-detail"><strong>Resource:</strong> ${esc(f.resourceId)}</div>
-          <div class="top5-detail"><strong>Impact:</strong> ${esc(f.impact)}</div>
-          <div class="top5-detail"><strong>Risk Score:</strong> ${f.riskScore}/10</div>
-          <h4>Remediation</h4>
+          <div class="top5-detail"><strong>${t.resource}:</strong> ${esc(f.resourceId)}</div>
+          <div class="top5-detail"><strong>${t.impact}:</strong> ${esc(f.impact)}</div>
+          <div class="top5-detail"><strong>${t.riskScore}:</strong> ${f.riskScore}/10</div>
+          <h4>${t.remediation}</h4>
           <ol class="top5-remediation">${f.remediationSteps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
         </div>
       </div>`,
@@ -573,7 +535,7 @@ export function generateHtmlReport(
       .join("\n");
     top5Html = `
     <section>
-      <h2>Top ${top5.length} Highest Risk Findings</h2>
+      <h2>${esc(t.topHighestRiskFindings(top5.length))}</h2>
       ${cards}
     </section>`;
   }
@@ -581,7 +543,7 @@ export function generateHtmlReport(
   // --- Findings HTML (grouped by module, then severity) ---
   let findingsHtml: string;
   if (summary.totalFindings === 0) {
-    findingsHtml = '<div class="no-findings">No security issues found.</div>';
+    findingsHtml = `<div class="no-findings">${esc(t.noIssuesFound)}</div>`;
   } else {
     const FOLD_THRESHOLD = 20;
 
@@ -591,9 +553,9 @@ export function generateHtmlReport(
         <span class="badge badge-${esc(sev)}">${esc(f.severity)}</span>
         <span class="finding-title-text">${esc(f.title)}</span>
         <span class="finding-resource">${esc(f.resourceArn || f.resourceId)}</span>
-        <details><summary>Details</summary><div class="finding-card-body">
+        <details><summary>${t.details}</summary><div class="finding-card-body">
           <p>${esc(f.description)}</p>
-          <p><strong>Remediation:</strong></p>
+          <p><strong>${t.remediation}:</strong></p>
           <ol>${f.remediationSteps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
         </div></details>
       </div>`;
@@ -605,7 +567,7 @@ export function generateHtmlReport(
       }
       const first = findings.slice(0, FOLD_THRESHOLD).map(renderCard).join("\n");
       const rest = findings.slice(FOLD_THRESHOLD).map(renderCard).join("\n");
-      return `${first}\n<details><summary>Show remaining ${findings.length - FOLD_THRESHOLD} findings...</summary>\n${rest}\n</details>`;
+      return `${first}\n<details><summary>${t.showRemainingFindings(findings.length - FOLD_THRESHOLD)}</summary>\n${rest}\n</details>`;
     };
 
     const SEV_EMOJI: Record<string, string> = {
@@ -671,13 +633,13 @@ export function generateHtmlReport(
   if (history && history.length >= 2) {
     trendHtml = `
     <section class="trend-section">
-      <h2>30-Day Trends</h2>
+      <h2>${esc(t.trendTitle)}</h2>
       <div class="trend-chart">
-        <div class="trend-title">Findings by Severity</div>
+        <div class="trend-title">${esc(t.findingsBySeverity)}</div>
         ${findingsTrendChart(history)}
       </div>
       <div class="trend-chart">
-        <div class="trend-title">Security Score</div>
+        <div class="trend-title">${esc(t.securityScore)}</div>
         ${scoreTrendChart(history)}
       </div>
     </section>`;
@@ -723,12 +685,12 @@ export function generateHtmlReport(
     const topItems = uniqueRecs.slice(0, TOP_N).map(renderRec).join("\n");
     const remaining = uniqueRecs.slice(TOP_N);
     const moreHtml = remaining.length > 0
-      ? `\n<details><summary>Show ${remaining.length} more&hellip;</summary>\n${remaining.map(renderRec).join("\n")}\n</details>`
+      ? `\n<details><summary>${t.showMoreCount(remaining.length)}</summary>\n${remaining.map(renderRec).join("\n")}\n</details>`
       : "";
 
     recsHtml = `
       <details class="rec-fold">
-        <summary><h2 style="margin:0;border:0;display:inline">Recommendations (${uniqueRecs.length} unique)</h2></summary>
+        <summary><h2 style="margin:0;border:0;display:inline">${esc(t.recommendations)} (${uniqueRecs.length} ${esc(t.unique)})</h2></summary>
         <div class="rec-body">
           <ol>${topItems}${moreHtml}</ol>
         </div>
@@ -736,42 +698,42 @@ export function generateHtmlReport(
   }
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${htmlLang}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AWS Security Scan Report &mdash; ${esc(date)}</title>
+<title>${esc(t.securityReportTitle)} &mdash; ${esc(date)}</title>
 <style>${sharedCss()}</style>
 </head>
 <body>
 <div class="container">
 
 <header>
-  <h1>&#128737;&#65039; AWS Security Scan Report</h1>
-  <div class="meta">Account: ${esc(accountId)} | Region: ${esc(region)} | ${esc(date)} | Duration: ${esc(duration)}</div>
+  <h1>&#128737;&#65039; ${esc(t.securityReportTitle)}</h1>
+  <div class="meta">${esc(t.account)}: ${esc(accountId)} | ${esc(t.region)}: ${esc(region)} | ${esc(date)} | ${esc(t.duration)}: ${esc(duration)}</div>
 </header>
 
 <section class="summary">
   <div class="score-card">
     <div class="score-value" style="color:${scoreColor(score)}">${score}</div>
-    <div class="score-label">Security Score</div>
+    <div class="score-label">${esc(t.securityScore)}</div>
   </div>
   <div class="severity-stats">
-    <div class="stat-card stat-critical"><div class="stat-count">${summary.critical}</div><div class="stat-label">Critical</div></div>
-    <div class="stat-card stat-high"><div class="stat-count">${summary.high}</div><div class="stat-label">High</div></div>
-    <div class="stat-card stat-medium"><div class="stat-count">${summary.medium}</div><div class="stat-label">Medium</div></div>
-    <div class="stat-card stat-low"><div class="stat-count">${summary.low}</div><div class="stat-label">Low</div></div>
+    <div class="stat-card stat-critical"><div class="stat-count">${summary.critical}</div><div class="stat-label">${esc(t.critical)}</div></div>
+    <div class="stat-card stat-high"><div class="stat-count">${summary.high}</div><div class="stat-label">${esc(t.high)}</div></div>
+    <div class="stat-card stat-medium"><div class="stat-count">${summary.medium}</div><div class="stat-label">${esc(t.medium)}</div></div>
+    <div class="stat-card stat-low"><div class="stat-count">${summary.low}</div><div class="stat-label">${esc(t.low)}</div></div>
   </div>
 </section>
 
 <section class="charts">
   <div class="chart-box">
-    <div class="chart-title">Severity Distribution</div>
+    <div class="chart-title">${esc(t.severityDistribution)}</div>
     <div style="text-align:center">${donutChart(summary)}</div>
   </div>
   <div class="chart-box">
-    <div class="chart-title">Findings by Module</div>
-    ${barChart(modules)}
+    <div class="chart-title">${esc(t.findingsByModule)}</div>
+    ${barChart(modules, t.allModulesClean)}
   </div>
 </section>
 
@@ -779,26 +741,26 @@ ${trendHtml}
 
 ${top5Html}
 
-${buildServiceReminderHtml(modules)}
+${buildServiceReminderHtml(modules, lang)}
 
 <section>
-  <h2>Scan Statistics</h2>
+  <h2>${esc(t.scanStatistics)}</h2>
   <table>
-    <thead><tr><th>Module</th><th>Resources</th><th>Findings</th><th>Status</th></tr></thead>
+    <thead><tr><th>${esc(t.module)}</th><th>${esc(t.resources)}</th><th>${esc(t.findings)}</th><th>${esc(t.status)}</th></tr></thead>
     <tbody>${statsRows}</tbody>
   </table>
 </section>
 
 <section>
-  <h2>All Findings</h2>
+  <h2>${esc(t.allFindings)}</h2>
   ${findingsHtml}
 </section>
 
 ${recsHtml}
 
 <footer>
-  <p>Generated by AWS Security MCP Server v${VERSION}</p>
-  <p>This report is for informational purposes only.</p>
+  <p>${esc(t.generatedBy)} v${VERSION}</p>
+  <p>${esc(t.informationalOnly)}</p>
 </footer>
 
 </div>
@@ -813,7 +775,10 @@ ${recsHtml}
 export function generateMlps3HtmlReport(
   scanResults: FullScanResult,
   history?: DashboardHistoryEntry[],
+  lang?: Lang,
 ): string {
+  const t = getI18n(lang ?? "zh");
+  const htmlLang = (lang ?? "zh") === "zh" ? "zh-CN" : "en";
   const { accountId, region, scanStart } = scanResults;
   const date = scanStart.split("T")[0];
   const scanTime = scanStart.replace("T", " ").replace(/\.\d+Z$/, " UTC");
@@ -836,19 +801,25 @@ export function generateMlps3HtmlReport(
   if (history && history.length >= 2) {
     trendHtml = `
     <section class="trend-section">
-      <h2>30\u65e5\u8d8b\u52bf</h2>
+      <h2>${esc(t.trendTitle)}</h2>
       <div class="trend-chart">
-        <div class="trend-title">\u6309\u4e25\u91cd\u6027\u5206\u7c7b\u7684\u53d1\u73b0</div>
+        <div class="trend-title">${esc(t.findingsBySeverity)}</div>
         ${findingsTrendChart(history)}
       </div>
       <div class="trend-chart">
-        <div class="trend-title">\u5b89\u5168\u8bc4\u5206</div>
+        <div class="trend-title">${esc(t.securityScore)}</div>
         ${scoreTrendChart(history)}
       </div>
     </section>`;
   }
 
-  // --- Group results by categoryCn ---
+  // Helper to pick item text by lang
+  const isEn = (lang ?? "zh") === "en";
+  const itemCat = (r: FullCheckResult) => isEn ? r.item.categoryEn : r.item.categoryCn;
+  const itemControl = (r: FullCheckResult) => isEn ? r.item.controlEn : r.item.controlCn;
+  const itemReq = (r: FullCheckResult) => isEn ? r.item.requirementEn : r.item.requirementCn;
+
+  // --- Group results by categoryCn (key is always categoryCn for ordering) ---
   const categoryMap = new Map<string, FullCheckResult[]>();
   for (const r of results) {
     if (r.status === "not_applicable") continue; // N/A items excluded from domain sections
@@ -860,7 +831,7 @@ export function generateMlps3HtmlReport(
   // --- Build domain sections ---
   const categorySections = MLPS3_CATEGORY_ORDER
     .map((category) => {
-      const sectionTitle = MLPS3_CATEGORY_SECTION[category];
+      const sectionTitle = t.mlpsCategorySection[category] ?? category;
       const catResults = categoryMap.get(category);
       if (!catResults || catResults.length === 0) return "";
 
@@ -870,11 +841,11 @@ export function generateMlps3HtmlReport(
         return `<details class="category-fold mlps-cloud-section">
   <summary>
     <span class="category-title">${esc(sectionTitle)}</span>
-    <span class="category-stats"><span class="category-stat-cloud">\ud83c\udfe2 ${catResults.length} \u9879\u4e91\u5e73\u53f0\u8d1f\u8d23</span></span>
+    <span class="category-stats"><span class="category-stat-cloud">\ud83c\udfe2 ${catResults.length} ${esc(t.cloudProvider)}</span></span>
   </summary>
   <div class="category-body">
-    <div class="mlps-cloud-note">\u4ee5\u4e0b ${catResults.length} \u9879\u7531 AWS \u4e91\u5e73\u53f0\u8d1f\u8d23\uff0c\u6839\u636e\u5b89\u5168\u8d23\u4efb\u5171\u62c5\u6a21\u578b\u4e0d\u5728\u672c\u62a5\u544a\u68c0\u67e5\u8303\u56f4\u5185\u3002</div>
-    ${catResults.map((r) => `<div class="check-item check-cloud"><span class="check-icon">\ud83c\udfe2</span><span class="check-name">${esc(r.item.id)} ${esc(r.item.controlCn)}</span><span class="check-note">${esc(r.mapping.note ?? "")}</span></div>`).join("\n")}
+    <div class="mlps-cloud-note">${esc(t.cloudItemsNote(catResults.length))}</div>
+    ${catResults.map((r) => `<div class="check-item check-cloud"><span class="check-icon">\ud83c\udfe2</span><span class="check-name">${esc(r.item.id)} ${esc(itemControl(r))}</span><span class="check-note">${esc(r.mapping.note ?? "")}</span></div>`).join("\n")}
   </div>
 </details>`;
       }
@@ -894,7 +865,7 @@ export function generateMlps3HtmlReport(
         catManual > 0 ? `<span class="category-stat-manual">\ud83d\udccb ${catManual}</span>` : "",
       ].filter(Boolean).join("");
 
-      // Group by controlCn within category
+      // Group by control within category (key by controlCn for grouping stability)
       const controlMap = new Map<string, FullCheckResult[]>();
       for (const r of catResults) {
         const key = r.item.controlCn;
@@ -903,7 +874,8 @@ export function generateMlps3HtmlReport(
       }
 
       const controlGroups = [...controlMap.entries()]
-        .map(([controlName, controlResults]) => {
+        .map(([_controlKey, controlResults]) => {
+          const controlName = itemControl(controlResults[0]);
           // Cloud provider items in this control
           const cloudItems = controlResults.filter((r) => r.status === "cloud_provider");
           const nonCloudItems = controlResults.filter((r) => r.status !== "cloud_provider");
@@ -918,33 +890,35 @@ export function generateMlps3HtmlReport(
               : r.status === "manual" ? "\ud83d\udccb"
               : "\ud83c\udfe2";
             const cls = `check-${r.status === "cloud_provider" ? "cloud" : r.status}`;
-            const suffix = r.status === "unknown" ? " \u2014 \u672a\u68c0\u67e5"
-              : r.status === "manual" ? ` \u2014 ${esc(r.mapping.guidance ?? "\u9700\u4eba\u5de5\u8bc4\u4f30")}`
+            const suffix = r.status === "unknown" ? ` \u2014 ${esc(t.notChecked)}`
+              : r.status === "manual" ? ` \u2014 ${esc(r.mapping.guidance ?? t.manualReview)}`
               : "";
 
             let findingsDetail = "";
             if (r.status === "clean") {
-              findingsDetail = `<div class="check-detail">\u68c0\u67e5\u7ed3\u679c\uff1a\u672a\u53d1\u73b0\u76f8\u5173\u95ee\u9898</div>`;
+              findingsDetail = `<div class="check-detail">${esc(t.noRelatedIssues)}</div>`;
             } else if (r.status === "issues" && r.relatedFindings.length > 0) {
               const fItems = r.relatedFindings
                 .slice(0, 5)
                 .map((f) => `<li>${esc(f.severity)}: ${esc(f.title)}</li>`);
               if (r.relatedFindings.length > 5) {
-                fItems.push(`<li>... \u53ca\u5176\u4ed6 ${r.relatedFindings.length - 5} \u9879</li>`);
+                fItems.push(`<li>${esc(t.andMore(r.relatedFindings.length - 5))}</li>`);
               }
               const remediationHint = r.relatedFindings[0]?.remediationSteps?.[0]
-                ? `<p style="color:#fbbf24;font-size:12px;margin-top:4px">\u5efa\u8bae\uff1a${esc(r.relatedFindings[0].remediationSteps[0])}</p>`
+                ? `<p style="color:#fbbf24;font-size:12px;margin-top:4px">${esc(t.remediation)}\uff1a${esc(r.relatedFindings[0].remediationSteps[0])}</p>`
                 : "";
-              findingsDetail = `<div class="check-findings-wrap"><details><summary>\u68c0\u67e5\u7ed3\u679c\uff1a\u53d1\u73b0 ${r.relatedFindings.length} \u4e2a\u76f8\u5173\u95ee\u9898</summary><ul class="check-findings">${fItems.join("")}</ul>${remediationHint}</details></div>`;
+              findingsDetail = `<div class="check-findings-wrap"><details><summary>${esc(t.issuesFoundCount(r.relatedFindings.length))}</summary><ul class="check-findings">${fItems.join("")}</ul>${remediationHint}</details></div>`;
             }
 
-            itemsHtml += `<div class="check-item ${cls}"><span class="check-icon">${icon}</span><span class="check-name">${esc(r.item.id)} ${esc(r.item.requirementCn.slice(0, 60))}${r.item.requirementCn.length > 60 ? "\u2026" : ""}${suffix}</span></div>\n${findingsDetail}`;
+            const reqText = itemReq(r);
+            itemsHtml += `<div class="check-item ${cls}"><span class="check-icon">${icon}</span><span class="check-name">${esc(r.item.id)} ${esc(reqText.slice(0, 60))}${reqText.length > 60 ? "\u2026" : ""}${suffix}</span></div>\n${findingsDetail}`;
           }
 
           // Render cloud items compactly
           if (cloudItems.length > 0) {
             for (const r of cloudItems) {
-              itemsHtml += `<div class="check-item check-cloud"><span class="check-icon">\ud83c\udfe2</span><span class="check-name">${esc(r.item.id)} ${esc(r.item.requirementCn.slice(0, 50))}${r.item.requirementCn.length > 50 ? "\u2026" : ""}</span><span class="check-note">\u4e91\u5e73\u53f0\u8d1f\u8d23</span></div>\n`;
+              const reqText = itemReq(r);
+              itemsHtml += `<div class="check-item check-cloud"><span class="check-icon">\ud83c\udfe2</span><span class="check-name">${esc(r.item.id)} ${esc(reqText.slice(0, 50))}${reqText.length > 50 ? "\u2026" : ""}</span><span class="check-note">${esc(t.cloudProvider)}</span></div>\n`;
             }
           }
 
@@ -1015,12 +989,12 @@ export function generateMlps3HtmlReport(
       const mlpsTopItems = mlpsUniqueRecs.slice(0, MLPS_TOP_N).map(renderMlpsRec).join("\n");
       const mlpsRemaining = mlpsUniqueRecs.slice(MLPS_TOP_N);
       const mlpsMoreHtml = mlpsRemaining.length > 0
-        ? `\n<details><summary>\u663e\u793a\u5176\u4f59 ${mlpsRemaining.length} \u9879&hellip;</summary>\n${mlpsRemaining.map(renderMlpsRec).join("\n")}\n</details>`
+        ? `\n<details><summary>${esc(t.showRemaining(mlpsRemaining.length))}&hellip;</summary>\n${mlpsRemaining.map(renderMlpsRec).join("\n")}\n</details>`
         : "";
 
       remediationHtml = `
         <details class="rec-fold" open>
-          <summary><h2 style="margin:0;border:0;display:inline">\u5efa\u8bae\u6574\u6539\u9879\uff08${mlpsUniqueRecs.length} \u9879\u53bb\u91cd\uff09</h2></summary>
+          <summary><h2 style="margin:0;border:0;display:inline">${esc(t.remediationItems(mlpsUniqueRecs.length))}</h2></summary>
           <div class="rec-body">
             <ol>${mlpsTopItems}${mlpsMoreHtml}</ol>
           </div>
@@ -1030,12 +1004,12 @@ export function generateMlps3HtmlReport(
 
   // --- N/A count at bottom ---
   const naNote = naCount > 0
-    ? `<p style="color:#64748b;font-size:13px;margin-top:24px">\u4e0d\u9002\u7528\u9879: ${naCount} \u9879\uff08\u7269\u8054\u7f51/\u65e0\u7ebf\u7f51\u7edc/\u79fb\u52a8\u7ec8\u7aef/\u5de5\u63a7\u7cfb\u7edf/\u53ef\u4fe1\u9a8c\u8bc1\u7b49\uff09</p>`
+    ? `<p style="color:#64748b;font-size:13px;margin-top:24px">${esc(t.naNote(naCount))}</p>`
     : "";
 
   const unknownNote =
     autoUnknown > 0
-      ? `<div style="color:#94a3b8;font-size:12px;margin-top:8px">\uff08${autoUnknown} \u9879\u672a\u68c0\u67e5\uff0c\u5bf9\u5e94\u626b\u63cf\u6a21\u5757\u672a\u8fd0\u884c\uff09</div>`
+      ? `<div style="color:#94a3b8;font-size:12px;margin-top:8px">${esc(t.unknownNote(autoUnknown))}</div>`
       : "";
 
   const mlpsCss = `
@@ -1060,40 +1034,40 @@ export function generateMlps3HtmlReport(
   `;
 
   return `<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="${htmlLang}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>\u7b49\u4fdd\u4e09\u7ea7\u9884\u68c0\u62a5\u544a &mdash; ${esc(date)}</title>
+<title>${esc(t.mlpsTitle)} &mdash; ${esc(date)}</title>
 <style>${sharedCss()}${mlpsCss}</style>
 </head>
 <body>
 <div class="container">
 
 <header>
-  <h1>&#128737;&#65039; \u7b49\u4fdd\u4e09\u7ea7\u9884\u68c0\u62a5\u544a</h1>
-  <div class="disclaimer">\u672c\u62a5\u544a\u4e3a\u7b49\u4fdd\u4e09\u7ea7\u9884\u68c0\u53c2\u8003\uff0c\u63d0\u4f9b\u4e91\u5e73\u53f0\u914d\u7f6e\u68c0\u67e5\u6570\u636e\u4e0e\u5efa\u8bae\u3002\u5408\u89c4\u5224\u5b9a\uff08\u7b26\u5408/\u90e8\u5206\u7b26\u5408/\u4e0d\u7b26\u5408\uff09\u9700\u7531\u6301\u8bc1\u6d4b\u8bc4\u673a\u6784\u6839\u636e\u5b9e\u9645\u60c5\u51b5\u786e\u8ba4\u3002\uff08GB/T 22239-2019 \u5b8c\u6574\u68c0\u67e5\u6e05\u5355 184 \u9879\uff09</div>
-  <div class="meta">\u8d26\u6237: ${esc(accountId)} | \u533a\u57df: ${esc(region)} | \u626b\u63cf\u65f6\u95f4: ${esc(scanTime)}</div>
+  <h1>&#128737;&#65039; ${esc(t.mlpsTitle)}</h1>
+  <div class="disclaimer">${esc(t.mlpsDisclaimer)}</div>
+  <div class="meta">${esc(t.account)}: ${esc(accountId)} | ${esc(t.region)}: ${esc(region)} | ${esc(t.scanTime)}: ${esc(scanTime)}</div>
 </header>
 
 <section class="summary" style="display:block;text-align:center">
   <div style="font-size:36px;font-weight:700;margin-bottom:12px">
-    <span style="color:#22c55e">${autoClean}</span> <span style="color:#94a3b8;font-size:18px">\u672a\u53d1\u73b0\u95ee\u9898</span>
+    <span style="color:#22c55e">${autoClean}</span> <span style="color:#94a3b8;font-size:18px">${esc(t.noIssues)}</span>
     <span style="color:#475569;margin:0 16px">/</span>
-    <span style="color:#ef4444">${autoIssues}</span> <span style="color:#94a3b8;font-size:18px">\u53d1\u73b0\u95ee\u9898</span>
+    <span style="color:#ef4444">${autoIssues}</span> <span style="color:#94a3b8;font-size:18px">${esc(t.issuesFound)}</span>
   </div>
   <div class="mlps-summary-cards" style="justify-content:center">
-    <div class="mlps-summary-card"><div class="stat-count" style="color:#60a5fa">${checkedTotal}</div><div class="stat-label">\u5df2\u68c0\u67e5\u9879</div></div>
-    <div class="mlps-summary-card"><div class="stat-count" style="color:#94a3b8">${cloudCount}</div><div class="stat-label">\ud83c\udfe2 \u4e91\u5e73\u53f0\u8d1f\u8d23</div></div>
-    <div class="mlps-summary-card"><div class="stat-count" style="color:#eab308">${manualCount}</div><div class="stat-label">\ud83d\udccb \u9700\u4eba\u5de5\u8bc4\u4f30</div></div>
-    ${naCount > 0 ? `<div class="mlps-summary-card"><div class="stat-count" style="color:#64748b">${naCount}</div><div class="stat-label">\u2796 \u4e0d\u9002\u7528</div></div>` : ""}
+    <div class="mlps-summary-card"><div class="stat-count" style="color:#60a5fa">${checkedTotal}</div><div class="stat-label">${esc(t.checkedItems)}</div></div>
+    <div class="mlps-summary-card"><div class="stat-count" style="color:#94a3b8">${cloudCount}</div><div class="stat-label">\ud83c\udfe2 ${esc(t.cloudProvider)}</div></div>
+    <div class="mlps-summary-card"><div class="stat-count" style="color:#eab308">${manualCount}</div><div class="stat-label">\ud83d\udccb ${esc(t.manualReview)}</div></div>
+    ${naCount > 0 ? `<div class="mlps-summary-card"><div class="stat-count" style="color:#64748b">${naCount}</div><div class="stat-label">\u2796 ${esc(t.notApplicable)}</div></div>` : ""}
   </div>
 </section>
 ${unknownNote}
 
 ${trendHtml}
 
-${buildServiceReminderHtml(scanResults.modules)}
+${buildServiceReminderHtml(scanResults.modules, lang)}
 
 ${categorySections}
 
@@ -1102,8 +1076,8 @@ ${remediationHtml}
 ${naNote}
 
 <footer>
-  <p>\u7531 AWS Security MCP Server v${VERSION} \u751f\u6210</p>
-  <p>\u672c\u62a5\u544a\u4e3a\u8bc1\u636e\u6536\u96c6\u53c2\u8003\uff0c\u4e0d\u5305\u542b\u5408\u89c4\u5224\u5b9a\u3002\u5b8c\u6574\u7b49\u4fdd\u6d4b\u8bc4\u9700\u7531\u6301\u8bc1\u6d4b\u8bc4\u673a\u6784\u6267\u884c\u3002</p>
+  <p>${esc(t.mlpsFooterGenerated(VERSION))}</p>
+  <p>${esc(t.mlpsFooterDisclaimer)}</p>
 </footer>
 
 </div>

@@ -37,10 +37,12 @@ import {
 import { getPartition, getAccountId } from "./utils/aws-client.js";
 import { listOrgAccounts } from "./utils/org-accounts.js";
 import type { FullScanResult, ScanResult, ScanContext } from "./types.js";
+import { getI18n, type Lang } from "./i18n/index.js";
 import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
+export { type Lang } from "./i18n/index.js";
 export { type Scanner } from "./scanners/base.js";
 export { runAllScanners, runMultiAccountScanners } from "./scanners/runner.js";
 export { assumeRole, buildRoleArn, getCurrentAccountId } from "./utils/assume-role.js";
@@ -100,104 +102,11 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
     "Checks if internet-facing ALBs have WAF Web ACL associated for protection against common web exploits.",
 };
 
-const HW_DEFENSE_CHECKLIST = `
-═══════════════════════════════════════════════════
-📋 护网行动补充提醒（超出自动化扫描范围）
-═══════════════════════════════════════════════════
+function getHwDefenseChecklist(lang?: Lang): string {
+  return getI18n(lang ?? "zh").hwChecklist;
+}
 
-以下事项需要人工确认和执行：
-
-⚠️ 应急隔离/止血方案
-  □ 准备专用隔离安全组（无 Inbound/Outbound 规则）
-  □ 制定实例隔离 SOP：告警 → 排查 → 封锁攻击IP → 网络隔离 → 安全处置 → 记录攻击项
-  □ 明确各系统（生产核心/生产非核心/测试/开发）的应急处置方式
-  □ 明确各项目账户及资源的负责人与联系方式
-
-⚠️ 测试/开发环境处置
-  □ 非核心系统在护网期间关闭
-  □ 测试/开发环境关闭或与生产保持同等安全基线
-  □ 确认哪些环境可以紧急关停，避免攻击扩散
-
-⚠️ 值守团队组建
-  □ 7×24 监控快速响应团队
-  □ 技术与风险分析组
-  □ 安全策略下发组
-  □ 业务响应组
-  □ 明确 AWS TAM/Support 联系方式（ES/EOP 客户）
-
-⚠️ 出入站路径架构图
-  □ 确保所有互联网/DX 专线出入站路径在架构图中清晰标注
-  □ 明确各 ELB/Public EC2/S3/DX 的数据流向
-  □ 识别所有面向互联网的数据交互接口
-
-⚠️ 主动式渗透测试
-  □ 护网前联系安全厂商（青藤/长亭/微步等）进行模拟攻击演练
-  □ 基于渗透测试报告进行正式护网前的安全加固
-  □ 关注 AWS 安全公告（已知漏洞与补丁）
-
-⚠️ WAR-ROOM 实时沟通
-  □ 创建护网期间专用沟通渠道（企微/钉钉/飞书/Chime）
-  □ 与 AWS TAM 建立 WAR-ROOM 联系（企业级支持客户）
-  □ 统一案例标题格式："【护网】+ 问题描述"
-
-⚠️ 密码与凭证管理
-  □ 所有 IAM 用户绑定 MFA
-  □ AKSK 轮转周期 ≤ 90 天
-  □ 避免共享账户使用
-  □ S3/Lambda/应用代码中无明文密码
-
-⚠️ 护网后优化
-  □ 针对攻击报告逐项应答与修复
-  □ 与安全团队建立周期性安全维护流程
-  □ 持续补全安全风险
-
-参考：AWS 护网行动 Standard Operation Procedure (Compliance IEM)
-`;
-
-const SERVICE_RECOMMENDATIONS: Record<string, { icon: string; service: string; impact: string; action: string }> = {
-  security_hub_findings: {
-    icon: "🔴",
-    service: "Security Hub",
-    impact: "无法获取 300+ 项自动化安全检查（FSBP/CIS/PCI DSS 标准）",
-    action: "启用 Security Hub 获得最全面的安全态势评估",
-  },
-  guardduty_findings: {
-    icon: "🔴",
-    service: "GuardDuty",
-    impact: "无法检测威胁活动（恶意 IP、异常 API 调用、加密货币挖矿等）",
-    action: "启用 GuardDuty 获得持续威胁检测能力",
-  },
-  inspector_findings: {
-    icon: "🟡",
-    service: "Inspector",
-    impact: "无法扫描 EC2/Lambda/容器的软件漏洞（CVE）",
-    action: "启用 Inspector 发现已知安全漏洞",
-  },
-  trusted_advisor_findings: {
-    icon: "🟡",
-    service: "Trusted Advisor",
-    impact: "无法获取 AWS 最佳实践安全检查",
-    action: "升级至 Business/Enterprise Support 计划以使用 Trusted Advisor 安全检查",
-  },
-  config_rules_findings: {
-    icon: "🟡",
-    service: "AWS Config",
-    impact: "无法检查资源配置合规状态",
-    action: "启用 AWS Config 并配置 Config Rules",
-  },
-  access_analyzer_findings: {
-    icon: "🟡",
-    service: "IAM Access Analyzer",
-    impact: "无法检测资源是否被外部账号或公网访问",
-    action: "创建 IAM Access Analyzer（账户级或组织级）",
-  },
-  patch_compliance_findings: {
-    icon: "🟡",
-    service: "SSM Patch Manager",
-    impact: "无法检查实例补丁合规状态",
-    action: "安装 SSM Agent 并配置 Patch Manager",
-  },
-};
+// SERVICE_RECOMMENDATIONS are now in the i18n module (t.serviceRecommendations)
 
 const SERVICE_NOT_ENABLED_PATTERNS = [
   "not enabled",
@@ -209,11 +118,12 @@ const SERVICE_NOT_ENABLED_PATTERNS = [
   "is not enabled",
 ];
 
-function buildServiceReminder(modules: ScanResult[]): string {
+function buildServiceReminder(modules: ScanResult[], lang?: Lang): string {
+  const t = getI18n(lang ?? "zh");
   const disabledServices: Array<{ icon: string; service: string; impact: string; action: string }> = [];
 
   for (const mod of modules) {
-    const rec = SERVICE_RECOMMENDATIONS[mod.module];
+    const rec = t.serviceRecommendations[mod.module];
     if (!rec) continue;
     if (!mod.warnings?.length) continue;
 
@@ -229,23 +139,23 @@ function buildServiceReminder(modules: ScanResult[]): string {
 
   const lines = [
     "",
-    "⚡ 以下安全服务未启用，部分检查无法执行：",
+    t.serviceReminderTitle,
     "",
   ];
 
   for (const svc of disabledServices) {
-    lines.push(`${svc.icon} ${svc.service} 未启用`);
-    lines.push(`   影响：${svc.impact}`);
-    lines.push(`   建议：${svc.action}`);
+    lines.push(`${svc.icon} ${svc.service} ${t.notEnabled}`);
+    lines.push(`   ${t.serviceImpact}: ${svc.impact}`);
+    lines.push(`   ${t.serviceAction}: ${svc.action}`);
     lines.push("");
   }
 
-  lines.push("启用以上服务后重新扫描可获得更完整的安全评估。");
+  lines.push(t.serviceReminderFooter);
 
   return lines.join("\n");
 }
 
-function summarizeResult(result: FullScanResult): string {
+function summarizeResult(result: FullScanResult, lang?: Lang): string {
   const { summary } = result;
   const lines = [
     `Scan complete for account ${result.accountId} in ${result.region}.`,
@@ -253,7 +163,7 @@ function summarizeResult(result: FullScanResult): string {
     `Modules: ${summary.modulesSuccess} succeeded, ${summary.modulesError} errored`,
   ];
 
-  const reminder = buildServiceReminder(result.modules);
+  const reminder = buildServiceReminder(result.modules, lang);
   if (reminder) {
     lines.push(reminder);
   }
@@ -326,8 +236,9 @@ export function createServer(defaultRegion: string): McpServer {
       org_mode: z.boolean().optional().describe("Enable multi-account scanning via AWS Organizations"),
       role_name: z.string().optional().describe("IAM role name to assume in child accounts (default: AWSSecurityMCPAudit)"),
       account_ids: z.array(z.string()).optional().describe("Specific account IDs to scan (default: all org accounts)"),
+      lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)"),
     },
-    async ({ region, org_mode, role_name, account_ids }) => {
+    async ({ region, org_mode, role_name, account_ids, lang }) => {
       try {
         const r = region ?? defaultRegion;
         let result: FullScanResult;
@@ -344,7 +255,7 @@ export function createServer(defaultRegion: string): McpServer {
 
         return {
           content: [
-            { type: "text", text: summarizeResult(result) },
+            { type: "text", text: summarizeResult(result, lang ?? "zh") },
             { type: "text", text: JSON.stringify(result, null, 2) },
           ],
         };
@@ -411,8 +322,9 @@ export function createServer(defaultRegion: string): McpServer {
       org_mode: z.boolean().optional().describe("Enable multi-account scanning via AWS Organizations"),
       role_name: z.string().optional().describe("IAM role name to assume in child accounts (default: AWSSecurityMCPAudit)"),
       account_ids: z.array(z.string()).optional().describe("Specific account IDs to scan (default: all org accounts)"),
+      lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)"),
     },
-    async ({ group, region, org_mode, role_name, account_ids }) => {
+    async ({ group, region, org_mode, role_name, account_ids, lang }) => {
       try {
         const groupDef = SCAN_GROUPS[group];
         if (!groupDef) {
@@ -497,7 +409,7 @@ export function createServer(defaultRegion: string): McpServer {
           `Scan group: ${groupDef.name} (${group})`,
           groupDef.description,
           "",
-          summarizeResult(result),
+          summarizeResult(result, lang ?? "zh"),
         ];
 
         if (missingModules.length > 0) {
@@ -514,7 +426,7 @@ export function createServer(defaultRegion: string): McpServer {
           // Append checklist to summary
           const summaryContent = content[0];
           if (summaryContent && summaryContent.type === "text") {
-            summaryContent.text += "\n\n" + HW_DEFENSE_CHECKLIST;
+            summaryContent.text += "\n\n" + getHwDefenseChecklist(lang ?? "zh");
           }
         }
 
@@ -549,11 +461,14 @@ export function createServer(defaultRegion: string): McpServer {
   server.tool(
     "generate_report",
     "Generate a Markdown security report from scan results. Read-only. Does not modify any AWS resources.",
-    { scan_results: z.string().describe("JSON string of FullScanResult from scan_all") },
-    async ({ scan_results }) => {
+    {
+      scan_results: z.string().describe("JSON string of FullScanResult from scan_all"),
+      lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)"),
+    },
+    async ({ scan_results, lang }) => {
       try {
         const parsed: FullScanResult = JSON.parse(scan_results);
-        const report = generateMarkdownReport(parsed);
+        const report = generateMarkdownReport(parsed, lang ?? "zh");
         return { content: [{ type: "text", text: report }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
@@ -565,11 +480,14 @@ export function createServer(defaultRegion: string): McpServer {
   server.tool(
     "generate_mlps3_report",
     "Generate a GB/T 22239-2019 等保三级 compliance pre-check report from scan results. Best used with scan_group mlps3_precheck results. Read-only.",
-    { scan_results: z.string().describe("JSON string of FullScanResult from scan_group mlps3_precheck or scan_all") },
-    async ({ scan_results }) => {
+    {
+      scan_results: z.string().describe("JSON string of FullScanResult from scan_group mlps3_precheck or scan_all"),
+      lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)"),
+    },
+    async ({ scan_results, lang }) => {
       try {
         const parsed: FullScanResult = JSON.parse(scan_results);
-        const report = generateMlps3Report(parsed);
+        const report = generateMlps3Report(parsed, lang ?? "zh");
         return { content: [{ type: "text", text: report }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
@@ -584,12 +502,13 @@ export function createServer(defaultRegion: string): McpServer {
     {
       scan_results: z.string().describe("JSON string of FullScanResult from scan_all"),
       history: z.string().optional().describe("JSON string of DashboardHistoryEntry[] from dashboard data.json for 30-day trend charts"),
+      lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)"),
     },
-    async ({ scan_results, history }) => {
+    async ({ scan_results, history, lang }) => {
       try {
         const parsed: FullScanResult = JSON.parse(scan_results);
         const historyData = history ? JSON.parse(history) : undefined;
-        const report = generateHtmlReport(parsed, historyData);
+        const report = generateHtmlReport(parsed, historyData, lang ?? "zh");
         return { content: [{ type: "text", text: report }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
@@ -604,12 +523,13 @@ export function createServer(defaultRegion: string): McpServer {
     {
       scan_results: z.string().describe("JSON string of FullScanResult from scan_group mlps3_precheck or scan_all"),
       history: z.string().optional().describe("JSON string of DashboardHistoryEntry[] from dashboard data.json for 30-day trend charts"),
+      lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)"),
     },
-    async ({ scan_results, history }) => {
+    async ({ scan_results, history, lang }) => {
       try {
         const parsed: FullScanResult = JSON.parse(scan_results);
         const historyData = history ? JSON.parse(history) : undefined;
-        const report = generateMlps3HtmlReport(parsed, historyData);
+        const report = generateMlps3HtmlReport(parsed, historyData, lang ?? "zh");
         return { content: [{ type: "text", text: report }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
@@ -621,7 +541,10 @@ export function createServer(defaultRegion: string): McpServer {
   server.tool(
     "generate_maturity_report",
     "Generate a security maturity assessment report from scan_all results. Requires service_detection module output. Read-only.",
-    { scan_results: z.string().describe("JSON string of FullScanResult from scan_all") },
+    {
+      scan_results: z.string().describe("JSON string of FullScanResult from scan_all"),
+      lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)"),
+    },
     async ({ scan_results }) => {
       try {
         const parsed: FullScanResult = JSON.parse(scan_results);
@@ -923,7 +846,7 @@ export function createServer(defaultRegion: string): McpServer {
           role: "user",
           content: {
             type: "text",
-            text: `请基于以下护网行动检查清单，帮助我制定护网准备计划：\n\n${HW_DEFENSE_CHECKLIST}\n\n自动化扫描部分请使用 scan_group hw_defense 执行。以上人工检查项请逐项确认并提供具体建议。`,
+            text: `请基于以下护网行动检查清单，帮助我制定护网准备计划：\n\n${getHwDefenseChecklist("zh")}\n\n自动化扫描部分请使用 scan_group hw_defense 执行。以上人工检查项请逐项确认并提供具体建议。`,
           },
         },
       ],

@@ -4226,7 +4226,7 @@ function renderFinding(f) {
     `- **Priority:** ${f.priority}`
   ].join("\n");
 }
-function generateMarkdownReport(scanResults) {
+function generateMarkdownReport(scanResults, _lang) {
   const { summary, modules, accountId, region, scanStart, scanEnd } = scanResults;
   const date = scanStart.split("T")[0];
   const duration = formatDuration(scanStart, scanEnd);
@@ -6336,13 +6336,6 @@ var MLPS3_CATEGORY_ORDER = [
   "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
   "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3"
 ];
-var MLPS3_CATEGORY_SECTION = {
-  "\u5B89\u5168\u7269\u7406\u73AF\u5883": "\u4E00\u3001\u5B89\u5168\u7269\u7406\u73AF\u5883",
-  "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC": "\u4E8C\u3001\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
-  "\u5B89\u5168\u533A\u57DF\u8FB9\u754C": "\u4E09\u3001\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
-  "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883": "\u56DB\u3001\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
-  "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3": "\u4E94\u3001\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3"
-};
 var MLPS3_CHECK_MAPPING = [
   // =========================================================================
   // 安全物理环境 — L3-PES1-* (22 items) → cloud_provider
@@ -6941,6 +6934,463 @@ function getMappingById(id) {
   return _mappingIndex.get(id);
 }
 
+// src/i18n/zh.ts
+var zhI18n = {
+  // HTML Security Report
+  securityReportTitle: "AWS \u5B89\u5168\u626B\u63CF\u62A5\u544A",
+  securityScore: "\u5B89\u5168\u8BC4\u5206",
+  critical: "\u4E25\u91CD",
+  high: "\u9AD8",
+  medium: "\u4E2D",
+  low: "\u4F4E",
+  scanStatistics: "\u626B\u63CF\u7EDF\u8BA1",
+  module: "\u6A21\u5757",
+  resources: "\u8D44\u6E90",
+  findings: "\u53D1\u73B0",
+  status: "\u72B6\u6001",
+  allFindings: "\u6240\u6709\u53D1\u73B0",
+  recommendations: "\u5EFA\u8BAE",
+  unique: "\u53BB\u91CD",
+  showMore: "\u663E\u793A\u66F4\u591A",
+  noIssuesFound: "\u672A\u53D1\u73B0\u5B89\u5168\u95EE\u9898\u3002",
+  allModulesClean: "\u6240\u6709\u6A21\u5757\u6B63\u5E38",
+  generatedBy: "\u7531 AWS Security MCP Server \u751F\u6210",
+  informationalOnly: "\u672C\u62A5\u544A\u4EC5\u4F9B\u53C2\u8003\u3002",
+  // MLPS Report
+  mlpsTitle: "\u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0\u62A5\u544A",
+  mlpsDisclaimer: "\u672C\u62A5\u544A\u4E3A\u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0\u53C2\u8003\uFF0C\u63D0\u4F9B\u4E91\u5E73\u53F0\u914D\u7F6E\u68C0\u67E5\u6570\u636E\u4E0E\u5EFA\u8BAE\u3002\u5408\u89C4\u5224\u5B9A\uFF08\u7B26\u5408/\u90E8\u5206\u7B26\u5408/\u4E0D\u7B26\u5408\uFF09\u9700\u7531\u6301\u8BC1\u6D4B\u8BC4\u673A\u6784\u6839\u636E\u5B9E\u9645\u60C5\u51B5\u786E\u8BA4\u3002\uFF08GB/T 22239-2019 \u5B8C\u6574\u68C0\u67E5\u6E05\u5355 184 \u9879\uFF09",
+  checkedItems: "\u5DF2\u68C0\u67E5\u9879",
+  noIssues: "\u672A\u53D1\u73B0\u95EE\u9898",
+  issuesFound: "\u53D1\u73B0\u95EE\u9898",
+  notChecked: "\u672A\u68C0\u67E5",
+  cloudProvider: "\u4E91\u5E73\u53F0\u8D1F\u8D23",
+  manualReview: "\u9700\u4EBA\u5DE5\u8BC4\u4F30",
+  notApplicable: "\u4E0D\u9002\u7528",
+  checkResult: "\u68C0\u67E5\u7ED3\u679C",
+  noRelatedIssues: "\u68C0\u67E5\u7ED3\u679C\uFF1A\u672A\u53D1\u73B0\u76F8\u5173\u95EE\u9898",
+  issuesFoundCount: (n) => `\u68C0\u67E5\u7ED3\u679C\uFF1A\u53D1\u73B0 ${n} \u4E2A\u76F8\u5173\u95EE\u9898`,
+  remediation: "\u5EFA\u8BAE",
+  remediationItems: (n) => `\u5EFA\u8BAE\u6574\u6539\u9879\uFF08${n} \u9879\u53BB\u91CD\uFF09`,
+  showRemaining: (n) => `\u663E\u793A\u5176\u4F59 ${n} \u9879`,
+  // HW Defense Checklist
+  hwChecklistTitle: "\u{1F4CB} \u62A4\u7F51\u884C\u52A8\u8865\u5145\u63D0\u9192\uFF08\u8D85\u51FA\u81EA\u52A8\u5316\u626B\u63CF\u8303\u56F4\uFF09",
+  hwChecklistSubtitle: "\u4EE5\u4E0B\u4E8B\u9879\u9700\u8981\u4EBA\u5DE5\u786E\u8BA4\u548C\u6267\u884C\uFF1A",
+  hwEmergencyIsolation: `\u26A0\uFE0F \u5E94\u6025\u9694\u79BB/\u6B62\u8840\u65B9\u6848
+  \u25A1 \u51C6\u5907\u4E13\u7528\u9694\u79BB\u5B89\u5168\u7EC4\uFF08\u65E0 Inbound/Outbound \u89C4\u5219\uFF09
+  \u25A1 \u5236\u5B9A\u5B9E\u4F8B\u9694\u79BB SOP\uFF1A\u544A\u8B66 \u2192 \u6392\u67E5 \u2192 \u5C01\u9501\u653B\u51FBIP \u2192 \u7F51\u7EDC\u9694\u79BB \u2192 \u5B89\u5168\u5904\u7F6E \u2192 \u8BB0\u5F55\u653B\u51FB\u9879
+  \u25A1 \u660E\u786E\u5404\u7CFB\u7EDF\uFF08\u751F\u4EA7\u6838\u5FC3/\u751F\u4EA7\u975E\u6838\u5FC3/\u6D4B\u8BD5/\u5F00\u53D1\uFF09\u7684\u5E94\u6025\u5904\u7F6E\u65B9\u5F0F
+  \u25A1 \u660E\u786E\u5404\u9879\u76EE\u8D26\u6237\u53CA\u8D44\u6E90\u7684\u8D1F\u8D23\u4EBA\u4E0E\u8054\u7CFB\u65B9\u5F0F`,
+  hwTestEnvShutdown: `\u26A0\uFE0F \u6D4B\u8BD5/\u5F00\u53D1\u73AF\u5883\u5904\u7F6E
+  \u25A1 \u975E\u6838\u5FC3\u7CFB\u7EDF\u5728\u62A4\u7F51\u671F\u95F4\u5173\u95ED
+  \u25A1 \u6D4B\u8BD5/\u5F00\u53D1\u73AF\u5883\u5173\u95ED\u6216\u4E0E\u751F\u4EA7\u4FDD\u6301\u540C\u7B49\u5B89\u5168\u57FA\u7EBF
+  \u25A1 \u786E\u8BA4\u54EA\u4E9B\u73AF\u5883\u53EF\u4EE5\u7D27\u6025\u5173\u505C\uFF0C\u907F\u514D\u653B\u51FB\u6269\u6563`,
+  hwDutyTeam: `\u26A0\uFE0F \u503C\u5B88\u56E2\u961F\u7EC4\u5EFA
+  \u25A1 7\xD724 \u76D1\u63A7\u5FEB\u901F\u54CD\u5E94\u56E2\u961F
+  \u25A1 \u6280\u672F\u4E0E\u98CE\u9669\u5206\u6790\u7EC4
+  \u25A1 \u5B89\u5168\u7B56\u7565\u4E0B\u53D1\u7EC4
+  \u25A1 \u4E1A\u52A1\u54CD\u5E94\u7EC4
+  \u25A1 \u660E\u786E AWS TAM/Support \u8054\u7CFB\u65B9\u5F0F\uFF08ES/EOP \u5BA2\u6237\uFF09`,
+  hwNetworkDiagram: `\u26A0\uFE0F \u51FA\u5165\u7AD9\u8DEF\u5F84\u67B6\u6784\u56FE
+  \u25A1 \u786E\u4FDD\u6240\u6709\u4E92\u8054\u7F51/DX \u4E13\u7EBF\u51FA\u5165\u7AD9\u8DEF\u5F84\u5728\u67B6\u6784\u56FE\u4E2D\u6E05\u6670\u6807\u6CE8
+  \u25A1 \u660E\u786E\u5404 ELB/Public EC2/S3/DX \u7684\u6570\u636E\u6D41\u5411
+  \u25A1 \u8BC6\u522B\u6240\u6709\u9762\u5411\u4E92\u8054\u7F51\u7684\u6570\u636E\u4EA4\u4E92\u63A5\u53E3`,
+  hwPentest: `\u26A0\uFE0F \u4E3B\u52A8\u5F0F\u6E17\u900F\u6D4B\u8BD5
+  \u25A1 \u62A4\u7F51\u524D\u8054\u7CFB\u5B89\u5168\u5382\u5546\uFF08\u9752\u85E4/\u957F\u4EAD/\u5FAE\u6B65\u7B49\uFF09\u8FDB\u884C\u6A21\u62DF\u653B\u51FB\u6F14\u7EC3
+  \u25A1 \u57FA\u4E8E\u6E17\u900F\u6D4B\u8BD5\u62A5\u544A\u8FDB\u884C\u6B63\u5F0F\u62A4\u7F51\u524D\u7684\u5B89\u5168\u52A0\u56FA
+  \u25A1 \u5173\u6CE8 AWS \u5B89\u5168\u516C\u544A\uFF08\u5DF2\u77E5\u6F0F\u6D1E\u4E0E\u8865\u4E01\uFF09`,
+  hwWarRoom: `\u26A0\uFE0F WAR-ROOM \u5B9E\u65F6\u6C9F\u901A
+  \u25A1 \u521B\u5EFA\u62A4\u7F51\u671F\u95F4\u4E13\u7528\u6C9F\u901A\u6E20\u9053\uFF08\u4F01\u5FAE/\u9489\u9489/\u98DE\u4E66/Chime\uFF09
+  \u25A1 \u4E0E AWS TAM \u5EFA\u7ACB WAR-ROOM \u8054\u7CFB\uFF08\u4F01\u4E1A\u7EA7\u652F\u6301\u5BA2\u6237\uFF09
+  \u25A1 \u7EDF\u4E00\u6848\u4F8B\u6807\u9898\u683C\u5F0F\uFF1A\u201C\u3010\u62A4\u7F51\u3011+ \u95EE\u9898\u63CF\u8FF0\u201D`,
+  hwCredentials: `\u26A0\uFE0F \u5BC6\u7801\u4E0E\u51ED\u8BC1\u7BA1\u7406
+  \u25A1 \u6240\u6709 IAM \u7528\u6237\u7ED1\u5B9A MFA
+  \u25A1 AKSK \u8F6E\u8F6C\u5468\u671F \u2264 90 \u5929
+  \u25A1 \u907F\u514D\u5171\u4EAB\u8D26\u6237\u4F7F\u7528
+  \u25A1 S3/Lambda/\u5E94\u7528\u4EE3\u7801\u4E2D\u65E0\u660E\u6587\u5BC6\u7801`,
+  hwPostOptimization: `\u26A0\uFE0F \u62A4\u7F51\u540E\u4F18\u5316
+  \u25A1 \u9488\u5BF9\u653B\u51FB\u62A5\u544A\u9010\u9879\u5E94\u7B54\u4E0E\u4FEE\u590D
+  \u25A1 \u4E0E\u5B89\u5168\u56E2\u961F\u5EFA\u7ACB\u5468\u671F\u6027\u5B89\u5168\u7EF4\u62A4\u6D41\u7A0B
+  \u25A1 \u6301\u7EED\u8865\u5168\u5B89\u5168\u98CE\u9669`,
+  hwReference: "\u53C2\u8003\uFF1AAWS \u62A4\u7F51\u884C\u52A8 Standard Operation Procedure (Compliance IEM)",
+  // Service Reminders
+  serviceReminderTitle: "\u26A1 \u4EE5\u4E0B\u5B89\u5168\u670D\u52A1\u672A\u542F\u7528\uFF0C\u90E8\u5206\u68C0\u67E5\u65E0\u6CD5\u6267\u884C\uFF1A",
+  serviceReminderFooter: "\u542F\u7528\u4EE5\u4E0A\u670D\u52A1\u540E\u91CD\u65B0\u626B\u63CF\u53EF\u83B7\u5F97\u66F4\u5B8C\u6574\u7684\u5B89\u5168\u8BC4\u4F30\u3002",
+  serviceImpact: "\u5F71\u54CD",
+  serviceAction: "\u5EFA\u8BAE",
+  // Common
+  account: "\u8D26\u6237",
+  region: "\u533A\u57DF",
+  scanTime: "\u626B\u63CF\u65F6\u95F4",
+  duration: "\u8017\u65F6",
+  severityDistribution: "\u4E25\u91CD\u6027\u5206\u5E03",
+  findingsByModule: "\u6309\u6A21\u5757\u5206\u7C7B\u7684\u53D1\u73B0",
+  details: "\u8BE6\u60C5",
+  // Extended — HTML Security Report extras
+  topHighestRiskFindings: (n) => `\u524D ${n} \u9879\u6700\u9AD8\u98CE\u9669\u53D1\u73B0`,
+  resource: "\u8D44\u6E90",
+  impact: "\u5F71\u54CD",
+  riskScore: "\u98CE\u9669\u8BC4\u5206",
+  showRemainingFindings: (n) => `\u663E\u793A\u5269\u4F59 ${n} \u9879\u53D1\u73B0\u2026`,
+  trendTitle: "30\u65E5\u8D8B\u52BF",
+  findingsBySeverity: "\u6309\u4E25\u91CD\u6027\u5206\u7C7B\u7684\u53D1\u73B0",
+  showMoreCount: (n) => `\u663E\u793A\u5269\u4F59 ${n} \u9879\u2026`,
+  // Extended — MLPS extras
+  preCheckOverview: "\u9884\u68C0\u603B\u89C8",
+  accountInfo: "\u8D26\u6237\u4FE1\u606F",
+  checkedCount: (total, clean, issues) => `\u5DF2\u68C0\u67E5: ${total} \u9879\uFF08\u672A\u53D1\u73B0\u95EE\u9898: ${clean} \u9879 | \u53D1\u73B0\u95EE\u9898: ${issues} \u9879\uFF09`,
+  uncheckedCount: (n) => `\u672A\u68C0\u67E5: ${n} \u9879\uFF08\u5BF9\u5E94\u626B\u63CF\u6A21\u5757\u672A\u8FD0\u884C\uFF09`,
+  cloudProviderCount: (n) => `\u4E91\u5E73\u53F0\u8D1F\u8D23: ${n} \u9879`,
+  manualReviewCount: (n) => `\u9700\u4EBA\u5DE5\u8BC4\u4F30: ${n} \u9879`,
+  naCount: (n) => `\u4E0D\u9002\u7528: ${n} \u9879`,
+  naNote: (n) => `\u4E0D\u9002\u7528\u9879: ${n} \u9879\uFF08\u7269\u8054\u7F51/\u65E0\u7EBF\u7F51\u7EDC/\u79FB\u52A8\u7EC8\u7AEF/\u5DE5\u63A7\u7CFB\u7EDF/\u53EF\u4FE1\u9A8C\u8BC1\u7B49\uFF09`,
+  unknownNote: (n) => `\uFF08${n} \u9879\u672A\u68C0\u67E5\uFF0C\u5BF9\u5E94\u626B\u63CF\u6A21\u5757\u672A\u8FD0\u884C\uFF09`,
+  cloudItemsNote: (n) => `\u4EE5\u4E0B ${n} \u9879\u7531 AWS \u4E91\u5E73\u53F0\u8D1F\u8D23\uFF0C\u6839\u636E\u5B89\u5168\u8D23\u4EFB\u5171\u62C5\u6A21\u578B\u4E0D\u5728\u672C\u62A5\u544A\u68C0\u67E5\u8303\u56F4\u5185\u3002`,
+  mlpsFooterGenerated: (version) => `\u7531 AWS Security MCP Server v${version} \u751F\u6210`,
+  mlpsFooterDisclaimer: "\u672C\u62A5\u544A\u4E3A\u8BC1\u636E\u6536\u96C6\u53C2\u8003\uFF0C\u4E0D\u5305\u542B\u5408\u89C4\u5224\u5B9A\u3002\u5B8C\u6574\u7B49\u4FDD\u6D4B\u8BC4\u9700\u7531\u6301\u8BC1\u6D4B\u8BC4\u673A\u6784\u6267\u884C\u3002",
+  andMore: (n) => `... \u53CA\u5176\u4ED6 ${n} \u9879`,
+  remediationByPriority: "\u5EFA\u8BAE\u6574\u6539\u9879\uFF08\u6309\u4F18\u5148\u7EA7\uFF09",
+  mlpsCategorySection: {
+    "\u5B89\u5168\u7269\u7406\u73AF\u5883": "\u4E00\u3001\u5B89\u5168\u7269\u7406\u73AF\u5883",
+    "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC": "\u4E8C\u3001\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
+    "\u5B89\u5168\u533A\u57DF\u8FB9\u754C": "\u4E09\u3001\u5B89\u5168\u533A\u57DF\u8FB9\u754C",
+    "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883": "\u56DB\u3001\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
+    "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3": "\u4E94\u3001\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3"
+  },
+  // Service Recommendations
+  notEnabled: "\u672A\u542F\u7528",
+  serviceRecommendations: {
+    security_hub_findings: {
+      icon: "\u{1F534}",
+      service: "Security Hub",
+      impact: "\u65E0\u6CD5\u83B7\u53D6 300+ \u9879\u81EA\u52A8\u5316\u5B89\u5168\u68C0\u67E5\uFF08FSBP/CIS/PCI DSS \u6807\u51C6\uFF09",
+      action: "\u542F\u7528 Security Hub \u83B7\u5F97\u6700\u5168\u9762\u7684\u5B89\u5168\u6001\u52BF\u8BC4\u4F30"
+    },
+    guardduty_findings: {
+      icon: "\u{1F534}",
+      service: "GuardDuty",
+      impact: "\u65E0\u6CD5\u68C0\u6D4B\u5A01\u80C1\u6D3B\u52A8\uFF08\u6076\u610F IP\u3001\u5F02\u5E38 API \u8C03\u7528\u3001\u52A0\u5BC6\u8D27\u5E01\u6316\u77FF\u7B49\uFF09",
+      action: "\u542F\u7528 GuardDuty \u83B7\u5F97\u6301\u7EED\u5A01\u80C1\u68C0\u6D4B\u80FD\u529B"
+    },
+    inspector_findings: {
+      icon: "\u{1F7E1}",
+      service: "Inspector",
+      impact: "\u65E0\u6CD5\u626B\u63CF EC2/Lambda/\u5BB9\u5668\u7684\u8F6F\u4EF6\u6F0F\u6D1E\uFF08CVE\uFF09",
+      action: "\u542F\u7528 Inspector \u53D1\u73B0\u5DF2\u77E5\u5B89\u5168\u6F0F\u6D1E"
+    },
+    trusted_advisor_findings: {
+      icon: "\u{1F7E1}",
+      service: "Trusted Advisor",
+      impact: "\u65E0\u6CD5\u83B7\u53D6 AWS \u6700\u4F73\u5B9E\u8DF5\u5B89\u5168\u68C0\u67E5",
+      action: "\u5347\u7EA7\u81F3 Business/Enterprise Support \u8BA1\u5212\u4EE5\u4F7F\u7528 Trusted Advisor \u5B89\u5168\u68C0\u67E5"
+    },
+    config_rules_findings: {
+      icon: "\u{1F7E1}",
+      service: "AWS Config",
+      impact: "\u65E0\u6CD5\u68C0\u67E5\u8D44\u6E90\u914D\u7F6E\u5408\u89C4\u72B6\u6001",
+      action: "\u542F\u7528 AWS Config \u5E76\u914D\u7F6E Config Rules"
+    },
+    access_analyzer_findings: {
+      icon: "\u{1F7E1}",
+      service: "IAM Access Analyzer",
+      impact: "\u65E0\u6CD5\u68C0\u6D4B\u8D44\u6E90\u662F\u5426\u88AB\u5916\u90E8\u8D26\u53F7\u6216\u516C\u7F51\u8BBF\u95EE",
+      action: "\u521B\u5EFA IAM Access Analyzer\uFF08\u8D26\u6237\u7EA7\u6216\u7EC4\u7EC7\u7EA7\uFF09"
+    },
+    patch_compliance_findings: {
+      icon: "\u{1F7E1}",
+      service: "SSM Patch Manager",
+      impact: "\u65E0\u6CD5\u68C0\u67E5\u5B9E\u4F8B\u8865\u4E01\u5408\u89C4\u72B6\u6001",
+      action: "\u5B89\u88C5 SSM Agent \u5E76\u914D\u7F6E Patch Manager"
+    }
+  },
+  // HW Checklist (full composite)
+  hwChecklist: `
+\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+\u{1F4CB} \u62A4\u7F51\u884C\u52A8\u8865\u5145\u63D0\u9192\uFF08\u8D85\u51FA\u81EA\u52A8\u5316\u626B\u63CF\u8303\u56F4\uFF09
+\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+
+\u4EE5\u4E0B\u4E8B\u9879\u9700\u8981\u4EBA\u5DE5\u786E\u8BA4\u548C\u6267\u884C\uFF1A
+
+\u26A0\uFE0F \u5E94\u6025\u9694\u79BB/\u6B62\u8840\u65B9\u6848
+  \u25A1 \u51C6\u5907\u4E13\u7528\u9694\u79BB\u5B89\u5168\u7EC4\uFF08\u65E0 Inbound/Outbound \u89C4\u5219\uFF09
+  \u25A1 \u5236\u5B9A\u5B9E\u4F8B\u9694\u79BB SOP\uFF1A\u544A\u8B66 \u2192 \u6392\u67E5 \u2192 \u5C01\u9501\u653B\u51FBIP \u2192 \u7F51\u7EDC\u9694\u79BB \u2192 \u5B89\u5168\u5904\u7F6E \u2192 \u8BB0\u5F55\u653B\u51FB\u9879
+  \u25A1 \u660E\u786E\u5404\u7CFB\u7EDF\uFF08\u751F\u4EA7\u6838\u5FC3/\u751F\u4EA7\u975E\u6838\u5FC3/\u6D4B\u8BD5/\u5F00\u53D1\uFF09\u7684\u5E94\u6025\u5904\u7F6E\u65B9\u5F0F
+  \u25A1 \u660E\u786E\u5404\u9879\u76EE\u8D26\u6237\u53CA\u8D44\u6E90\u7684\u8D1F\u8D23\u4EBA\u4E0E\u8054\u7CFB\u65B9\u5F0F
+
+\u26A0\uFE0F \u6D4B\u8BD5/\u5F00\u53D1\u73AF\u5883\u5904\u7F6E
+  \u25A1 \u975E\u6838\u5FC3\u7CFB\u7EDF\u5728\u62A4\u7F51\u671F\u95F4\u5173\u95ED
+  \u25A1 \u6D4B\u8BD5/\u5F00\u53D1\u73AF\u5883\u5173\u95ED\u6216\u4E0E\u751F\u4EA7\u4FDD\u6301\u540C\u7B49\u5B89\u5168\u57FA\u7EBF
+  \u25A1 \u786E\u8BA4\u54EA\u4E9B\u73AF\u5883\u53EF\u4EE5\u7D27\u6025\u5173\u505C\uFF0C\u907F\u514D\u653B\u51FB\u6269\u6563
+
+\u26A0\uFE0F \u503C\u5B88\u56E2\u961F\u7EC4\u5EFA
+  \u25A1 7\xD724 \u76D1\u63A7\u5FEB\u901F\u54CD\u5E94\u56E2\u961F
+  \u25A1 \u6280\u672F\u4E0E\u98CE\u9669\u5206\u6790\u7EC4
+  \u25A1 \u5B89\u5168\u7B56\u7565\u4E0B\u53D1\u7EC4
+  \u25A1 \u4E1A\u52A1\u54CD\u5E94\u7EC4
+  \u25A1 \u660E\u786E AWS TAM/Support \u8054\u7CFB\u65B9\u5F0F\uFF08ES/EOP \u5BA2\u6237\uFF09
+
+\u26A0\uFE0F \u51FA\u5165\u7AD9\u8DEF\u5F84\u67B6\u6784\u56FE
+  \u25A1 \u786E\u4FDD\u6240\u6709\u4E92\u8054\u7F51/DX \u4E13\u7EBF\u51FA\u5165\u7AD9\u8DEF\u5F84\u5728\u67B6\u6784\u56FE\u4E2D\u6E05\u6670\u6807\u6CE8
+  \u25A1 \u660E\u786E\u5404 ELB/Public EC2/S3/DX \u7684\u6570\u636E\u6D41\u5411
+  \u25A1 \u8BC6\u522B\u6240\u6709\u9762\u5411\u4E92\u8054\u7F51\u7684\u6570\u636E\u4EA4\u4E92\u63A5\u53E3
+
+\u26A0\uFE0F \u4E3B\u52A8\u5F0F\u6E17\u900F\u6D4B\u8BD5
+  \u25A1 \u62A4\u7F51\u524D\u8054\u7CFB\u5B89\u5168\u5382\u5546\uFF08\u9752\u85E4/\u957F\u4EAD/\u5FAE\u6B65\u7B49\uFF09\u8FDB\u884C\u6A21\u62DF\u653B\u51FB\u6F14\u7EC3
+  \u25A1 \u57FA\u4E8E\u6E17\u900F\u6D4B\u8BD5\u62A5\u544A\u8FDB\u884C\u6B63\u5F0F\u62A4\u7F51\u524D\u7684\u5B89\u5168\u52A0\u56FA
+  \u25A1 \u5173\u6CE8 AWS \u5B89\u5168\u516C\u544A\uFF08\u5DF2\u77E5\u6F0F\u6D1E\u4E0E\u8865\u4E01\uFF09
+
+\u26A0\uFE0F WAR-ROOM \u5B9E\u65F6\u6C9F\u901A
+  \u25A1 \u521B\u5EFA\u62A4\u7F51\u671F\u95F4\u4E13\u7528\u6C9F\u901A\u6E20\u9053\uFF08\u4F01\u5FAE/\u9489\u9489/\u98DE\u4E66/Chime\uFF09
+  \u25A1 \u4E0E AWS TAM \u5EFA\u7ACB WAR-ROOM \u8054\u7CFB\uFF08\u4F01\u4E1A\u7EA7\u652F\u6301\u5BA2\u6237\uFF09
+  \u25A1 \u7EDF\u4E00\u6848\u4F8B\u6807\u9898\u683C\u5F0F\uFF1A\u201C\u3010\u62A4\u7F51\u3011+ \u95EE\u9898\u63CF\u8FF0\u201D
+
+\u26A0\uFE0F \u5BC6\u7801\u4E0E\u51ED\u8BC1\u7BA1\u7406
+  \u25A1 \u6240\u6709 IAM \u7528\u6237\u7ED1\u5B9A MFA
+  \u25A1 AKSK \u8F6E\u8F6C\u5468\u671F \u2264 90 \u5929
+  \u25A1 \u907F\u514D\u5171\u4EAB\u8D26\u6237\u4F7F\u7528
+  \u25A1 S3/Lambda/\u5E94\u7528\u4EE3\u7801\u4E2D\u65E0\u660E\u6587\u5BC6\u7801
+
+\u26A0\uFE0F \u62A4\u7F51\u540E\u4F18\u5316
+  \u25A1 \u9488\u5BF9\u653B\u51FB\u62A5\u544A\u9010\u9879\u5E94\u7B54\u4E0E\u4FEE\u590D
+  \u25A1 \u4E0E\u5B89\u5168\u56E2\u961F\u5EFA\u7ACB\u5468\u671F\u6027\u5B89\u5168\u7EF4\u62A4\u6D41\u7A0B
+  \u25A1 \u6301\u7EED\u8865\u5168\u5B89\u5168\u98CE\u9669
+
+\u53C2\u8003\uFF1AAWS \u62A4\u7F51\u884C\u52A8 Standard Operation Procedure (Compliance IEM)
+`
+};
+
+// src/i18n/en.ts
+var enI18n = {
+  // HTML Security Report
+  securityReportTitle: "AWS Security Scan Report",
+  securityScore: "Security Score",
+  critical: "Critical",
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+  scanStatistics: "Scan Statistics",
+  module: "Module",
+  resources: "Resources",
+  findings: "Findings",
+  status: "Status",
+  allFindings: "All Findings",
+  recommendations: "Recommendations",
+  unique: "unique",
+  showMore: "Show more",
+  noIssuesFound: "No security issues found.",
+  allModulesClean: "All modules clean",
+  generatedBy: "Generated by AWS Security MCP Server",
+  informationalOnly: "This report is for informational purposes only.",
+  // MLPS Report
+  mlpsTitle: "MLPS Level 3 Pre-Check Report",
+  mlpsDisclaimer: "This report is for MLPS Level 3 pre-check reference, providing cloud platform configuration check data and recommendations. Compliance determination (compliant/partially compliant/non-compliant) must be confirmed by a certified assessment institution. (GB/T 22239-2019 full checklist: 184 items)",
+  checkedItems: "Checked Items",
+  noIssues: "No Issues Found",
+  issuesFound: "Issues Found",
+  notChecked: "Not Checked",
+  cloudProvider: "Cloud Provider Responsible",
+  manualReview: "Manual Review Required",
+  notApplicable: "Not Applicable",
+  checkResult: "Check Result",
+  noRelatedIssues: "Check Result: No related issues found",
+  issuesFoundCount: (n) => `Check Result: Found ${n} related issue${n === 1 ? "" : "s"}`,
+  remediation: "Remediation",
+  remediationItems: (n) => `Remediation Items (${n} unique)`,
+  showRemaining: (n) => `Show remaining ${n} items`,
+  // HW Defense Checklist
+  hwChecklistTitle: "\u{1F4CB} Cyber Defense Drill Supplementary Reminders (Beyond Automated Scanning)",
+  hwChecklistSubtitle: "The following items require manual verification and execution:",
+  hwEmergencyIsolation: `\u26A0\uFE0F Emergency Isolation / Incident Response Plan
+  \u25A1 Prepare dedicated isolation security groups (no Inbound/Outbound rules)
+  \u25A1 Establish instance isolation SOP: Alert \u2192 Investigate \u2192 Block attacker IP \u2192 Network isolation \u2192 Security response \u2192 Log attack details
+  \u25A1 Define emergency response procedures for each system (production core/non-core/test/dev)
+  \u25A1 Identify responsible personnel and contacts for each project account and resource`,
+  hwTestEnvShutdown: `\u26A0\uFE0F Test/Development Environment Handling
+  \u25A1 Shut down non-critical systems during the drill period
+  \u25A1 Shut down test/dev environments or maintain same security baseline as production
+  \u25A1 Confirm which environments can be emergency-stopped to prevent attack propagation`,
+  hwDutyTeam: `\u26A0\uFE0F On-Duty Team Formation
+  \u25A1 7\xD724 monitoring and rapid response team
+  \u25A1 Technical and risk analysis team
+  \u25A1 Security policy deployment team
+  \u25A1 Business response team
+  \u25A1 Confirm AWS TAM/Support contact information (ES/EOP customers)`,
+  hwNetworkDiagram: `\u26A0\uFE0F Ingress/Egress Path Architecture Diagram
+  \u25A1 Ensure all Internet/DX dedicated line ingress/egress paths are clearly marked in architecture diagrams
+  \u25A1 Clarify data flow for each ELB/Public EC2/S3/DX
+  \u25A1 Identify all internet-facing data interaction interfaces`,
+  hwPentest: `\u26A0\uFE0F Proactive Penetration Testing
+  \u25A1 Contact security vendors for simulated attack drills before the exercise
+  \u25A1 Conduct security hardening based on penetration test reports
+  \u25A1 Monitor AWS security advisories (known vulnerabilities and patches)`,
+  hwWarRoom: `\u26A0\uFE0F WAR-ROOM Real-Time Communication
+  \u25A1 Create dedicated communication channels for the drill period (Teams/Slack/Chime)
+  \u25A1 Establish WAR-ROOM connection with AWS TAM (Enterprise Support customers)
+  \u25A1 Standardize case title format: "[CyberDrill] + Issue Description"`,
+  hwCredentials: `\u26A0\uFE0F Password & Credential Management
+  \u25A1 All IAM users must have MFA enabled
+  \u25A1 Access key rotation cycle \u2264 90 days
+  \u25A1 Avoid shared account usage
+  \u25A1 No plaintext passwords in S3/Lambda/application code`,
+  hwPostOptimization: `\u26A0\uFE0F Post-Drill Optimization
+  \u25A1 Address and remediate each item from the attack report
+  \u25A1 Establish periodic security maintenance processes with the security team
+  \u25A1 Continuously fill security risk gaps`,
+  hwReference: "Reference: AWS Cyber Defense Drill Standard Operation Procedure (Compliance IEM)",
+  // Service Reminders
+  serviceReminderTitle: "\u26A1 The following security services are not enabled; some checks cannot be performed:",
+  serviceReminderFooter: "Re-scan after enabling the above services for a more complete security assessment.",
+  serviceImpact: "Impact",
+  serviceAction: "Action",
+  // Common
+  account: "Account",
+  region: "Region",
+  scanTime: "Scan Time",
+  duration: "Duration",
+  severityDistribution: "Severity Distribution",
+  findingsByModule: "Findings by Module",
+  details: "Details",
+  // Extended \u2014 HTML Security Report extras
+  topHighestRiskFindings: (n) => `Top ${n} Highest Risk Findings`,
+  resource: "Resource",
+  impact: "Impact",
+  riskScore: "Risk Score",
+  showRemainingFindings: (n) => `Show remaining ${n} findings\u2026`,
+  trendTitle: "30-Day Trends",
+  findingsBySeverity: "Findings by Severity",
+  showMoreCount: (n) => `Show ${n} more\u2026`,
+  // Extended \u2014 MLPS extras
+  preCheckOverview: "Pre-Check Overview",
+  accountInfo: "Account Information",
+  checkedCount: (total, clean, issues) => `Checked: ${total} items (No issues: ${clean} | Issues found: ${issues})`,
+  uncheckedCount: (n) => `Not checked: ${n} items (corresponding scan modules not run)`,
+  cloudProviderCount: (n) => `Cloud provider responsible: ${n} items`,
+  manualReviewCount: (n) => `Manual review required: ${n} items`,
+  naCount: (n) => `Not applicable: ${n} items`,
+  naNote: (n) => `Not applicable: ${n} items (IoT/wireless networks/mobile terminals/ICS/trusted verification, etc.)`,
+  unknownNote: (n) => `(${n} items not checked \u2014 corresponding scan modules not run)`,
+  cloudItemsNote: (n) => `The following ${n} items are the responsibility of the AWS cloud platform and are outside the scope of this report per the shared responsibility model.`,
+  mlpsFooterGenerated: (version) => `Generated by AWS Security MCP Server v${version}`,
+  mlpsFooterDisclaimer: "This report is for evidence collection reference and does not include compliance determination. A complete MLPS assessment must be conducted by a certified assessment institution.",
+  andMore: (n) => `\u2026 and ${n} more`,
+  remediationByPriority: "Remediation Items (by Priority)",
+  mlpsCategorySection: {
+    "\u5B89\u5168\u7269\u7406\u73AF\u5883": "I. Physical Environment Security",
+    "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC": "II. Communication Network Security",
+    "\u5B89\u5168\u533A\u57DF\u8FB9\u754C": "III. Area Boundary Security",
+    "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883": "IV. Computing Environment Security",
+    "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3": "V. Security Management Center"
+  },
+  // Service Recommendations
+  notEnabled: "Not Enabled",
+  serviceRecommendations: {
+    security_hub_findings: {
+      icon: "\u{1F534}",
+      service: "Security Hub",
+      impact: "Cannot obtain 300+ automated security checks (FSBP/CIS/PCI DSS standards)",
+      action: "Enable Security Hub for the most comprehensive security posture assessment"
+    },
+    guardduty_findings: {
+      icon: "\u{1F534}",
+      service: "GuardDuty",
+      impact: "Cannot detect threat activity (malicious IPs, anomalous API calls, crypto mining, etc.)",
+      action: "Enable GuardDuty for continuous threat detection"
+    },
+    inspector_findings: {
+      icon: "\u{1F7E1}",
+      service: "Inspector",
+      impact: "Cannot scan EC2/Lambda/container software vulnerabilities (CVEs)",
+      action: "Enable Inspector to discover known security vulnerabilities"
+    },
+    trusted_advisor_findings: {
+      icon: "\u{1F7E1}",
+      service: "Trusted Advisor",
+      impact: "Cannot obtain AWS best practice security checks",
+      action: "Upgrade to Business/Enterprise Support plan to use Trusted Advisor security checks"
+    },
+    config_rules_findings: {
+      icon: "\u{1F7E1}",
+      service: "AWS Config",
+      impact: "Cannot check resource configuration compliance status",
+      action: "Enable AWS Config and configure Config Rules"
+    },
+    access_analyzer_findings: {
+      icon: "\u{1F7E1}",
+      service: "IAM Access Analyzer",
+      impact: "Cannot detect whether resources are accessed by external accounts or public networks",
+      action: "Create IAM Access Analyzer (account-level or organization-level)"
+    },
+    patch_compliance_findings: {
+      icon: "\u{1F7E1}",
+      service: "SSM Patch Manager",
+      impact: "Cannot check instance patch compliance status",
+      action: "Install SSM Agent and configure Patch Manager"
+    }
+  },
+  // HW Checklist (full composite)
+  hwChecklist: `
+\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+\u{1F4CB} Cyber Defense Drill Supplementary Reminders (Beyond Automated Scanning)
+\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+
+The following items require manual verification and execution:
+
+\u26A0\uFE0F Emergency Isolation / Incident Response Plan
+  \u25A1 Prepare dedicated isolation security groups (no Inbound/Outbound rules)
+  \u25A1 Establish instance isolation SOP: Alert \u2192 Investigate \u2192 Block attacker IP \u2192 Network isolation \u2192 Security response \u2192 Log attack details
+  \u25A1 Define emergency response procedures for each system (production core/non-core/test/dev)
+  \u25A1 Identify responsible personnel and contacts for each project account and resource
+
+\u26A0\uFE0F Test/Development Environment Handling
+  \u25A1 Shut down non-critical systems during the drill period
+  \u25A1 Shut down test/dev environments or maintain same security baseline as production
+  \u25A1 Confirm which environments can be emergency-stopped to prevent attack propagation
+
+\u26A0\uFE0F On-Duty Team Formation
+  \u25A1 7\xD724 monitoring and rapid response team
+  \u25A1 Technical and risk analysis team
+  \u25A1 Security policy deployment team
+  \u25A1 Business response team
+  \u25A1 Confirm AWS TAM/Support contact information (ES/EOP customers)
+
+\u26A0\uFE0F Ingress/Egress Path Architecture Diagram
+  \u25A1 Ensure all Internet/DX dedicated line ingress/egress paths are clearly marked in architecture diagrams
+  \u25A1 Clarify data flow for each ELB/Public EC2/S3/DX
+  \u25A1 Identify all internet-facing data interaction interfaces
+
+\u26A0\uFE0F Proactive Penetration Testing
+  \u25A1 Contact security vendors for simulated attack drills before the exercise
+  \u25A1 Conduct security hardening based on penetration test reports
+  \u25A1 Monitor AWS security advisories (known vulnerabilities and patches)
+
+\u26A0\uFE0F WAR-ROOM Real-Time Communication
+  \u25A1 Create dedicated communication channels for the drill period (Teams/Slack/Chime)
+  \u25A1 Establish WAR-ROOM connection with AWS TAM (Enterprise Support customers)
+  \u25A1 Standardize case title format: "[CyberDrill] + Issue Description"
+
+\u26A0\uFE0F Password & Credential Management
+  \u25A1 All IAM users must have MFA enabled
+  \u25A1 Access key rotation cycle \u2264 90 days
+  \u25A1 Avoid shared account usage
+  \u25A1 No plaintext passwords in S3/Lambda/application code
+
+\u26A0\uFE0F Post-Drill Optimization
+  \u25A1 Address and remediate each item from the attack report
+  \u25A1 Establish periodic security maintenance processes with the security team
+  \u25A1 Continuously fill security risk gaps
+
+Reference: AWS Cyber Defense Drill Standard Operation Procedure (Compliance IEM)
+`
+};
+
+// src/i18n/index.ts
+var translations = {
+  zh: zhI18n,
+  en: enI18n
+};
+function getI18n(lang = "zh") {
+  return translations[lang] ?? translations.zh;
+}
+
 // src/tools/mlps-report.ts
 function evaluateFullCheck(item, mapping, allFindings, scanModules) {
   if (mapping.type === "cloud_provider") {
@@ -7002,7 +7452,9 @@ function evaluateAllFullChecks(scanResults) {
     return evaluateFullCheck(item, mapping, allFindings, scanModules);
   });
 }
-function generateMlps3Report(scanResults) {
+function generateMlps3Report(scanResults, lang) {
+  const t = getI18n(lang ?? "zh");
+  const isEn = (lang ?? "zh") === "en";
   const { accountId, region, scanStart } = scanResults;
   const scanTime = scanStart.replace("T", " ").replace(/\.\d+Z$/, " UTC");
   const results = evaluateAllFullChecks(scanResults);
@@ -7014,27 +7466,28 @@ function generateMlps3Report(scanResults) {
   const cloudCount = results.filter((r) => r.status === "cloud_provider").length;
   const manualCount = results.filter((r) => r.status === "manual").length;
   const naCount = results.filter((r) => r.status === "not_applicable").length;
+  const itemControl = (r) => isEn ? r.item.controlEn : r.item.controlCn;
+  const itemReq = (r) => isEn ? r.item.requirementEn : r.item.requirementCn;
   const lines = [];
-  lines.push("# \u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0\u62A5\u544A");
-  lines.push("> **\u672C\u62A5\u544A\u4E3A\u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0\u53C2\u8003\uFF0C\u63D0\u4F9B\u4E91\u5E73\u53F0\u914D\u7F6E\u68C0\u67E5\u6570\u636E\u4E0E\u5EFA\u8BAE\u3002\u5408\u89C4\u5224\u5B9A\uFF08\u7B26\u5408/\u90E8\u5206\u7B26\u5408/\u4E0D\u7B26\u5408\uFF09\u9700\u7531\u6301\u8BC1\u6D4B\u8BC4\u673A\u6784\u6839\u636E\u5B9E\u9645\u60C5\u51B5\u786E\u8BA4\u3002**");
-  lines.push("> **\uFF08GB/T 22239-2019 \u5B8C\u6574\u68C0\u67E5\u6E05\u5355 184 \u9879\uFF09**");
+  lines.push(`# ${t.mlpsTitle}`);
+  lines.push(`> **${t.mlpsDisclaimer}**`);
   lines.push("");
-  lines.push("## \u8D26\u6237\u4FE1\u606F");
-  lines.push(`- Account: ${accountId} | Region: ${region} | \u626B\u63CF\u65F6\u95F4: ${scanTime}`);
+  lines.push(`## ${t.accountInfo}`);
+  lines.push(`- ${t.account}: ${accountId} | ${t.region}: ${region} | ${t.scanTime}: ${scanTime}`);
   lines.push("");
-  lines.push("## \u9884\u68C0\u603B\u89C8");
-  lines.push(`- \u5DF2\u68C0\u67E5: ${checkedTotal} \u9879\uFF08\u672A\u53D1\u73B0\u95EE\u9898: ${autoClean} \u9879 | \u53D1\u73B0\u95EE\u9898: ${autoIssues} \u9879\uFF09`);
+  lines.push(`## ${t.preCheckOverview}`);
+  lines.push(`- ${t.checkedCount(checkedTotal, autoClean, autoIssues)}`);
   if (autoUnknown > 0) {
-    lines.push(`- \u672A\u68C0\u67E5: ${autoUnknown} \u9879\uFF08\u5BF9\u5E94\u626B\u63CF\u6A21\u5757\u672A\u8FD0\u884C\uFF09`);
+    lines.push(`- ${t.uncheckedCount(autoUnknown)}`);
   }
-  lines.push(`- \u4E91\u5E73\u53F0\u8D1F\u8D23: ${cloudCount} \u9879`);
-  lines.push(`- \u9700\u4EBA\u5DE5\u8BC4\u4F30: ${manualCount} \u9879`);
+  lines.push(`- ${t.cloudProviderCount(cloudCount)}`);
+  lines.push(`- ${t.manualReviewCount(manualCount)}`);
   if (naCount > 0) {
-    lines.push(`- \u4E0D\u9002\u7528: ${naCount} \u9879`);
+    lines.push(`- ${t.naCount(naCount)}`);
   }
   lines.push("");
   for (const category of MLPS3_CATEGORY_ORDER) {
-    const sectionTitle = MLPS3_CATEGORY_SECTION[category];
+    const sectionTitle = t.mlpsCategorySection[category] ?? category;
     const catResults = results.filter(
       (r) => r.item.categoryCn === category && r.status !== "not_applicable"
     );
@@ -7047,18 +7500,20 @@ function generateMlps3Report(scanResults) {
       if (!controlMap.has(key)) controlMap.set(key, []);
       controlMap.get(key).push(r);
     }
-    for (const [controlName, controlResults] of controlMap) {
+    for (const [_controlKey, controlResults] of controlMap) {
+      const controlName = itemControl(controlResults[0]);
       lines.push(`### ${controlName}`);
       for (const r of controlResults) {
         const icon = r.status === "clean" ? "\u2705" : r.status === "issues" ? "\u274C" : r.status === "unknown" ? "\u26A0\uFE0F" : r.status === "manual" ? "\u{1F4CB}" : "\u{1F3E2}";
-        const suffix = r.status === "unknown" ? " \u2014 \u672A\u68C0\u67E5" : r.status === "manual" ? ` \u2014 ${r.mapping.guidance ?? "\u9700\u4EBA\u5DE5\u8BC4\u4F30"}` : r.status === "cloud_provider" ? ` \u2014 ${r.mapping.note ?? "\u4E91\u5E73\u53F0\u8D1F\u8D23"}` : r.status === "clean" ? " \u672A\u53D1\u73B0\u95EE\u9898" : " \u53D1\u73B0\u95EE\u9898";
-        lines.push(`- [${icon}] ${r.item.id} ${r.item.requirementCn.slice(0, 60)}${r.item.requirementCn.length > 60 ? "\u2026" : ""}${suffix}`);
+        const suffix = r.status === "unknown" ? ` \u2014 ${t.notChecked}` : r.status === "manual" ? ` \u2014 ${r.mapping.guidance ?? t.manualReview}` : r.status === "cloud_provider" ? ` \u2014 ${r.mapping.note ?? t.cloudProvider}` : r.status === "clean" ? ` ${t.noIssues}` : ` ${t.issuesFound}`;
+        const reqText = itemReq(r);
+        lines.push(`- [${icon}] ${r.item.id} ${reqText.slice(0, 60)}${reqText.length > 60 ? "\u2026" : ""}${suffix}`);
         if (r.status === "issues" && r.relatedFindings.length > 0) {
           for (const f of r.relatedFindings.slice(0, 3)) {
             lines.push(`  - ${f.severity}: ${f.title}`);
           }
           if (r.relatedFindings.length > 3) {
-            lines.push(`  - ... \u53CA\u5176\u4ED6 ${r.relatedFindings.length - 3} \u9879`);
+            lines.push(`  - ${t.andMore(r.relatedFindings.length - 3)}`);
           }
         }
       }
@@ -7067,7 +7522,7 @@ function generateMlps3Report(scanResults) {
   }
   const failedResults = results.filter((r) => r.status === "issues");
   if (failedResults.length > 0) {
-    lines.push("## \u5EFA\u8BAE\u6574\u6539\u9879\uFF08\u6309\u4F18\u5148\u7EA7\uFF09");
+    lines.push(`## ${t.remediationByPriority}`);
     lines.push("");
     const allFailedFindings = /* @__PURE__ */ new Map();
     for (const r of failedResults) {
@@ -7090,7 +7545,7 @@ function generateMlps3Report(scanResults) {
     lines.push("");
   }
   if (naCount > 0) {
-    lines.push(`> \u4E0D\u9002\u7528\u9879: ${naCount} \u9879\uFF08\u7269\u8054\u7F51/\u65E0\u7EBF\u7F51\u7EDC/\u79FB\u52A8\u7EC8\u7AEF/\u5DE5\u63A7\u7CFB\u7EDF/\u53EF\u4FE1\u9A8C\u8BC1\u7B49\uFF09`);
+    lines.push(`> ${t.naNote(naCount)}`);
     lines.push("");
   }
   return lines.join("\n");
@@ -7123,50 +7578,6 @@ function scoreColor(score) {
   if (score >= 50) return "#eab308";
   return "#ef4444";
 }
-var SERVICE_RECOMMENDATIONS = {
-  security_hub_findings: {
-    icon: "\u{1F534}",
-    service: "Security Hub",
-    impact: "\u65E0\u6CD5\u83B7\u53D6 300+ \u9879\u81EA\u52A8\u5316\u5B89\u5168\u68C0\u67E5\uFF08FSBP/CIS/PCI DSS \u6807\u51C6\uFF09",
-    action: "\u542F\u7528 Security Hub \u83B7\u5F97\u6700\u5168\u9762\u7684\u5B89\u5168\u6001\u52BF\u8BC4\u4F30"
-  },
-  guardduty_findings: {
-    icon: "\u{1F534}",
-    service: "GuardDuty",
-    impact: "\u65E0\u6CD5\u68C0\u6D4B\u5A01\u80C1\u6D3B\u52A8\uFF08\u6076\u610F IP\u3001\u5F02\u5E38 API \u8C03\u7528\u3001\u52A0\u5BC6\u8D27\u5E01\u6316\u77FF\u7B49\uFF09",
-    action: "\u542F\u7528 GuardDuty \u83B7\u5F97\u6301\u7EED\u5A01\u80C1\u68C0\u6D4B\u80FD\u529B"
-  },
-  inspector_findings: {
-    icon: "\u{1F7E1}",
-    service: "Inspector",
-    impact: "\u65E0\u6CD5\u626B\u63CF EC2/Lambda/\u5BB9\u5668\u7684\u8F6F\u4EF6\u6F0F\u6D1E\uFF08CVE\uFF09",
-    action: "\u542F\u7528 Inspector \u53D1\u73B0\u5DF2\u77E5\u5B89\u5168\u6F0F\u6D1E"
-  },
-  trusted_advisor_findings: {
-    icon: "\u{1F7E1}",
-    service: "Trusted Advisor",
-    impact: "\u65E0\u6CD5\u83B7\u53D6 AWS \u6700\u4F73\u5B9E\u8DF5\u5B89\u5168\u68C0\u67E5",
-    action: "\u5347\u7EA7\u81F3 Business/Enterprise Support \u8BA1\u5212\u4EE5\u4F7F\u7528 Trusted Advisor \u5B89\u5168\u68C0\u67E5"
-  },
-  config_rules_findings: {
-    icon: "\u{1F7E1}",
-    service: "AWS Config",
-    impact: "\u65E0\u6CD5\u68C0\u67E5\u8D44\u6E90\u914D\u7F6E\u5408\u89C4\u72B6\u6001",
-    action: "\u542F\u7528 AWS Config \u5E76\u914D\u7F6E Config Rules"
-  },
-  access_analyzer_findings: {
-    icon: "\u{1F7E1}",
-    service: "IAM Access Analyzer",
-    impact: "\u65E0\u6CD5\u68C0\u6D4B\u8D44\u6E90\u662F\u5426\u88AB\u5916\u90E8\u8D26\u53F7\u6216\u516C\u7F51\u8BBF\u95EE",
-    action: "\u521B\u5EFA IAM Access Analyzer\uFF08\u8D26\u6237\u7EA7\u6216\u7EC4\u7EC7\u7EA7\uFF09"
-  },
-  patch_compliance_findings: {
-    icon: "\u{1F7E1}",
-    service: "SSM Patch Manager",
-    impact: "\u65E0\u6CD5\u68C0\u67E5\u5B9E\u4F8B\u8865\u4E01\u5408\u89C4\u72B6\u6001",
-    action: "\u5B89\u88C5 SSM Agent \u5E76\u914D\u7F6E Patch Manager"
-  }
-};
 var SERVICE_NOT_ENABLED_PATTERNS = [
   "not enabled",
   "not found",
@@ -7176,10 +7587,11 @@ var SERVICE_NOT_ENABLED_PATTERNS = [
   "not available",
   "is not enabled"
 ];
-function getDisabledServices(modules) {
+function getDisabledServices(modules, lang) {
+  const t = getI18n(lang ?? "zh");
   const disabled = [];
   for (const mod of modules) {
-    const rec = SERVICE_RECOMMENDATIONS[mod.module];
+    const rec = t.serviceRecommendations[mod.module];
     if (!rec) continue;
     if (!mod.warnings?.length) continue;
     const hasNotEnabled = mod.warnings.some(
@@ -7191,21 +7603,22 @@ function getDisabledServices(modules) {
   }
   return disabled;
 }
-function buildServiceReminderHtml(modules) {
-  const disabled = getDisabledServices(modules);
+function buildServiceReminderHtml(modules, lang) {
+  const t = getI18n(lang ?? "zh");
+  const disabled = getDisabledServices(modules, lang);
   if (disabled.length === 0) return "";
   const items = disabled.map((svc) => `
     <div style="margin-bottom:12px">
-      <div style="font-weight:600;font-size:15px">${esc(svc.icon)} ${esc(svc.service)} \u672A\u542F\u7528</div>
-      <div style="margin-left:28px;color:#cbd5e1;font-size:13px">\u5F71\u54CD\uFF1A${esc(svc.impact)}</div>
-      <div style="margin-left:28px;color:#cbd5e1;font-size:13px">\u5EFA\u8BAE\uFF1A${esc(svc.action)}</div>
+      <div style="font-weight:600;font-size:15px">${esc(svc.icon)} ${esc(svc.service)} ${esc(t.notEnabled)}</div>
+      <div style="margin-left:28px;color:#cbd5e1;font-size:13px">${esc(t.serviceImpact)}\uFF1A${esc(svc.impact)}</div>
+      <div style="margin-left:28px;color:#cbd5e1;font-size:13px">${esc(t.serviceAction)}\uFF1A${esc(svc.action)}</div>
     </div>`).join("\n");
   return `
   <section>
     <div style="background:#2d1f00;border:1px solid #b45309;border-radius:8px;padding:20px;margin-bottom:32px">
-      <div style="font-size:17px;font-weight:700;margin-bottom:12px">&#9889; \u4EE5\u4E0B\u5B89\u5168\u670D\u52A1\u672A\u542F\u7528\uFF0C\u90E8\u5206\u68C0\u67E5\u65E0\u6CD5\u6267\u884C\uFF1A</div>
+      <div style="font-size:17px;font-weight:700;margin-bottom:12px">${esc(t.serviceReminderTitle)}</div>
       ${items}
-      <div style="margin-top:12px;font-size:13px;color:#fbbf24;font-weight:500">\u542F\u7528\u4EE5\u4E0A\u670D\u52A1\u540E\u91CD\u65B0\u626B\u63CF\u53EF\u83B7\u5F97\u66F4\u5B8C\u6574\u7684\u5B89\u5168\u8BC4\u4F30\u3002</div>
+      <div style="margin-top:12px;font-size:13px;color:#fbbf24;font-weight:500">${esc(t.serviceReminderFooter)}</div>
     </div>
   </section>`;
 }
@@ -7407,12 +7820,12 @@ function donutChart(summary) {
     "</svg>"
   ].join("\n");
 }
-function barChart(modules) {
+function barChart(modules, allCleanLabel = "All modules clean") {
   const withFindings = modules.filter((m) => m.findingsCount > 0).sort((a, b) => b.findingsCount - a.findingsCount).slice(0, 12);
   if (withFindings.length === 0) {
     return [
       '<svg viewBox="0 0 400 50" width="100%">',
-      '  <text x="200" y="30" text-anchor="middle" fill="#22c55e" font-size="14" font-weight="600">All modules clean</text>',
+      `  <text x="200" y="30" text-anchor="middle" fill="#22c55e" font-size="14" font-weight="600">${esc(allCleanLabel)}</text>`,
       "</svg>"
     ].join("\n");
   }
@@ -7527,7 +7940,9 @@ function scoreTrendChart(history) {
     "</svg>"
   ].join("\n");
 }
-function generateHtmlReport(scanResults, history) {
+function generateHtmlReport(scanResults, history, lang) {
+  const t = getI18n(lang ?? "en");
+  const htmlLang = (lang ?? "en") === "zh" ? "zh-CN" : "en";
   const { summary, modules, accountId, region, scanStart, scanEnd } = scanResults;
   const date = scanStart.split("T")[0];
   const duration = formatDuration2(scanStart, scanEnd);
@@ -7545,23 +7960,23 @@ function generateHtmlReport(scanResults, history) {
         <div class="top5-content">
           <span class="badge badge-${esc(f.severity.toLowerCase())}">${esc(f.severity)}</span>
           <div class="top5-title">${esc(f.title)}</div>
-          <div class="top5-detail"><strong>Resource:</strong> ${esc(f.resourceId)}</div>
-          <div class="top5-detail"><strong>Impact:</strong> ${esc(f.impact)}</div>
-          <div class="top5-detail"><strong>Risk Score:</strong> ${f.riskScore}/10</div>
-          <h4>Remediation</h4>
+          <div class="top5-detail"><strong>${t.resource}:</strong> ${esc(f.resourceId)}</div>
+          <div class="top5-detail"><strong>${t.impact}:</strong> ${esc(f.impact)}</div>
+          <div class="top5-detail"><strong>${t.riskScore}:</strong> ${f.riskScore}/10</div>
+          <h4>${t.remediation}</h4>
           <ol class="top5-remediation">${f.remediationSteps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
         </div>
       </div>`
     ).join("\n");
     top5Html = `
     <section>
-      <h2>Top ${top5.length} Highest Risk Findings</h2>
+      <h2>${esc(t.topHighestRiskFindings(top5.length))}</h2>
       ${cards}
     </section>`;
   }
   let findingsHtml;
   if (summary.totalFindings === 0) {
-    findingsHtml = '<div class="no-findings">No security issues found.</div>';
+    findingsHtml = `<div class="no-findings">${esc(t.noIssuesFound)}</div>`;
   } else {
     const FOLD_THRESHOLD = 20;
     const renderCard = (f) => {
@@ -7570,9 +7985,9 @@ function generateHtmlReport(scanResults, history) {
         <span class="badge badge-${esc(sev)}">${esc(f.severity)}</span>
         <span class="finding-title-text">${esc(f.title)}</span>
         <span class="finding-resource">${esc(f.resourceArn || f.resourceId)}</span>
-        <details><summary>Details</summary><div class="finding-card-body">
+        <details><summary>${t.details}</summary><div class="finding-card-body">
           <p>${esc(f.description)}</p>
-          <p><strong>Remediation:</strong></p>
+          <p><strong>${t.remediation}:</strong></p>
           <ol>${f.remediationSteps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
         </div></details>
       </div>`;
@@ -7584,7 +7999,7 @@ function generateHtmlReport(scanResults, history) {
       const first = findings.slice(0, FOLD_THRESHOLD).map(renderCard).join("\n");
       const rest = findings.slice(FOLD_THRESHOLD).map(renderCard).join("\n");
       return `${first}
-<details><summary>Show remaining ${findings.length - FOLD_THRESHOLD} findings...</summary>
+<details><summary>${t.showRemainingFindings(findings.length - FOLD_THRESHOLD)}</summary>
 ${rest}
 </details>`;
     };
@@ -7636,13 +8051,13 @@ ${rest}
   if (history && history.length >= 2) {
     trendHtml = `
     <section class="trend-section">
-      <h2>30-Day Trends</h2>
+      <h2>${esc(t.trendTitle)}</h2>
       <div class="trend-chart">
-        <div class="trend-title">Findings by Severity</div>
+        <div class="trend-title">${esc(t.findingsBySeverity)}</div>
         ${findingsTrendChart(history)}
       </div>
       <div class="trend-chart">
-        <div class="trend-title">Security Score</div>
+        <div class="trend-title">${esc(t.securityScore)}</div>
         ${scoreTrendChart(history)}
       </div>
     </section>`;
@@ -7679,54 +8094,54 @@ ${rest}
     const topItems = uniqueRecs.slice(0, TOP_N).map(renderRec).join("\n");
     const remaining = uniqueRecs.slice(TOP_N);
     const moreHtml = remaining.length > 0 ? `
-<details><summary>Show ${remaining.length} more&hellip;</summary>
+<details><summary>${t.showMoreCount(remaining.length)}</summary>
 ${remaining.map(renderRec).join("\n")}
 </details>` : "";
     recsHtml = `
       <details class="rec-fold">
-        <summary><h2 style="margin:0;border:0;display:inline">Recommendations (${uniqueRecs.length} unique)</h2></summary>
+        <summary><h2 style="margin:0;border:0;display:inline">${esc(t.recommendations)} (${uniqueRecs.length} ${esc(t.unique)})</h2></summary>
         <div class="rec-body">
           <ol>${topItems}${moreHtml}</ol>
         </div>
       </details>`;
   }
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${htmlLang}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AWS Security Scan Report &mdash; ${esc(date)}</title>
+<title>${esc(t.securityReportTitle)} &mdash; ${esc(date)}</title>
 <style>${sharedCss()}</style>
 </head>
 <body>
 <div class="container">
 
 <header>
-  <h1>&#128737;&#65039; AWS Security Scan Report</h1>
-  <div class="meta">Account: ${esc(accountId)} | Region: ${esc(region)} | ${esc(date)} | Duration: ${esc(duration)}</div>
+  <h1>&#128737;&#65039; ${esc(t.securityReportTitle)}</h1>
+  <div class="meta">${esc(t.account)}: ${esc(accountId)} | ${esc(t.region)}: ${esc(region)} | ${esc(date)} | ${esc(t.duration)}: ${esc(duration)}</div>
 </header>
 
 <section class="summary">
   <div class="score-card">
     <div class="score-value" style="color:${scoreColor(score)}">${score}</div>
-    <div class="score-label">Security Score</div>
+    <div class="score-label">${esc(t.securityScore)}</div>
   </div>
   <div class="severity-stats">
-    <div class="stat-card stat-critical"><div class="stat-count">${summary.critical}</div><div class="stat-label">Critical</div></div>
-    <div class="stat-card stat-high"><div class="stat-count">${summary.high}</div><div class="stat-label">High</div></div>
-    <div class="stat-card stat-medium"><div class="stat-count">${summary.medium}</div><div class="stat-label">Medium</div></div>
-    <div class="stat-card stat-low"><div class="stat-count">${summary.low}</div><div class="stat-label">Low</div></div>
+    <div class="stat-card stat-critical"><div class="stat-count">${summary.critical}</div><div class="stat-label">${esc(t.critical)}</div></div>
+    <div class="stat-card stat-high"><div class="stat-count">${summary.high}</div><div class="stat-label">${esc(t.high)}</div></div>
+    <div class="stat-card stat-medium"><div class="stat-count">${summary.medium}</div><div class="stat-label">${esc(t.medium)}</div></div>
+    <div class="stat-card stat-low"><div class="stat-count">${summary.low}</div><div class="stat-label">${esc(t.low)}</div></div>
   </div>
 </section>
 
 <section class="charts">
   <div class="chart-box">
-    <div class="chart-title">Severity Distribution</div>
+    <div class="chart-title">${esc(t.severityDistribution)}</div>
     <div style="text-align:center">${donutChart(summary)}</div>
   </div>
   <div class="chart-box">
-    <div class="chart-title">Findings by Module</div>
-    ${barChart(modules)}
+    <div class="chart-title">${esc(t.findingsByModule)}</div>
+    ${barChart(modules, t.allModulesClean)}
   </div>
 </section>
 
@@ -7734,33 +8149,35 @@ ${trendHtml}
 
 ${top5Html}
 
-${buildServiceReminderHtml(modules)}
+${buildServiceReminderHtml(modules, lang)}
 
 <section>
-  <h2>Scan Statistics</h2>
+  <h2>${esc(t.scanStatistics)}</h2>
   <table>
-    <thead><tr><th>Module</th><th>Resources</th><th>Findings</th><th>Status</th></tr></thead>
+    <thead><tr><th>${esc(t.module)}</th><th>${esc(t.resources)}</th><th>${esc(t.findings)}</th><th>${esc(t.status)}</th></tr></thead>
     <tbody>${statsRows}</tbody>
   </table>
 </section>
 
 <section>
-  <h2>All Findings</h2>
+  <h2>${esc(t.allFindings)}</h2>
   ${findingsHtml}
 </section>
 
 ${recsHtml}
 
 <footer>
-  <p>Generated by AWS Security MCP Server v${VERSION}</p>
-  <p>This report is for informational purposes only.</p>
+  <p>${esc(t.generatedBy)} v${VERSION}</p>
+  <p>${esc(t.informationalOnly)}</p>
 </footer>
 
 </div>
 </body>
 </html>`;
 }
-function generateMlps3HtmlReport(scanResults, history) {
+function generateMlps3HtmlReport(scanResults, history, lang) {
+  const t = getI18n(lang ?? "zh");
+  const htmlLang = (lang ?? "zh") === "zh" ? "zh-CN" : "en";
   const { accountId, region, scanStart } = scanResults;
   const date = scanStart.split("T")[0];
   const scanTime = scanStart.replace("T", " ").replace(/\.\d+Z$/, " UTC");
@@ -7777,17 +8194,21 @@ function generateMlps3HtmlReport(scanResults, history) {
   if (history && history.length >= 2) {
     trendHtml = `
     <section class="trend-section">
-      <h2>30\u65E5\u8D8B\u52BF</h2>
+      <h2>${esc(t.trendTitle)}</h2>
       <div class="trend-chart">
-        <div class="trend-title">\u6309\u4E25\u91CD\u6027\u5206\u7C7B\u7684\u53D1\u73B0</div>
+        <div class="trend-title">${esc(t.findingsBySeverity)}</div>
         ${findingsTrendChart(history)}
       </div>
       <div class="trend-chart">
-        <div class="trend-title">\u5B89\u5168\u8BC4\u5206</div>
+        <div class="trend-title">${esc(t.securityScore)}</div>
         ${scoreTrendChart(history)}
       </div>
     </section>`;
   }
+  const isEn = (lang ?? "zh") === "en";
+  const itemCat = (r) => isEn ? r.item.categoryEn : r.item.categoryCn;
+  const itemControl = (r) => isEn ? r.item.controlEn : r.item.controlCn;
+  const itemReq = (r) => isEn ? r.item.requirementEn : r.item.requirementCn;
   const categoryMap = /* @__PURE__ */ new Map();
   for (const r of results) {
     if (r.status === "not_applicable") continue;
@@ -7796,7 +8217,7 @@ function generateMlps3HtmlReport(scanResults, history) {
     categoryMap.get(cat).push(r);
   }
   const categorySections = MLPS3_CATEGORY_ORDER.map((category) => {
-    const sectionTitle = MLPS3_CATEGORY_SECTION[category];
+    const sectionTitle = t.mlpsCategorySection[category] ?? category;
     const catResults = categoryMap.get(category);
     if (!catResults || catResults.length === 0) return "";
     const allCloud = catResults.every((r) => r.status === "cloud_provider");
@@ -7804,11 +8225,11 @@ function generateMlps3HtmlReport(scanResults, history) {
       return `<details class="category-fold mlps-cloud-section">
   <summary>
     <span class="category-title">${esc(sectionTitle)}</span>
-    <span class="category-stats"><span class="category-stat-cloud">\u{1F3E2} ${catResults.length} \u9879\u4E91\u5E73\u53F0\u8D1F\u8D23</span></span>
+    <span class="category-stats"><span class="category-stat-cloud">\u{1F3E2} ${catResults.length} ${esc(t.cloudProvider)}</span></span>
   </summary>
   <div class="category-body">
-    <div class="mlps-cloud-note">\u4EE5\u4E0B ${catResults.length} \u9879\u7531 AWS \u4E91\u5E73\u53F0\u8D1F\u8D23\uFF0C\u6839\u636E\u5B89\u5168\u8D23\u4EFB\u5171\u62C5\u6A21\u578B\u4E0D\u5728\u672C\u62A5\u544A\u68C0\u67E5\u8303\u56F4\u5185\u3002</div>
-    ${catResults.map((r) => `<div class="check-item check-cloud"><span class="check-icon">\u{1F3E2}</span><span class="check-name">${esc(r.item.id)} ${esc(r.item.controlCn)}</span><span class="check-note">${esc(r.mapping.note ?? "")}</span></div>`).join("\n")}
+    <div class="mlps-cloud-note">${esc(t.cloudItemsNote(catResults.length))}</div>
+    ${catResults.map((r) => `<div class="check-item check-cloud"><span class="check-icon">\u{1F3E2}</span><span class="check-name">${esc(r.item.id)} ${esc(itemControl(r))}</span><span class="check-note">${esc(r.mapping.note ?? "")}</span></div>`).join("\n")}
   </div>
 </details>`;
     }
@@ -7830,31 +8251,34 @@ function generateMlps3HtmlReport(scanResults, history) {
       if (!controlMap.has(key)) controlMap.set(key, []);
       controlMap.get(key).push(r);
     }
-    const controlGroups = [...controlMap.entries()].map(([controlName, controlResults]) => {
+    const controlGroups = [...controlMap.entries()].map(([_controlKey, controlResults]) => {
+      const controlName = itemControl(controlResults[0]);
       const cloudItems = controlResults.filter((r) => r.status === "cloud_provider");
       const nonCloudItems = controlResults.filter((r) => r.status !== "cloud_provider");
       let itemsHtml = "";
       for (const r of nonCloudItems) {
         const icon = r.status === "clean" ? "\u{1F7E2}" : r.status === "issues" ? "\u{1F534}" : r.status === "unknown" ? "\u2B1C" : r.status === "manual" ? "\u{1F4CB}" : "\u{1F3E2}";
         const cls = `check-${r.status === "cloud_provider" ? "cloud" : r.status}`;
-        const suffix = r.status === "unknown" ? " \u2014 \u672A\u68C0\u67E5" : r.status === "manual" ? ` \u2014 ${esc(r.mapping.guidance ?? "\u9700\u4EBA\u5DE5\u8BC4\u4F30")}` : "";
+        const suffix = r.status === "unknown" ? ` \u2014 ${esc(t.notChecked)}` : r.status === "manual" ? ` \u2014 ${esc(r.mapping.guidance ?? t.manualReview)}` : "";
         let findingsDetail = "";
         if (r.status === "clean") {
-          findingsDetail = `<div class="check-detail">\u68C0\u67E5\u7ED3\u679C\uFF1A\u672A\u53D1\u73B0\u76F8\u5173\u95EE\u9898</div>`;
+          findingsDetail = `<div class="check-detail">${esc(t.noRelatedIssues)}</div>`;
         } else if (r.status === "issues" && r.relatedFindings.length > 0) {
           const fItems = r.relatedFindings.slice(0, 5).map((f) => `<li>${esc(f.severity)}: ${esc(f.title)}</li>`);
           if (r.relatedFindings.length > 5) {
-            fItems.push(`<li>... \u53CA\u5176\u4ED6 ${r.relatedFindings.length - 5} \u9879</li>`);
+            fItems.push(`<li>${esc(t.andMore(r.relatedFindings.length - 5))}</li>`);
           }
-          const remediationHint = r.relatedFindings[0]?.remediationSteps?.[0] ? `<p style="color:#fbbf24;font-size:12px;margin-top:4px">\u5EFA\u8BAE\uFF1A${esc(r.relatedFindings[0].remediationSteps[0])}</p>` : "";
-          findingsDetail = `<div class="check-findings-wrap"><details><summary>\u68C0\u67E5\u7ED3\u679C\uFF1A\u53D1\u73B0 ${r.relatedFindings.length} \u4E2A\u76F8\u5173\u95EE\u9898</summary><ul class="check-findings">${fItems.join("")}</ul>${remediationHint}</details></div>`;
+          const remediationHint = r.relatedFindings[0]?.remediationSteps?.[0] ? `<p style="color:#fbbf24;font-size:12px;margin-top:4px">${esc(t.remediation)}\uFF1A${esc(r.relatedFindings[0].remediationSteps[0])}</p>` : "";
+          findingsDetail = `<div class="check-findings-wrap"><details><summary>${esc(t.issuesFoundCount(r.relatedFindings.length))}</summary><ul class="check-findings">${fItems.join("")}</ul>${remediationHint}</details></div>`;
         }
-        itemsHtml += `<div class="check-item ${cls}"><span class="check-icon">${icon}</span><span class="check-name">${esc(r.item.id)} ${esc(r.item.requirementCn.slice(0, 60))}${r.item.requirementCn.length > 60 ? "\u2026" : ""}${suffix}</span></div>
+        const reqText = itemReq(r);
+        itemsHtml += `<div class="check-item ${cls}"><span class="check-icon">${icon}</span><span class="check-name">${esc(r.item.id)} ${esc(reqText.slice(0, 60))}${reqText.length > 60 ? "\u2026" : ""}${suffix}</span></div>
 ${findingsDetail}`;
       }
       if (cloudItems.length > 0) {
         for (const r of cloudItems) {
-          itemsHtml += `<div class="check-item check-cloud"><span class="check-icon">\u{1F3E2}</span><span class="check-name">${esc(r.item.id)} ${esc(r.item.requirementCn.slice(0, 50))}${r.item.requirementCn.length > 50 ? "\u2026" : ""}</span><span class="check-note">\u4E91\u5E73\u53F0\u8D1F\u8D23</span></div>
+          const reqText = itemReq(r);
+          itemsHtml += `<div class="check-item check-cloud"><span class="check-icon">\u{1F3E2}</span><span class="check-name">${esc(r.item.id)} ${esc(reqText.slice(0, 50))}${reqText.length > 50 ? "\u2026" : ""}</span><span class="check-note">${esc(t.cloudProvider)}</span></div>
 `;
         }
       }
@@ -7916,20 +8340,20 @@ ${itemsHtml}
       const mlpsTopItems = mlpsUniqueRecs.slice(0, MLPS_TOP_N).map(renderMlpsRec).join("\n");
       const mlpsRemaining = mlpsUniqueRecs.slice(MLPS_TOP_N);
       const mlpsMoreHtml = mlpsRemaining.length > 0 ? `
-<details><summary>\u663E\u793A\u5176\u4F59 ${mlpsRemaining.length} \u9879&hellip;</summary>
+<details><summary>${esc(t.showRemaining(mlpsRemaining.length))}&hellip;</summary>
 ${mlpsRemaining.map(renderMlpsRec).join("\n")}
 </details>` : "";
       remediationHtml = `
         <details class="rec-fold" open>
-          <summary><h2 style="margin:0;border:0;display:inline">\u5EFA\u8BAE\u6574\u6539\u9879\uFF08${mlpsUniqueRecs.length} \u9879\u53BB\u91CD\uFF09</h2></summary>
+          <summary><h2 style="margin:0;border:0;display:inline">${esc(t.remediationItems(mlpsUniqueRecs.length))}</h2></summary>
           <div class="rec-body">
             <ol>${mlpsTopItems}${mlpsMoreHtml}</ol>
           </div>
         </details>`;
     }
   }
-  const naNote = naCount > 0 ? `<p style="color:#64748b;font-size:13px;margin-top:24px">\u4E0D\u9002\u7528\u9879: ${naCount} \u9879\uFF08\u7269\u8054\u7F51/\u65E0\u7EBF\u7F51\u7EDC/\u79FB\u52A8\u7EC8\u7AEF/\u5DE5\u63A7\u7CFB\u7EDF/\u53EF\u4FE1\u9A8C\u8BC1\u7B49\uFF09</p>` : "";
-  const unknownNote = autoUnknown > 0 ? `<div style="color:#94a3b8;font-size:12px;margin-top:8px">\uFF08${autoUnknown} \u9879\u672A\u68C0\u67E5\uFF0C\u5BF9\u5E94\u626B\u63CF\u6A21\u5757\u672A\u8FD0\u884C\uFF09</div>` : "";
+  const naNote = naCount > 0 ? `<p style="color:#64748b;font-size:13px;margin-top:24px">${esc(t.naNote(naCount))}</p>` : "";
+  const unknownNote = autoUnknown > 0 ? `<div style="color:#94a3b8;font-size:12px;margin-top:8px">${esc(t.unknownNote(autoUnknown))}</div>` : "";
   const mlpsCss = `
     .mlps-cloud-section>summary{color:#94a3b8}
     .mlps-cloud-note{color:#94a3b8;font-size:13px;margin-bottom:12px;font-style:italic}
@@ -7951,40 +8375,40 @@ ${mlpsRemaining.map(renderMlpsRec).join("\n")}
     .mlps-summary-card .stat-label{font-size:12px;color:#94a3b8;margin-top:2px}
   `;
   return `<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="${htmlLang}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>\u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0\u62A5\u544A &mdash; ${esc(date)}</title>
+<title>${esc(t.mlpsTitle)} &mdash; ${esc(date)}</title>
 <style>${sharedCss()}${mlpsCss}</style>
 </head>
 <body>
 <div class="container">
 
 <header>
-  <h1>&#128737;&#65039; \u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0\u62A5\u544A</h1>
-  <div class="disclaimer">\u672C\u62A5\u544A\u4E3A\u7B49\u4FDD\u4E09\u7EA7\u9884\u68C0\u53C2\u8003\uFF0C\u63D0\u4F9B\u4E91\u5E73\u53F0\u914D\u7F6E\u68C0\u67E5\u6570\u636E\u4E0E\u5EFA\u8BAE\u3002\u5408\u89C4\u5224\u5B9A\uFF08\u7B26\u5408/\u90E8\u5206\u7B26\u5408/\u4E0D\u7B26\u5408\uFF09\u9700\u7531\u6301\u8BC1\u6D4B\u8BC4\u673A\u6784\u6839\u636E\u5B9E\u9645\u60C5\u51B5\u786E\u8BA4\u3002\uFF08GB/T 22239-2019 \u5B8C\u6574\u68C0\u67E5\u6E05\u5355 184 \u9879\uFF09</div>
-  <div class="meta">\u8D26\u6237: ${esc(accountId)} | \u533A\u57DF: ${esc(region)} | \u626B\u63CF\u65F6\u95F4: ${esc(scanTime)}</div>
+  <h1>&#128737;&#65039; ${esc(t.mlpsTitle)}</h1>
+  <div class="disclaimer">${esc(t.mlpsDisclaimer)}</div>
+  <div class="meta">${esc(t.account)}: ${esc(accountId)} | ${esc(t.region)}: ${esc(region)} | ${esc(t.scanTime)}: ${esc(scanTime)}</div>
 </header>
 
 <section class="summary" style="display:block;text-align:center">
   <div style="font-size:36px;font-weight:700;margin-bottom:12px">
-    <span style="color:#22c55e">${autoClean}</span> <span style="color:#94a3b8;font-size:18px">\u672A\u53D1\u73B0\u95EE\u9898</span>
+    <span style="color:#22c55e">${autoClean}</span> <span style="color:#94a3b8;font-size:18px">${esc(t.noIssues)}</span>
     <span style="color:#475569;margin:0 16px">/</span>
-    <span style="color:#ef4444">${autoIssues}</span> <span style="color:#94a3b8;font-size:18px">\u53D1\u73B0\u95EE\u9898</span>
+    <span style="color:#ef4444">${autoIssues}</span> <span style="color:#94a3b8;font-size:18px">${esc(t.issuesFound)}</span>
   </div>
   <div class="mlps-summary-cards" style="justify-content:center">
-    <div class="mlps-summary-card"><div class="stat-count" style="color:#60a5fa">${checkedTotal}</div><div class="stat-label">\u5DF2\u68C0\u67E5\u9879</div></div>
-    <div class="mlps-summary-card"><div class="stat-count" style="color:#94a3b8">${cloudCount}</div><div class="stat-label">\u{1F3E2} \u4E91\u5E73\u53F0\u8D1F\u8D23</div></div>
-    <div class="mlps-summary-card"><div class="stat-count" style="color:#eab308">${manualCount}</div><div class="stat-label">\u{1F4CB} \u9700\u4EBA\u5DE5\u8BC4\u4F30</div></div>
-    ${naCount > 0 ? `<div class="mlps-summary-card"><div class="stat-count" style="color:#64748b">${naCount}</div><div class="stat-label">\u2796 \u4E0D\u9002\u7528</div></div>` : ""}
+    <div class="mlps-summary-card"><div class="stat-count" style="color:#60a5fa">${checkedTotal}</div><div class="stat-label">${esc(t.checkedItems)}</div></div>
+    <div class="mlps-summary-card"><div class="stat-count" style="color:#94a3b8">${cloudCount}</div><div class="stat-label">\u{1F3E2} ${esc(t.cloudProvider)}</div></div>
+    <div class="mlps-summary-card"><div class="stat-count" style="color:#eab308">${manualCount}</div><div class="stat-label">\u{1F4CB} ${esc(t.manualReview)}</div></div>
+    ${naCount > 0 ? `<div class="mlps-summary-card"><div class="stat-count" style="color:#64748b">${naCount}</div><div class="stat-label">\u2796 ${esc(t.notApplicable)}</div></div>` : ""}
   </div>
 </section>
 ${unknownNote}
 
 ${trendHtml}
 
-${buildServiceReminderHtml(scanResults.modules)}
+${buildServiceReminderHtml(scanResults.modules, lang)}
 
 ${categorySections}
 
@@ -7993,8 +8417,8 @@ ${remediationHtml}
 ${naNote}
 
 <footer>
-  <p>\u7531 AWS Security MCP Server v${VERSION} \u751F\u6210</p>
-  <p>\u672C\u62A5\u544A\u4E3A\u8BC1\u636E\u6536\u96C6\u53C2\u8003\uFF0C\u4E0D\u5305\u542B\u5408\u89C4\u5224\u5B9A\u3002\u5B8C\u6574\u7B49\u4FDD\u6D4B\u8BC4\u9700\u7531\u6301\u8BC1\u6D4B\u8BC4\u673A\u6784\u6267\u884C\u3002</p>
+  <p>${esc(t.mlpsFooterGenerated(VERSION))}</p>
+  <p>${esc(t.mlpsFooterDisclaimer)}</p>
 </footer>
 
 </div>
@@ -8360,103 +8784,9 @@ var MODULE_DESCRIPTIONS = {
   imdsv2_enforcement: "Checks if EC2 instances enforce IMDSv2 (HttpTokens: required) \u2014 IMDSv1 allows credential theft via SSRF.",
   waf_coverage: "Checks if internet-facing ALBs have WAF Web ACL associated for protection against common web exploits."
 };
-var HW_DEFENSE_CHECKLIST = `
-\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
-\u{1F4CB} \u62A4\u7F51\u884C\u52A8\u8865\u5145\u63D0\u9192\uFF08\u8D85\u51FA\u81EA\u52A8\u5316\u626B\u63CF\u8303\u56F4\uFF09
-\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
-
-\u4EE5\u4E0B\u4E8B\u9879\u9700\u8981\u4EBA\u5DE5\u786E\u8BA4\u548C\u6267\u884C\uFF1A
-
-\u26A0\uFE0F \u5E94\u6025\u9694\u79BB/\u6B62\u8840\u65B9\u6848
-  \u25A1 \u51C6\u5907\u4E13\u7528\u9694\u79BB\u5B89\u5168\u7EC4\uFF08\u65E0 Inbound/Outbound \u89C4\u5219\uFF09
-  \u25A1 \u5236\u5B9A\u5B9E\u4F8B\u9694\u79BB SOP\uFF1A\u544A\u8B66 \u2192 \u6392\u67E5 \u2192 \u5C01\u9501\u653B\u51FBIP \u2192 \u7F51\u7EDC\u9694\u79BB \u2192 \u5B89\u5168\u5904\u7F6E \u2192 \u8BB0\u5F55\u653B\u51FB\u9879
-  \u25A1 \u660E\u786E\u5404\u7CFB\u7EDF\uFF08\u751F\u4EA7\u6838\u5FC3/\u751F\u4EA7\u975E\u6838\u5FC3/\u6D4B\u8BD5/\u5F00\u53D1\uFF09\u7684\u5E94\u6025\u5904\u7F6E\u65B9\u5F0F
-  \u25A1 \u660E\u786E\u5404\u9879\u76EE\u8D26\u6237\u53CA\u8D44\u6E90\u7684\u8D1F\u8D23\u4EBA\u4E0E\u8054\u7CFB\u65B9\u5F0F
-
-\u26A0\uFE0F \u6D4B\u8BD5/\u5F00\u53D1\u73AF\u5883\u5904\u7F6E
-  \u25A1 \u975E\u6838\u5FC3\u7CFB\u7EDF\u5728\u62A4\u7F51\u671F\u95F4\u5173\u95ED
-  \u25A1 \u6D4B\u8BD5/\u5F00\u53D1\u73AF\u5883\u5173\u95ED\u6216\u4E0E\u751F\u4EA7\u4FDD\u6301\u540C\u7B49\u5B89\u5168\u57FA\u7EBF
-  \u25A1 \u786E\u8BA4\u54EA\u4E9B\u73AF\u5883\u53EF\u4EE5\u7D27\u6025\u5173\u505C\uFF0C\u907F\u514D\u653B\u51FB\u6269\u6563
-
-\u26A0\uFE0F \u503C\u5B88\u56E2\u961F\u7EC4\u5EFA
-  \u25A1 7\xD724 \u76D1\u63A7\u5FEB\u901F\u54CD\u5E94\u56E2\u961F
-  \u25A1 \u6280\u672F\u4E0E\u98CE\u9669\u5206\u6790\u7EC4
-  \u25A1 \u5B89\u5168\u7B56\u7565\u4E0B\u53D1\u7EC4
-  \u25A1 \u4E1A\u52A1\u54CD\u5E94\u7EC4
-  \u25A1 \u660E\u786E AWS TAM/Support \u8054\u7CFB\u65B9\u5F0F\uFF08ES/EOP \u5BA2\u6237\uFF09
-
-\u26A0\uFE0F \u51FA\u5165\u7AD9\u8DEF\u5F84\u67B6\u6784\u56FE
-  \u25A1 \u786E\u4FDD\u6240\u6709\u4E92\u8054\u7F51/DX \u4E13\u7EBF\u51FA\u5165\u7AD9\u8DEF\u5F84\u5728\u67B6\u6784\u56FE\u4E2D\u6E05\u6670\u6807\u6CE8
-  \u25A1 \u660E\u786E\u5404 ELB/Public EC2/S3/DX \u7684\u6570\u636E\u6D41\u5411
-  \u25A1 \u8BC6\u522B\u6240\u6709\u9762\u5411\u4E92\u8054\u7F51\u7684\u6570\u636E\u4EA4\u4E92\u63A5\u53E3
-
-\u26A0\uFE0F \u4E3B\u52A8\u5F0F\u6E17\u900F\u6D4B\u8BD5
-  \u25A1 \u62A4\u7F51\u524D\u8054\u7CFB\u5B89\u5168\u5382\u5546\uFF08\u9752\u85E4/\u957F\u4EAD/\u5FAE\u6B65\u7B49\uFF09\u8FDB\u884C\u6A21\u62DF\u653B\u51FB\u6F14\u7EC3
-  \u25A1 \u57FA\u4E8E\u6E17\u900F\u6D4B\u8BD5\u62A5\u544A\u8FDB\u884C\u6B63\u5F0F\u62A4\u7F51\u524D\u7684\u5B89\u5168\u52A0\u56FA
-  \u25A1 \u5173\u6CE8 AWS \u5B89\u5168\u516C\u544A\uFF08\u5DF2\u77E5\u6F0F\u6D1E\u4E0E\u8865\u4E01\uFF09
-
-\u26A0\uFE0F WAR-ROOM \u5B9E\u65F6\u6C9F\u901A
-  \u25A1 \u521B\u5EFA\u62A4\u7F51\u671F\u95F4\u4E13\u7528\u6C9F\u901A\u6E20\u9053\uFF08\u4F01\u5FAE/\u9489\u9489/\u98DE\u4E66/Chime\uFF09
-  \u25A1 \u4E0E AWS TAM \u5EFA\u7ACB WAR-ROOM \u8054\u7CFB\uFF08\u4F01\u4E1A\u7EA7\u652F\u6301\u5BA2\u6237\uFF09
-  \u25A1 \u7EDF\u4E00\u6848\u4F8B\u6807\u9898\u683C\u5F0F\uFF1A"\u3010\u62A4\u7F51\u3011+ \u95EE\u9898\u63CF\u8FF0"
-
-\u26A0\uFE0F \u5BC6\u7801\u4E0E\u51ED\u8BC1\u7BA1\u7406
-  \u25A1 \u6240\u6709 IAM \u7528\u6237\u7ED1\u5B9A MFA
-  \u25A1 AKSK \u8F6E\u8F6C\u5468\u671F \u2264 90 \u5929
-  \u25A1 \u907F\u514D\u5171\u4EAB\u8D26\u6237\u4F7F\u7528
-  \u25A1 S3/Lambda/\u5E94\u7528\u4EE3\u7801\u4E2D\u65E0\u660E\u6587\u5BC6\u7801
-
-\u26A0\uFE0F \u62A4\u7F51\u540E\u4F18\u5316
-  \u25A1 \u9488\u5BF9\u653B\u51FB\u62A5\u544A\u9010\u9879\u5E94\u7B54\u4E0E\u4FEE\u590D
-  \u25A1 \u4E0E\u5B89\u5168\u56E2\u961F\u5EFA\u7ACB\u5468\u671F\u6027\u5B89\u5168\u7EF4\u62A4\u6D41\u7A0B
-  \u25A1 \u6301\u7EED\u8865\u5168\u5B89\u5168\u98CE\u9669
-
-\u53C2\u8003\uFF1AAWS \u62A4\u7F51\u884C\u52A8 Standard Operation Procedure (Compliance IEM)
-`;
-var SERVICE_RECOMMENDATIONS2 = {
-  security_hub_findings: {
-    icon: "\u{1F534}",
-    service: "Security Hub",
-    impact: "\u65E0\u6CD5\u83B7\u53D6 300+ \u9879\u81EA\u52A8\u5316\u5B89\u5168\u68C0\u67E5\uFF08FSBP/CIS/PCI DSS \u6807\u51C6\uFF09",
-    action: "\u542F\u7528 Security Hub \u83B7\u5F97\u6700\u5168\u9762\u7684\u5B89\u5168\u6001\u52BF\u8BC4\u4F30"
-  },
-  guardduty_findings: {
-    icon: "\u{1F534}",
-    service: "GuardDuty",
-    impact: "\u65E0\u6CD5\u68C0\u6D4B\u5A01\u80C1\u6D3B\u52A8\uFF08\u6076\u610F IP\u3001\u5F02\u5E38 API \u8C03\u7528\u3001\u52A0\u5BC6\u8D27\u5E01\u6316\u77FF\u7B49\uFF09",
-    action: "\u542F\u7528 GuardDuty \u83B7\u5F97\u6301\u7EED\u5A01\u80C1\u68C0\u6D4B\u80FD\u529B"
-  },
-  inspector_findings: {
-    icon: "\u{1F7E1}",
-    service: "Inspector",
-    impact: "\u65E0\u6CD5\u626B\u63CF EC2/Lambda/\u5BB9\u5668\u7684\u8F6F\u4EF6\u6F0F\u6D1E\uFF08CVE\uFF09",
-    action: "\u542F\u7528 Inspector \u53D1\u73B0\u5DF2\u77E5\u5B89\u5168\u6F0F\u6D1E"
-  },
-  trusted_advisor_findings: {
-    icon: "\u{1F7E1}",
-    service: "Trusted Advisor",
-    impact: "\u65E0\u6CD5\u83B7\u53D6 AWS \u6700\u4F73\u5B9E\u8DF5\u5B89\u5168\u68C0\u67E5",
-    action: "\u5347\u7EA7\u81F3 Business/Enterprise Support \u8BA1\u5212\u4EE5\u4F7F\u7528 Trusted Advisor \u5B89\u5168\u68C0\u67E5"
-  },
-  config_rules_findings: {
-    icon: "\u{1F7E1}",
-    service: "AWS Config",
-    impact: "\u65E0\u6CD5\u68C0\u67E5\u8D44\u6E90\u914D\u7F6E\u5408\u89C4\u72B6\u6001",
-    action: "\u542F\u7528 AWS Config \u5E76\u914D\u7F6E Config Rules"
-  },
-  access_analyzer_findings: {
-    icon: "\u{1F7E1}",
-    service: "IAM Access Analyzer",
-    impact: "\u65E0\u6CD5\u68C0\u6D4B\u8D44\u6E90\u662F\u5426\u88AB\u5916\u90E8\u8D26\u53F7\u6216\u516C\u7F51\u8BBF\u95EE",
-    action: "\u521B\u5EFA IAM Access Analyzer\uFF08\u8D26\u6237\u7EA7\u6216\u7EC4\u7EC7\u7EA7\uFF09"
-  },
-  patch_compliance_findings: {
-    icon: "\u{1F7E1}",
-    service: "SSM Patch Manager",
-    impact: "\u65E0\u6CD5\u68C0\u67E5\u5B9E\u4F8B\u8865\u4E01\u5408\u89C4\u72B6\u6001",
-    action: "\u5B89\u88C5 SSM Agent \u5E76\u914D\u7F6E Patch Manager"
-  }
-};
+function getHwDefenseChecklist(lang) {
+  return getI18n(lang ?? "zh").hwChecklist;
+}
 var SERVICE_NOT_ENABLED_PATTERNS2 = [
   "not enabled",
   "not found",
@@ -8466,10 +8796,11 @@ var SERVICE_NOT_ENABLED_PATTERNS2 = [
   "not available",
   "is not enabled"
 ];
-function buildServiceReminder(modules) {
+function buildServiceReminder(modules, lang) {
+  const t = getI18n(lang ?? "zh");
   const disabledServices = [];
   for (const mod of modules) {
-    const rec = SERVICE_RECOMMENDATIONS2[mod.module];
+    const rec = t.serviceRecommendations[mod.module];
     if (!rec) continue;
     if (!mod.warnings?.length) continue;
     const hasNotEnabled = mod.warnings.some(
@@ -8482,26 +8813,26 @@ function buildServiceReminder(modules) {
   if (disabledServices.length === 0) return "";
   const lines = [
     "",
-    "\u26A1 \u4EE5\u4E0B\u5B89\u5168\u670D\u52A1\u672A\u542F\u7528\uFF0C\u90E8\u5206\u68C0\u67E5\u65E0\u6CD5\u6267\u884C\uFF1A",
+    t.serviceReminderTitle,
     ""
   ];
   for (const svc of disabledServices) {
-    lines.push(`${svc.icon} ${svc.service} \u672A\u542F\u7528`);
-    lines.push(`   \u5F71\u54CD\uFF1A${svc.impact}`);
-    lines.push(`   \u5EFA\u8BAE\uFF1A${svc.action}`);
+    lines.push(`${svc.icon} ${svc.service} ${t.notEnabled}`);
+    lines.push(`   ${t.serviceImpact}: ${svc.impact}`);
+    lines.push(`   ${t.serviceAction}: ${svc.action}`);
     lines.push("");
   }
-  lines.push("\u542F\u7528\u4EE5\u4E0A\u670D\u52A1\u540E\u91CD\u65B0\u626B\u63CF\u53EF\u83B7\u5F97\u66F4\u5B8C\u6574\u7684\u5B89\u5168\u8BC4\u4F30\u3002");
+  lines.push(t.serviceReminderFooter);
   return lines.join("\n");
 }
-function summarizeResult(result) {
+function summarizeResult(result, lang) {
   const { summary } = result;
   const lines = [
     `Scan complete for account ${result.accountId} in ${result.region}.`,
     `Total findings: ${summary.totalFindings} (${summary.critical} Critical, ${summary.high} High, ${summary.medium} Medium, ${summary.low} Low)`,
     `Modules: ${summary.modulesSuccess} succeeded, ${summary.modulesError} errored`
   ];
-  const reminder = buildServiceReminder(result.modules);
+  const reminder = buildServiceReminder(result.modules, lang);
   if (reminder) {
     lines.push(reminder);
   }
@@ -8563,9 +8894,10 @@ function createServer(defaultRegion) {
       region: z.string().optional().describe("AWS region to scan (default: server region)"),
       org_mode: z.boolean().optional().describe("Enable multi-account scanning via AWS Organizations"),
       role_name: z.string().optional().describe("IAM role name to assume in child accounts (default: AWSSecurityMCPAudit)"),
-      account_ids: z.array(z.string()).optional().describe("Specific account IDs to scan (default: all org accounts)")
+      account_ids: z.array(z.string()).optional().describe("Specific account IDs to scan (default: all org accounts)"),
+      lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)")
     },
-    async ({ region, org_mode, role_name, account_ids }) => {
+    async ({ region, org_mode, role_name, account_ids, lang }) => {
       try {
         const r = region ?? defaultRegion;
         let result;
@@ -8580,7 +8912,7 @@ function createServer(defaultRegion) {
         }
         return {
           content: [
-            { type: "text", text: summarizeResult(result) },
+            { type: "text", text: summarizeResult(result, lang ?? "zh") },
             { type: "text", text: JSON.stringify(result, null, 2) }
           ]
         };
@@ -8641,9 +8973,10 @@ function createServer(defaultRegion) {
       region: z.string().optional().describe("AWS region to scan (default: server region)"),
       org_mode: z.boolean().optional().describe("Enable multi-account scanning via AWS Organizations"),
       role_name: z.string().optional().describe("IAM role name to assume in child accounts (default: AWSSecurityMCPAudit)"),
-      account_ids: z.array(z.string()).optional().describe("Specific account IDs to scan (default: all org accounts)")
+      account_ids: z.array(z.string()).optional().describe("Specific account IDs to scan (default: all org accounts)"),
+      lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)")
     },
-    async ({ group, region, org_mode, role_name, account_ids }) => {
+    async ({ group, region, org_mode, role_name, account_ids, lang }) => {
       try {
         const groupDef = SCAN_GROUPS[group];
         if (!groupDef) {
@@ -8725,7 +9058,7 @@ function createServer(defaultRegion) {
           `Scan group: ${groupDef.name} (${group})`,
           groupDef.description,
           "",
-          summarizeResult(result)
+          summarizeResult(result, lang ?? "zh")
         ];
         if (missingModules.length > 0) {
           lines.push("");
@@ -8738,7 +9071,7 @@ function createServer(defaultRegion) {
         if (group === "hw_defense") {
           const summaryContent = content[0];
           if (summaryContent && summaryContent.type === "text") {
-            summaryContent.text += "\n\n" + HW_DEFENSE_CHECKLIST;
+            summaryContent.text += "\n\n" + getHwDefenseChecklist(lang ?? "zh");
           }
         }
         return { content };
@@ -8768,11 +9101,14 @@ function createServer(defaultRegion) {
   server.tool(
     "generate_report",
     "Generate a Markdown security report from scan results. Read-only. Does not modify any AWS resources.",
-    { scan_results: z.string().describe("JSON string of FullScanResult from scan_all") },
-    async ({ scan_results }) => {
+    {
+      scan_results: z.string().describe("JSON string of FullScanResult from scan_all"),
+      lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)")
+    },
+    async ({ scan_results, lang }) => {
       try {
         const parsed = JSON.parse(scan_results);
-        const report = generateMarkdownReport(parsed);
+        const report = generateMarkdownReport(parsed, lang ?? "zh");
         return { content: [{ type: "text", text: report }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
@@ -8782,11 +9118,14 @@ function createServer(defaultRegion) {
   server.tool(
     "generate_mlps3_report",
     "Generate a GB/T 22239-2019 \u7B49\u4FDD\u4E09\u7EA7 compliance pre-check report from scan results. Best used with scan_group mlps3_precheck results. Read-only.",
-    { scan_results: z.string().describe("JSON string of FullScanResult from scan_group mlps3_precheck or scan_all") },
-    async ({ scan_results }) => {
+    {
+      scan_results: z.string().describe("JSON string of FullScanResult from scan_group mlps3_precheck or scan_all"),
+      lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)")
+    },
+    async ({ scan_results, lang }) => {
       try {
         const parsed = JSON.parse(scan_results);
-        const report = generateMlps3Report(parsed);
+        const report = generateMlps3Report(parsed, lang ?? "zh");
         return { content: [{ type: "text", text: report }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
@@ -8798,13 +9137,14 @@ function createServer(defaultRegion) {
     "Generate a professional HTML security report. Save the output as an .html file.",
     {
       scan_results: z.string().describe("JSON string of FullScanResult from scan_all"),
-      history: z.string().optional().describe("JSON string of DashboardHistoryEntry[] from dashboard data.json for 30-day trend charts")
+      history: z.string().optional().describe("JSON string of DashboardHistoryEntry[] from dashboard data.json for 30-day trend charts"),
+      lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)")
     },
-    async ({ scan_results, history }) => {
+    async ({ scan_results, history, lang }) => {
       try {
         const parsed = JSON.parse(scan_results);
         const historyData = history ? JSON.parse(history) : void 0;
-        const report = generateHtmlReport(parsed, historyData);
+        const report = generateHtmlReport(parsed, historyData, lang ?? "zh");
         return { content: [{ type: "text", text: report }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
@@ -8816,13 +9156,14 @@ function createServer(defaultRegion) {
     "Generate a professional HTML MLPS Level 3 compliance report (\u7B49\u4FDD\u4E09\u7EA7). Save as .html file.",
     {
       scan_results: z.string().describe("JSON string of FullScanResult from scan_group mlps3_precheck or scan_all"),
-      history: z.string().optional().describe("JSON string of DashboardHistoryEntry[] from dashboard data.json for 30-day trend charts")
+      history: z.string().optional().describe("JSON string of DashboardHistoryEntry[] from dashboard data.json for 30-day trend charts"),
+      lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)")
     },
-    async ({ scan_results, history }) => {
+    async ({ scan_results, history, lang }) => {
       try {
         const parsed = JSON.parse(scan_results);
         const historyData = history ? JSON.parse(history) : void 0;
-        const report = generateMlps3HtmlReport(parsed, historyData);
+        const report = generateMlps3HtmlReport(parsed, historyData, lang ?? "zh");
         return { content: [{ type: "text", text: report }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
@@ -8832,7 +9173,10 @@ function createServer(defaultRegion) {
   server.tool(
     "generate_maturity_report",
     "Generate a security maturity assessment report from scan_all results. Requires service_detection module output. Read-only.",
-    { scan_results: z.string().describe("JSON string of FullScanResult from scan_all") },
+    {
+      scan_results: z.string().describe("JSON string of FullScanResult from scan_all"),
+      lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)")
+    },
     async ({ scan_results }) => {
       try {
         const parsed = JSON.parse(scan_results);
@@ -9103,7 +9447,7 @@ ${finding}`
             type: "text",
             text: `\u8BF7\u57FA\u4E8E\u4EE5\u4E0B\u62A4\u7F51\u884C\u52A8\u68C0\u67E5\u6E05\u5355\uFF0C\u5E2E\u52A9\u6211\u5236\u5B9A\u62A4\u7F51\u51C6\u5907\u8BA1\u5212\uFF1A
 
-${HW_DEFENSE_CHECKLIST}
+${getHwDefenseChecklist("zh")}
 
 \u81EA\u52A8\u5316\u626B\u63CF\u90E8\u5206\u8BF7\u4F7F\u7528 scan_group hw_defense \u6267\u884C\u3002\u4EE5\u4E0A\u4EBA\u5DE5\u68C0\u67E5\u9879\u8BF7\u9010\u9879\u786E\u8BA4\u5E76\u63D0\u4F9B\u5177\u4F53\u5EFA\u8BAE\u3002`
           }
