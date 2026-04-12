@@ -129,6 +129,22 @@ export interface I18n {
 
   // HW Checklist (full composite text)
   hwChecklist: string;
+
+  // HW Defense HTML Report
+  hwReportTitle: string;
+  hwAutoCheck: string;
+  hwManualCheck: string;
+  hwNoAutoCheck: string;
+  hwClean: string;
+  hwTotalFindings: string;
+  hwSectionsChecked: string;
+  hwAutoVerified: string;
+  hwManualPending: string;
+  hwSectionNames: Record<string, { name: string; icon: string }>;
+  hwManualItems: Record<string, string[]>;
+  hwFindingsCount: (n: number) => string;
+  hwManualCount: (n: number) => string;
+  hwReportDisclaimer: string;
 }
 
 import { zhI18n } from "./zh.js";

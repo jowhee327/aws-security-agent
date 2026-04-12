@@ -263,6 +263,38 @@ export const zhI18n: I18n = {
     },
   },
 
+  // HW Defense HTML Report
+  hwReportTitle: "护网蓝队安全评估报告",
+  hwAutoCheck: "自动化检查",
+  hwManualCheck: "人工确认事项",
+  hwNoAutoCheck: "此项无自动化检查",
+  hwClean: "未发现问题",
+  hwTotalFindings: "发现总数",
+  hwSectionsChecked: "检查分类",
+  hwAutoVerified: "自动验证",
+  hwManualPending: "人工待确认",
+  hwFindingsCount: (n: number) => `${n} 个发现`,
+  hwManualCount: (n: number) => `${n} 项人工确认`,
+  hwReportDisclaimer: "本报告按护网行动 SOP 检查清单组织，仅供参考。",
+  hwSectionNames: {
+    attack_surface: { name: "攻击面收敛", icon: "🎯" },
+    vulnerability_patch: { name: "漏洞与补丁管理", icon: "🩹" },
+    identity_credential: { name: "身份与凭证安全", icon: "🔑" },
+    transport_security: { name: "传输与实例安全", icon: "🔒" },
+    security_services: { name: "安全服务状态", icon: "🛡️" },
+    emergency_response: { name: "应急响应准备", icon: "🚨" },
+    environment_control: { name: "环境处置", icon: "🏗️" },
+    post_review: { name: "护网后优化", icon: "📊" },
+  },
+  hwManualItems: {
+    attack_surface: ["绘制出入站路径架构图，标注所有互联网/DX专线出入站路径"],
+    vulnerability_patch: ["联系安全厂商进行模拟攻击演练（渗透测试）", "关注 AWS 安全公告（已知漏洞与补丁）"],
+    identity_credential: ["所有 IAM 用户绑定 MFA", "AKSK 轮转周期 ≤ 90 天", "避免共享账户使用", "S3/Lambda/应用代码中无明文密码"],
+    emergency_response: ["准备专用隔离安全组（无 Inbound/Outbound 规则）", "制定实例隔离 SOP：告警 → 排查 → 封锁攻击IP → 网络隔离 → 安全处置 → 记录攻击项", "组建 7×24 监控快速响应团队", "创建护网期间专用沟通渠道（企微/钉钉/飞书/Chime）", "与 AWS TAM 建立 WAR-ROOM 联系（企业级支持客户）"],
+    environment_control: ["非核心系统在护网期间关闭", "测试/开发环境关闭或与生产保持同等安全基线", "确认哪些环境可以紧急关停，避免攻击扩散"],
+    post_review: ["针对攻击报告逐项应答与修复", "与安全团队建立周期性安全维护流程", "持续补全安全风险"],
+  },
+
   // HW Checklist (full composite)
   hwChecklist: `
 \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550

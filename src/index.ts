@@ -28,6 +28,7 @@ import { WafCoverageScanner } from "./scanners/waf-coverage.js";
 import { generateMarkdownReport } from "./tools/report-tool.js";
 import { generateMlps3Report } from "./tools/mlps-report.js";
 import { generateHtmlReport, generateMlps3HtmlReport } from "./tools/html-report.js";
+import { generateHwDefenseHtmlReport } from "./tools/hw-report.js";
 import { saveResults } from "./tools/save-results.js";
 import { SCAN_GROUPS, applyFindingsFilter } from "./tools/scan-groups.js";
 import {
@@ -49,6 +50,7 @@ export { assumeRole, buildRoleArn, getCurrentAccountId } from "./utils/assume-ro
 export { listOrgAccounts, type OrgAccount } from "./utils/org-accounts.js";
 export { generateMarkdownReport } from "./tools/report-tool.js";
 export { generateHtmlReport, generateMlps3HtmlReport } from "./tools/html-report.js";
+export { generateHwDefenseHtmlReport } from "./tools/hw-report.js";
 export { saveResults, calculateScore } from "./tools/save-results.js";
 export type {
   Finding,
@@ -427,6 +429,7 @@ export function createServer(defaultRegion: string): McpServer {
           const summaryContent = content[0];
           if (summaryContent && summaryContent.type === "text") {
             summaryContent.text += "\n\n" + getHwDefenseChecklist(lang ?? "zh");
+            summaryContent.text += "\n\n💡 Tip: Call generate_hw_defense_report with these scan results to get a dedicated HTML report organized by HW Defense SOP checklist categories.";
           }
         }
 
@@ -530,6 +533,25 @@ export function createServer(defaultRegion: string): McpServer {
         const parsed: FullScanResult = JSON.parse(scan_results);
         const historyData = history ? JSON.parse(history) : undefined;
         const report = generateMlps3HtmlReport(parsed, historyData, lang ?? "zh");
+        return { content: [{ type: "text", text: report }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    },
+  );
+
+  // generate_hw_defense_report
+  server.tool(
+    "generate_hw_defense_report",
+    "Generate an HTML report organized by HW Defense (护网) SOP checklist categories. Save as .html file.",
+    {
+      scan_results: z.string().describe("JSON string of FullScanResult from scan_group hw_defense or scan_all"),
+      lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)"),
+    },
+    async ({ scan_results, lang }) => {
+      try {
+        const parsed: FullScanResult = JSON.parse(scan_results);
+        const report = generateHwDefenseHtmlReport(parsed, lang ?? "zh");
         return { content: [{ type: "text", text: report }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
