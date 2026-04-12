@@ -576,12 +576,21 @@ export function generateHtmlReport(
     }
   }
 
-  // Expand SH module into sub-categories for bar chart
+  // Detection-only modules — their findings come via Security Hub sub-categories
+  const DETECTION_ONLY_MODULES = new Set([
+    "guardduty_findings",
+    "inspector_findings",
+    "config_rules_findings",
+    "access_analyzer_findings",
+  ]);
+
+  // Expand SH module into sub-categories for bar chart, hide detection-only scanners
   const barChartModules: ScanResult[] = modules.flatMap(m => {
+    if (DETECTION_ONLY_MODULES.has(m.module)) return [];
     if (m.module === "security_hub_findings" && shSubCats.length > 0) {
       return shSubCats.map(sc => ({
         ...m,
-        module: `SH / ${sc.key}`,
+        module: sc.key,
         findingsCount: sc.count,
         findings: sc.findings,
       }));
@@ -665,7 +674,8 @@ export function generateHtmlReport(
     }
 
     // Sort modules: those with critical/high first, then by count
-    const moduleEntries = [...moduleMap.entries()].sort((a, b) => {
+    // Filter out detection-only scanners (their findings are in SH sub-categories)
+    const moduleEntries = [...moduleMap.entries()].filter(([mod]) => !DETECTION_ONLY_MODULES.has(mod)).sort((a, b) => {
       const aHasCritHigh = a[1].some((f) => f.severity === "CRITICAL" || f.severity === "HIGH");
       const bHasCritHigh = b[1].some((f) => f.severity === "CRITICAL" || f.severity === "HIGH");
       if (aHasCritHigh !== bHasCritHigh) return aHasCritHigh ? -1 : 1;
@@ -764,16 +774,33 @@ export function generateHtmlReport(
   }
 
   // --- Statistics table ---
+  const isModuleDisabled = (m: ScanResult): string | undefined => {
+    if (!m.warnings?.length) return undefined;
+    const w = m.warnings.find((w) =>
+      SERVICE_NOT_ENABLED_PATTERNS.some((p) => w.includes(p)),
+    );
+    return w;
+  };
+
   const statsRows = modules
-    .map(
+    .flatMap(
       (m) => {
-        let row = `<tr><td>${esc(m.module)}</td><td>${m.resourcesScanned}</td><td>${m.findingsCount}</td><td>${m.status === "success" ? "&#10003;" : "&#10007;"}</td></tr>`;
+        // Hide detection-only scanners — their data is in SH sub-categories
+        if (DETECTION_ONLY_MODULES.has(m.module)) return [];
+        // Replace security_hub_findings parent row with flat sub-category rows
         if (m.module === "security_hub_findings" && shSubCats.length > 0) {
-          for (const sc of shSubCats) {
-            row += `\n<tr style="color:#94a3b8"><td style="padding-left:32px;font-size:12px">\u2514 ${esc(sc.label)}</td><td></td><td style="font-size:12px">${sc.count}</td><td></td></tr>`;
-          }
+          return shSubCats.map(sc =>
+            `<tr><td>${esc(sc.label)}</td><td>${m.resourcesScanned}</td><td>${sc.count}</td><td>&#10003;</td></tr>`,
+          );
         }
-        return row;
+        // Show N/A for disabled services
+        const disabledWarning = isModuleDisabled(m);
+        if (disabledWarning) {
+          const rec = t.serviceRecommendations[m.module];
+          const reason = rec ? rec.action : disabledWarning;
+          return [`<tr><td>${esc(m.module)}</td><td>-</td><td>-</td><td style="color:#eab308">&#9888; ${esc(reason)}</td></tr>`];
+        }
+        return [`<tr><td>${esc(m.module)}</td><td>${m.resourcesScanned}</td><td>${m.findingsCount}</td><td>${m.status === "success" ? "&#10003;" : "&#10007;"}</td></tr>`];
       },
     )
     .join("\n");

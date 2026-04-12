@@ -7439,11 +7439,18 @@ function generateHtmlReport(scanResults, history, lang) {
       }
     }
   }
+  const DETECTION_ONLY_MODULES = /* @__PURE__ */ new Set([
+    "guardduty_findings",
+    "inspector_findings",
+    "config_rules_findings",
+    "access_analyzer_findings"
+  ]);
   const barChartModules = modules.flatMap((m) => {
+    if (DETECTION_ONLY_MODULES.has(m.module)) return [];
     if (m.module === "security_hub_findings" && shSubCats.length > 0) {
       return shSubCats.map((sc) => ({
         ...m,
-        module: `SH / ${sc.key}`,
+        module: sc.key,
         findingsCount: sc.count,
         findings: sc.findings
       }));
@@ -7515,7 +7522,7 @@ ${rest}
       if (!moduleMap.has(mod)) moduleMap.set(mod, []);
       moduleMap.get(mod).push(f);
     }
-    const moduleEntries = [...moduleMap.entries()].sort((a, b) => {
+    const moduleEntries = [...moduleMap.entries()].filter(([mod]) => !DETECTION_ONLY_MODULES.has(mod)).sort((a, b) => {
       const aHasCritHigh = a[1].some((f) => f.severity === "CRITICAL" || f.severity === "HIGH");
       const bHasCritHigh = b[1].some((f) => f.severity === "CRITICAL" || f.severity === "HIGH");
       if (aHasCritHigh !== bHasCritHigh) return aHasCritHigh ? -1 : 1;
@@ -7594,16 +7601,28 @@ ${rest}
       </div>
     </section>`;
   }
-  const statsRows = modules.map(
+  const isModuleDisabled = (m) => {
+    if (!m.warnings?.length) return void 0;
+    const w = m.warnings.find(
+      (w2) => SERVICE_NOT_ENABLED_PATTERNS.some((p) => w2.includes(p))
+    );
+    return w;
+  };
+  const statsRows = modules.flatMap(
     (m) => {
-      let row = `<tr><td>${esc(m.module)}</td><td>${m.resourcesScanned}</td><td>${m.findingsCount}</td><td>${m.status === "success" ? "&#10003;" : "&#10007;"}</td></tr>`;
+      if (DETECTION_ONLY_MODULES.has(m.module)) return [];
       if (m.module === "security_hub_findings" && shSubCats.length > 0) {
-        for (const sc of shSubCats) {
-          row += `
-<tr style="color:#94a3b8"><td style="padding-left:32px;font-size:12px">\u2514 ${esc(sc.label)}</td><td></td><td style="font-size:12px">${sc.count}</td><td></td></tr>`;
-        }
+        return shSubCats.map(
+          (sc) => `<tr><td>${esc(sc.label)}</td><td>${m.resourcesScanned}</td><td>${sc.count}</td><td>&#10003;</td></tr>`
+        );
       }
-      return row;
+      const disabledWarning = isModuleDisabled(m);
+      if (disabledWarning) {
+        const rec = t.serviceRecommendations[m.module];
+        const reason = rec ? rec.action : disabledWarning;
+        return [`<tr><td>${esc(m.module)}</td><td>-</td><td>-</td><td style="color:#eab308">&#9888; ${esc(reason)}</td></tr>`];
+      }
+      return [`<tr><td>${esc(m.module)}</td><td>${m.resourcesScanned}</td><td>${m.findingsCount}</td><td>${m.status === "success" ? "&#10003;" : "&#10007;"}</td></tr>`];
     }
   ).join("\n");
   let recsHtml = "";
