@@ -1,4 +1,4 @@
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
 import type { Finding } from '../types';
 
 const DETECTION_MODULES = new Set([
@@ -98,34 +98,34 @@ export default function ModuleBar({ modules, findings }: ModuleBarProps) {
   const chartHeight = Math.max(200, filtered.length * 40 + 40);
 
   return (
-    <div style={{ width: '100%', height: chartHeight }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={filtered} layout="vertical" margin={{ left: 20, right: 40, top: 10, bottom: 10 }}>
-          <XAxis type="number" stroke="#94a3b8" fontSize={12} allowDecimals={false} domain={[0, 'dataMax']} />
-          <YAxis
-            type="category"
-            dataKey="name"
-            stroke="#94a3b8"
-            fontSize={12}
-            width={160}
-            tick={{ fill: '#cbd5e1' }}
-          />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: '#1e293b',
-              border: '1px solid #334155',
-              borderRadius: '8px',
-              color: '#f8fafc',
-            }}
-            formatter={(value) => [String(value), 'Findings']}
-          />
-          <Bar dataKey="count" fill="#94a3b8" radius={[0, 4, 4, 0]} maxBarSize={22} minPointSize={8} label={{ position: 'right', fill: '#94a3b8', fontSize: 12 }}>
-            {filtered.map((entry, index) => (
-              <Cell key={index} fill={entry.color} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
+    <ResponsiveContainer width="100%" height={chartHeight}>
+      <BarChart data={filtered} layout="vertical" margin={{ left: 20, right: 50, top: 10, bottom: 10 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
+        <XAxis type="number" stroke="#94a3b8" fontSize={12} allowDecimals={false} />
+        <YAxis
+          type="category"
+          dataKey="name"
+          stroke="#94a3b8"
+          fontSize={12}
+          width={160}
+          tick={{ fill: '#cbd5e1' }}
+        />
+        <Tooltip
+          contentStyle={{
+            backgroundColor: '#1e293b',
+            border: '1px solid #334155',
+            borderRadius: '8px',
+            color: '#f8fafc',
+          }}
+          formatter={(value) => [String(value), 'Findings']}
+        />
+        <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={20} minPointSize={5}
+          label={{ position: 'right', fill: '#e2e8f0', fontSize: 13, fontWeight: 600 }}>
+          {filtered.map((entry, index) => (
+            <Cell key={index} fill={entry.color} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
   );
 }
