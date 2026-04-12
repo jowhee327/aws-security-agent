@@ -6,7 +6,7 @@ description: >
   HTML reports, React dashboard, multi-account org scanning, bilingual (zh/en),
   and full China region (aws-cn) support.
 
-version: "0.7.1"
+version: "0.7.2"
 license: MIT
 
 architecture:
@@ -88,7 +88,7 @@ scanner_modules:
 
 scan_groups:
   - mlps3_precheck    # 等保三级预检
-  - hw_defense        # 护网蓝队加固 (14 scanners)
+  - hw_defense        # 护网蓝队加固 (11 scanners)
   - exposure          # 公网暴露面收敛
   - data_encryption   # 数据加密审计
   - least_privilege   # 最小权限审查
@@ -128,6 +128,7 @@ mcp_interface:
     - generate_html_report
     - generate_mlps3_report
     - generate_mlps3_html_report
+    - generate_hw_defense_report
     - generate_maturity_report
     - save_results
   prompts:
@@ -147,6 +148,8 @@ reports:
     description: MLPS Level 3 (GB/T 22239-2019) evidence collection, 184 check items
   - type: mlps3_markdown
     description: MLPS Level 3 plain text
+  - type: hw_defense_html
+    description: HW Defense report organized by SOP checklist categories with grouped findings
   - type: maturity
     description: Security maturity assessment scoring
 
@@ -205,7 +208,7 @@ compatible_tools:
 testing:
   framework: vitest
   files: 30
-  tests: 146
+  tests: 156
   coverage: all scanners have test files
 
 ci_cd:

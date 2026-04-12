@@ -14,7 +14,7 @@ MCP server for automated AWS security scanning — 19 modules, risk scoring, zer
 - **100% Read-Only** — uses only Describe/Get/List API calls; never modifies your AWS resources
 - **Multi-Account Support** — scan all accounts in an AWS Organization via `org_mode` with cross-account role assumption
 - **Parallel Execution** — all modules run concurrently via `Promise.allSettled`
-- **Report Generation** — Markdown, professional HTML, and MLPS Level 3 compliance reports
+- **Report Generation** — Markdown, professional HTML, MLPS Level 3 compliance, and HW Defense reports
 - **React Dashboard** — local or S3-hosted dashboard with 30-day trend charts
 - **MCP Resources** — embedded security rules and risk scoring model documentation
 - **MCP Prompts** — pre-built workflows for full scans and finding analysis
@@ -141,6 +141,7 @@ For multi-account scanning across an AWS Organization:
 | `generate_html_report` | Generate a professional HTML report |
 | `generate_mlps3_report` | Generate a MLPS Level 3 compliance report |
 | `generate_mlps3_html_report` | Generate a MLPS Level 3 HTML compliance report |
+| `generate_hw_defense_report` | Generate an HW Defense HTML report (SOP-organized, findings grouped by CVE/control-ID) |
 | `generate_maturity_report` | Generate a security maturity assessment |
 | `save_results` | Save scan results for the dashboard |
 | `get_setup_template` | Get CloudFormation StackSet template for cross-account audit role |
@@ -282,7 +283,7 @@ Pre-defined scanner groupings for common scenarios:
 | Group | Description | Modules |
 |-------|-------------|---------|
 | `mlps3_precheck` | GB/T 22239-2019 等保三级预检 | 17 modules |
-| `hw_defense` | 护网蓝队加固 | 14 modules |
+| `hw_defense` | 护网蓝队加固 — attacker-focused hardening | 11 modules |
 | `exposure` | 公网暴露面评估 | 8 modules |
 | `data_encryption` | 数据加密审计 | 2 modules |
 | `least_privilege` | 最小权限审计 | 3 modules |
@@ -346,6 +347,15 @@ The `generate_report` tool produces a Markdown report with:
 - **Findings by Severity** — grouped and sorted by risk score
 - **Scan Statistics** — per-module resource counts and status
 - **Recommendations** — prioritized action items
+
+## HW Defense Report
+
+The `generate_hw_defense_report` tool produces a dedicated HTML report for 护网 (HW) blue-team hardening exercises. Key features:
+
+- **SOP checklist organization** — findings are grouped by standard operating procedure categories rather than by scanner module
+- **Grouped findings** — duplicate and related findings are collapsed by CVE ID, control ID, or title, reducing noise
+- **Attacker-focused perspective** — the `hw_defense` scan group (11 modules) prioritizes checks that mirror real-world red-team attack chains: privilege escalation, network exposure, secret leakage, missing detection services, and patch gaps
+- **Collapsible sections** — categories default to collapsed for quick executive overview, expandable for detailed review
 
 ## License
 
