@@ -3955,6 +3955,15 @@ var zhI18n = {
     "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883": "\u56DB\u3001\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
     "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3": "\u4E94\u3001\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3"
   },
+  // Security Hub sub-categories
+  securityHubSubCategories: {
+    FSBP: { icon: "\u{1F4CB}", label: "\u57FA\u7840\u5B89\u5168\u6700\u4F73\u5B9E\u8DF5 (FSBP)" },
+    Inspector: { icon: "\u{1F50D}", label: "Inspector \u6F0F\u6D1E" },
+    GuardDuty: { icon: "\u{1F6E1}\uFE0F", label: "GuardDuty \u5A01\u80C1" },
+    Config: { icon: "\u2699\uFE0F", label: "Config Rules" },
+    "Access Analyzer": { icon: "\u{1F511}", label: "Access Analyzer" },
+    Other: { icon: "\u{1F4E6}", label: "\u5176\u4ED6" }
+  },
   // Service Recommendations
   notEnabled: "\u672A\u542F\u7528",
   serviceRecommendations: {
@@ -4186,6 +4195,15 @@ var enI18n = {
     "\u5B89\u5168\u533A\u57DF\u8FB9\u754C": "III. Area Boundary Security",
     "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883": "IV. Computing Environment Security",
     "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3": "V. Security Management Center"
+  },
+  // Security Hub sub-categories
+  securityHubSubCategories: {
+    FSBP: { icon: "\u{1F4CB}", label: "Foundational Security Best Practices (FSBP)" },
+    Inspector: { icon: "\u{1F50D}", label: "Inspector Vulnerabilities" },
+    GuardDuty: { icon: "\u{1F6E1}\uFE0F", label: "GuardDuty Threats" },
+    Config: { icon: "\u2699\uFE0F", label: "Config Rules" },
+    "Access Analyzer": { icon: "\u{1F511}", label: "Access Analyzer" },
+    Other: { icon: "\u{1F4E6}", label: "Other" }
   },
   // Service Recommendations
   notEnabled: "Not Enabled",
@@ -7237,6 +7255,19 @@ var SEVERITY_ORDER2 = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 function getRecommendationTemplate(rem) {
   return rem.replace(/\b(i-[0-9a-f]+)\b/g, "{instance}").replace(/\b(vol-[0-9a-f]+)\b/g, "{volume}").replace(/\b(sg-[0-9a-f]+)\b/g, "{sg}").replace(/\b(eipalloc-[0-9a-f]+)\b/g, "{eip}").replace(/\b(arn:aws[-\w]*:[^"\s]+)\b/g, "{arn}").replace(/"[^"]+"/g, "{name}").replace(/bucket \S+/g, "bucket {name}").replace(/instance \S+/g, "instance {id}").replace(/volume \S+/g, "volume {id}").replace(/rule \S+/g, "rule {name}");
 }
+function getSecurityHubSource(finding) {
+  const impact = finding.impact ?? "";
+  const match = impact.match(/^Source:\s*([^(]+)/);
+  if (!match) return "Other";
+  const product = match[1].trim();
+  if (product === "Security Hub" || product.includes("Foundational")) return "FSBP";
+  if (product === "Inspector" || product.includes("Inspector")) return "Inspector";
+  if (product === "GuardDuty" || product.includes("GuardDuty")) return "GuardDuty";
+  if (product === "Config" || product.includes("Config")) return "Config";
+  if (product === "IAM Access Analyzer" || product.includes("Access Analyzer")) return "Access Analyzer";
+  return "Other";
+}
+var SECURITY_HUB_SUB_CAT_ORDER = ["FSBP", "Inspector", "GuardDuty", "Config", "Access Analyzer", "Other"];
 function scoreColor(score) {
   if (score >= 80) return "#22c55e";
   if (score >= 50) return "#eab308";
@@ -7685,28 +7716,60 @@ ${rest}
       if (aHasCritHigh !== bHasCritHigh) return aHasCritHigh ? -1 : 1;
       return b[1].length - a[1].length;
     });
-    findingsHtml = moduleEntries.map(([modName, modFindings]) => {
-      const sevCounts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
-      for (const f of modFindings) sevCounts[f.severity]++;
-      const badges = SEVERITY_ORDER2.filter((sev) => sevCounts[sev] > 0).map((sev) => `<span class="badge badge-${sev.toLowerCase()}">${sevCounts[sev]} ${sev.charAt(0) + sev.slice(1).toLowerCase()}</span>`).join(" ");
-      const sevGroups = SEVERITY_ORDER2.map((sev) => {
-        const findings = modFindings.filter((f) => f.severity === sev);
-        if (findings.length === 0) return "";
-        findings.sort((a, b) => b.riskScore - a.riskScore);
+    const renderSeverityGroups = (findings) => {
+      return SEVERITY_ORDER2.map((sev) => {
+        const sevFindings = findings.filter((f) => f.severity === sev);
+        if (sevFindings.length === 0) return "";
+        sevFindings.sort((a, b) => b.riskScore - a.riskScore);
         const emoji = SEV_EMOJI[sev] ?? "";
         const label = sev.charAt(0) + sev.slice(1).toLowerCase();
         return `<details class="severity-group-fold">
-          <summary><h4>${emoji} ${label} (${findings.length})</h4></summary>
-          ${renderCards(findings)}
+          <summary><h4>${emoji} ${label} (${sevFindings.length})</h4></summary>
+          ${renderCards(sevFindings)}
         </details>`;
       }).filter(Boolean).join("\n");
+    };
+    const renderModuleBadges = (findings) => {
+      const sevCounts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+      for (const f of findings) sevCounts[f.severity]++;
+      return SEVERITY_ORDER2.filter((sev) => sevCounts[sev] > 0).map((sev) => `<span class="badge badge-${sev.toLowerCase()}">${sevCounts[sev]} ${sev.charAt(0) + sev.slice(1).toLowerCase()}</span>`).join(" ");
+    };
+    findingsHtml = moduleEntries.map(([modName, modFindings]) => {
+      const badges = renderModuleBadges(modFindings);
+      if (modName === "security_hub_findings") {
+        const subCatMap = /* @__PURE__ */ new Map();
+        for (const f of modFindings) {
+          const source = getSecurityHubSource(f);
+          if (!subCatMap.has(source)) subCatMap.set(source, []);
+          subCatMap.get(source).push(f);
+        }
+        const subCatGroups = SECURITY_HUB_SUB_CAT_ORDER.map((cat) => {
+          const catFindings = subCatMap.get(cat);
+          if (!catFindings || catFindings.length === 0) return "";
+          const catMeta = t.securityHubSubCategories[cat] ?? { icon: "\u{1F4E6}", label: cat };
+          const catBadges = renderModuleBadges(catFindings);
+          return `<details class="severity-group-fold">
+            <summary><h4>${catMeta.icon} ${esc(catMeta.label)} (${catFindings.length})</h4> <span class="module-badges">${catBadges}</span></summary>
+            ${renderSeverityGroups(catFindings)}
+          </details>`;
+        }).filter(Boolean).join("\n");
+        return `<details class="module-fold">
+          <summary>
+            <h3>&#128274; ${esc(modName)} (${modFindings.length})</h3>
+            <span class="module-badges">${badges}</span>
+          </summary>
+          <div class="module-body">
+            ${subCatGroups}
+          </div>
+        </details>`;
+      }
       return `<details class="module-fold">
         <summary>
           <h3>&#128274; ${esc(modName)} (${modFindings.length})</h3>
           <span class="module-badges">${badges}</span>
         </summary>
         <div class="module-body">
-          ${sevGroups}
+          ${renderSeverityGroups(modFindings)}
         </div>
       </details>`;
     }).join("\n");

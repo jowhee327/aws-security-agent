@@ -73,6 +73,22 @@ function getRecommendationTemplate(rem: string): string {
     .replace(/rule \S+/g, 'rule {name}');
 }
 
+/** Extract source sub-category from a Security Hub finding's impact field. */
+function getSecurityHubSource(finding: Finding): string {
+  const impact = finding.impact ?? "";
+  const match = impact.match(/^Source:\s*([^(]+)/);
+  if (!match) return "Other";
+  const product = match[1].trim();
+  if (product === "Security Hub" || product.includes("Foundational")) return "FSBP";
+  if (product === "Inspector" || product.includes("Inspector")) return "Inspector";
+  if (product === "GuardDuty" || product.includes("GuardDuty")) return "GuardDuty";
+  if (product === "Config" || product.includes("Config")) return "Config";
+  if (product === "IAM Access Analyzer" || product.includes("Access Analyzer")) return "Access Analyzer";
+  return "Other";
+}
+
+const SECURITY_HUB_SUB_CAT_ORDER = ["FSBP", "Inspector", "GuardDuty", "Config", "Access Analyzer", "Other"];
+
 function scoreColor(score: number): string {
   if (score >= 80) return "#22c55e";
   if (score >= 50) return "#eab308";
@@ -619,36 +635,75 @@ export function generateHtmlReport(
       return b[1].length - a[1].length;
     });
 
-    findingsHtml = moduleEntries.map(([modName, modFindings]) => {
-      const sevCounts: Record<string, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
-      for (const f of modFindings) sevCounts[f.severity]++;
-
-      const badges = SEVERITY_ORDER
-        .filter((sev) => sevCounts[sev] > 0)
-        .map((sev) => `<span class="badge badge-${sev.toLowerCase()}">${sevCounts[sev]} ${sev.charAt(0) + sev.slice(1).toLowerCase()}</span>`)
-        .join(" ");
-
-      const sevGroups = SEVERITY_ORDER.map((sev) => {
-        const findings = modFindings.filter((f) => f.severity === sev);
-        if (findings.length === 0) return "";
-        findings.sort((a, b) => b.riskScore - a.riskScore);
+    const renderSeverityGroups = (findings: Finding[]): string => {
+      return SEVERITY_ORDER.map((sev) => {
+        const sevFindings = findings.filter((f) => f.severity === sev);
+        if (sevFindings.length === 0) return "";
+        sevFindings.sort((a, b) => b.riskScore - a.riskScore);
 
         const emoji = SEV_EMOJI[sev] ?? "";
         const label = sev.charAt(0) + sev.slice(1).toLowerCase();
 
         return `<details class="severity-group-fold">
-          <summary><h4>${emoji} ${label} (${findings.length})</h4></summary>
-          ${renderCards(findings)}
+          <summary><h4>${emoji} ${label} (${sevFindings.length})</h4></summary>
+          ${renderCards(sevFindings)}
         </details>`;
       }).filter(Boolean).join("\n");
+    };
 
+    const renderModuleBadges = (findings: Finding[]): string => {
+      const sevCounts: Record<string, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+      for (const f of findings) sevCounts[f.severity]++;
+      return SEVERITY_ORDER
+        .filter((sev) => sevCounts[sev] > 0)
+        .map((sev) => `<span class="badge badge-${sev.toLowerCase()}">${sevCounts[sev]} ${sev.charAt(0) + sev.slice(1).toLowerCase()}</span>`)
+        .join(" ");
+    };
+
+    findingsHtml = moduleEntries.map(([modName, modFindings]) => {
+      const badges = renderModuleBadges(modFindings);
+
+      // Special sub-category rendering for Security Hub
+      if (modName === "security_hub_findings") {
+        const subCatMap = new Map<string, Finding[]>();
+        for (const f of modFindings) {
+          const source = getSecurityHubSource(f);
+          if (!subCatMap.has(source)) subCatMap.set(source, []);
+          subCatMap.get(source)!.push(f);
+        }
+
+        const subCatGroups = SECURITY_HUB_SUB_CAT_ORDER.map((cat) => {
+          const catFindings = subCatMap.get(cat);
+          if (!catFindings || catFindings.length === 0) return "";
+
+          const catMeta = t.securityHubSubCategories[cat] ?? { icon: "\ud83d\udce6", label: cat };
+          const catBadges = renderModuleBadges(catFindings);
+
+          return `<details class="severity-group-fold">
+            <summary><h4>${catMeta.icon} ${esc(catMeta.label)} (${catFindings.length})</h4> <span class="module-badges">${catBadges}</span></summary>
+            ${renderSeverityGroups(catFindings)}
+          </details>`;
+        }).filter(Boolean).join("\n");
+
+        return `<details class="module-fold">
+          <summary>
+            <h3>&#128274; ${esc(modName)} (${modFindings.length})</h3>
+            <span class="module-badges">${badges}</span>
+          </summary>
+          <div class="module-body">
+            ${subCatGroups}
+          </div>
+        </details>`;
+      }
+
+      // Default: flat severity grouping for all other modules
       return `<details class="module-fold">
         <summary>
           <h3>&#128274; ${esc(modName)} (${modFindings.length})</h3>
           <span class="module-badges">${badges}</span>
         </summary>
         <div class="module-body">
-          ${sevGroups}
+          ${renderSeverityGroups(modFindings)}
         </div>
       </details>`;
     }).join("\n");

@@ -157,6 +157,16 @@ export const enI18n: I18n = {
     "\u5b89\u5168\u7ba1\u7406\u4e2d\u5fc3": "V. Security Management Center",
   },
 
+  // Security Hub sub-categories
+  securityHubSubCategories: {
+    FSBP: { icon: "\ud83d\udccb", label: "Foundational Security Best Practices (FSBP)" },
+    Inspector: { icon: "\ud83d\udd0d", label: "Inspector Vulnerabilities" },
+    GuardDuty: { icon: "\ud83d\udee1\ufe0f", label: "GuardDuty Threats" },
+    Config: { icon: "\u2699\ufe0f", label: "Config Rules" },
+    "Access Analyzer": { icon: "\ud83d\udd11", label: "Access Analyzer" },
+    Other: { icon: "\ud83d\udce6", label: "Other" },
+  },
+
   // Service Recommendations
   notEnabled: "Not Enabled",
   serviceRecommendations: {

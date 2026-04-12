@@ -155,6 +155,16 @@ export const zhI18n: I18n = {
     "\u5b89\u5168\u7ba1\u7406\u4e2d\u5fc3": "\u4e94\u3001\u5b89\u5168\u7ba1\u7406\u4e2d\u5fc3",
   },
 
+  // Security Hub sub-categories
+  securityHubSubCategories: {
+    FSBP: { icon: "\ud83d\udccb", label: "\u57fa\u7840\u5b89\u5168\u6700\u4f73\u5b9e\u8df5 (FSBP)" },
+    Inspector: { icon: "\ud83d\udd0d", label: "Inspector \u6f0f\u6d1e" },
+    GuardDuty: { icon: "\ud83d\udee1\ufe0f", label: "GuardDuty \u5a01\u80c1" },
+    Config: { icon: "\u2699\ufe0f", label: "Config Rules" },
+    "Access Analyzer": { icon: "\ud83d\udd11", label: "Access Analyzer" },
+    Other: { icon: "\ud83d\udce6", label: "\u5176\u4ed6" },
+  },
+
   // Service Recommendations
   notEnabled: "\u672a\u542f\u7528",
   serviceRecommendations: {
