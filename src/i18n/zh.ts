@@ -138,6 +138,8 @@ export const zhI18n: I18n = {
   andMore: (n: number) => `... \u53ca\u5176\u4ed6 ${n} \u9879`,
   remediationByPriority:
     "\u5efa\u8bae\u6574\u6539\u9879\uff08\u6309\u4f18\u5148\u7ea7\uff09",
+  affectedResources: (n: number) => `\u6d89\u53ca ${n} \u4e2a\u8d44\u6e90`,
+  installWindowsPatches: (n: number, kbs: string) => `\u5b89\u88c5 ${n} \u4e2a Windows \u8865\u4e01 (${kbs})`,
   mlpsCategorySection: {
     "\u5b89\u5168\u7269\u7406\u73af\u5883": "\u4e00\u3001\u5b89\u5168\u7269\u7406\u73af\u5883",
     "\u5b89\u5168\u901a\u4fe1\u7f51\u7edc": "\u4e8c\u3001\u5b89\u5168\u901a\u4fe1\u7f51\u7edc",

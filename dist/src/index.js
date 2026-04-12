@@ -2735,10 +2735,20 @@ var SecurityHubFindingsScanner = class {
           const resourceType = f.Resources?.[0]?.Type ?? "AWS::Unknown";
           const resourceArn = resourceId.startsWith("arn:") ? resourceId : `arn:${partition}:securityhub:${region}:${accountId}:finding/${f.Id ?? "unknown"}`;
           const remediationSteps = [];
-          const actionFromTitle = f.Title ?? "Review this finding";
-          remediationSteps.push(actionFromTitle);
+          const title = f.Title ?? "Security Hub Finding";
+          if (/^KB\d+$/.test(title)) {
+            remediationSteps.push(`Install Windows patch ${title} via WSUS or SSM Patch Manager`);
+          } else if (/^CVE-/.test(title)) {
+            remediationSteps.push(`Fix vulnerability ${title}: update affected software to patched version`);
+          } else {
+            remediationSteps.push(title);
+          }
           if (f.Remediation?.Recommendation?.Url) {
             remediationSteps.push(`Documentation: ${f.Remediation.Recommendation.Url}`);
+          }
+          const recText = f.Remediation?.Recommendation?.Text ?? "";
+          if (recText && !["See References", "None Provided", ""].includes(recText.trim())) {
+            remediationSteps.push(recText);
           }
           findings.push({
             severity,
@@ -2998,14 +3008,28 @@ var InspectorFindingsScanner = class {
           } else if (f.remediation?.recommendation?.text) {
             remediationSteps.push(f.remediation.recommendation.text);
           }
+          const genericPatterns = ["See References", "None Provided", "Review the finding"];
+          if (remediationSteps.length === 0 || genericPatterns.some((p) => remediationSteps[0]?.startsWith(p))) {
+            remediationSteps.length = 0;
+            const rawTitle = f.title ?? "";
+            if (rawTitle.includes("KB")) {
+              const kbMatch = rawTitle.match(/KB\d+/);
+              const kb = kbMatch ? kbMatch[0] : "patch";
+              remediationSteps.push(`Install Windows patch ${kb} via WSUS or AWS Systems Manager Patch Manager`);
+              remediationSteps.push(`Run: aws ssm send-command --document-name "AWS-InstallWindowsUpdates" --targets "Key=InstanceIds,Values=${resourceId}"`);
+            } else if (rawTitle.includes("CVE-") || cveId) {
+              const cveMatch = rawTitle.match(/CVE-[\d-]+/);
+              const cve = cveMatch ? cveMatch[0] : cveId ?? "vulnerability";
+              remediationSteps.push(`Fix ${cve}: update the affected software package to the latest patched version`);
+            } else {
+              remediationSteps.push(`Review and remediate: ${rawTitle}`);
+            }
+          }
           if (f.remediation?.recommendation?.Url) {
             remediationSteps.push(`Documentation: ${f.remediation.recommendation.Url}`);
           }
           if (f.packageVulnerabilityDetails?.referenceUrls?.length) {
             remediationSteps.push(`CVE references: ${f.packageVulnerabilityDetails.referenceUrls.slice(0, 3).join(", ")}`);
-          }
-          if (remediationSteps.length === 0) {
-            remediationSteps.push(title);
           }
           const description = f.description ?? titleBase;
           const impact = cveId ? `Vulnerability ${cveId} \u2014 CVSS: ${f.packageVulnerabilityDetails?.cvss?.[0]?.baseScore ?? "N/A"}` : `Inspector finding type: ${f.type ?? "unknown"}`;
@@ -6827,6 +6851,8 @@ var zhI18n = {
   mlpsFooterDisclaimer: "\u672C\u62A5\u544A\u4E3A\u8BC1\u636E\u6536\u96C6\u53C2\u8003\uFF0C\u4E0D\u5305\u542B\u5408\u89C4\u5224\u5B9A\u3002\u5B8C\u6574\u7B49\u4FDD\u6D4B\u8BC4\u9700\u7531\u6301\u8BC1\u6D4B\u8BC4\u673A\u6784\u6267\u884C\u3002",
   andMore: (n) => `... \u53CA\u5176\u4ED6 ${n} \u9879`,
   remediationByPriority: "\u5EFA\u8BAE\u6574\u6539\u9879\uFF08\u6309\u4F18\u5148\u7EA7\uFF09",
+  affectedResources: (n) => `\u6D89\u53CA ${n} \u4E2A\u8D44\u6E90`,
+  installWindowsPatches: (n, kbs) => `\u5B89\u88C5 ${n} \u4E2A Windows \u8865\u4E01 (${kbs})`,
   mlpsCategorySection: {
     "\u5B89\u5168\u7269\u7406\u73AF\u5883": "\u4E00\u3001\u5B89\u5168\u7269\u7406\u73AF\u5883",
     "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC": "\u4E8C\u3001\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC",
@@ -7051,6 +7077,8 @@ var enI18n = {
   mlpsFooterDisclaimer: "This report is for evidence collection reference and does not include compliance determination. A complete MLPS assessment must be conducted by a certified assessment institution.",
   andMore: (n) => `\u2026 and ${n} more`,
   remediationByPriority: "Remediation Items (by Priority)",
+  affectedResources: (n) => `${n} resource${n === 1 ? "" : "s"} affected`,
+  installWindowsPatches: (n, kbs) => `Install ${n} Windows patch${n === 1 ? "" : "es"} (${kbs})`,
   mlpsCategorySection: {
     "\u5B89\u5168\u7269\u7406\u73AF\u5883": "I. Physical Environment Security",
     "\u5B89\u5168\u901A\u4FE1\u7F51\u7EDC": "II. Communication Network Security",
@@ -7855,9 +7883,37 @@ ${rest}
   let recsHtml = "";
   if (summary.totalFindings > 0) {
     const recMap = /* @__PURE__ */ new Map();
+    const kbPatches = [];
+    let kbSeverity = "LOW";
+    let kbUrl;
+    const genericPatterns = ["See References", "None Provided", "Review the finding", "Review and remediate."];
     for (const f of allFindings) {
       const rem = f.remediationSteps[0] ?? "Review and remediate.";
       const url = f.remediationSteps.find((s) => s.startsWith("Documentation:"))?.replace("Documentation: ", "");
+      if (genericPatterns.some((p) => rem.startsWith(p))) continue;
+      const kbMatch = f.title.match(/KB\d+/);
+      if (kbMatch && (f.module === "security_hub_findings" || f.module === "inspector_findings")) {
+        kbPatches.push(kbMatch[0]);
+        if (SEVERITY_ORDER2.indexOf(f.severity) < SEVERITY_ORDER2.indexOf(kbSeverity)) kbSeverity = f.severity;
+        if (!kbUrl && url) kbUrl = url;
+        continue;
+      }
+      if (f.module === "security_hub_findings") {
+        const controlMatch = f.title.match(/^([A-Z][A-Za-z0-9]*\.\d+)\s/);
+        if (controlMatch) {
+          const controlId = controlMatch[1];
+          const key = `ctrl:${controlId}`;
+          const existing2 = recMap.get(key);
+          if (existing2) {
+            existing2.count++;
+            if (!existing2.url && url) existing2.url = url;
+            if (SEVERITY_ORDER2.indexOf(f.severity) < SEVERITY_ORDER2.indexOf(existing2.severity)) existing2.severity = f.severity;
+          } else {
+            recMap.set(key, { text: `[${controlId}] ${rem}`, severity: f.severity, count: 1, url });
+          }
+          continue;
+        }
+      }
       const existing = recMap.get(rem);
       if (existing) {
         existing.count++;
@@ -7867,6 +7923,17 @@ ${rest}
         }
       } else {
         recMap.set(rem, { text: rem, severity: f.severity, count: 1, url });
+      }
+    }
+    if (kbPatches.length > 0) {
+      const unique = [...new Set(kbPatches)];
+      const kbList = unique.slice(0, 5).join(", ") + (unique.length > 5 ? ", \u2026" : "");
+      recMap.set("__kb__", { text: t.installWindowsPatches(unique.length, kbList), severity: kbSeverity, count: 1, url: kbUrl });
+    }
+    for (const [key, rec] of recMap) {
+      if (key.startsWith("ctrl:") && rec.count > 1) {
+        rec.text += ` \u2014 ${t.affectedResources(rec.count)}`;
+        rec.count = 1;
       }
     }
     const uniqueRecs = [...recMap.values()].sort((a, b) => {
@@ -8101,10 +8168,38 @@ ${itemsHtml}
   let remediationHtml = "";
   if (failedResults.length > 0) {
     const mlpsRecMap = /* @__PURE__ */ new Map();
+    const mlpsKbPatches = [];
+    let mlpsKbSeverity = "LOW";
+    let mlpsKbUrl;
+    const mlpsGenericPatterns = ["See References", "None Provided", "Review the finding", "Review and remediate."];
     for (const r of failedResults) {
       for (const f of r.relatedFindings) {
         const rem = f.remediationSteps[0] ?? "Review and remediate.";
         const url = f.remediationSteps.find((s) => s.startsWith("Documentation:"))?.replace("Documentation: ", "");
+        if (mlpsGenericPatterns.some((p) => rem.startsWith(p))) continue;
+        const kbMatch = f.title.match(/KB\d+/);
+        if (kbMatch && (f.module === "security_hub_findings" || f.module === "inspector_findings")) {
+          mlpsKbPatches.push(kbMatch[0]);
+          if (SEVERITY_ORDER2.indexOf(f.severity) < SEVERITY_ORDER2.indexOf(mlpsKbSeverity)) mlpsKbSeverity = f.severity;
+          if (!mlpsKbUrl && url) mlpsKbUrl = url;
+          continue;
+        }
+        if (f.module === "security_hub_findings") {
+          const controlMatch = f.title.match(/^([A-Z][A-Za-z0-9]*\.\d+)\s/);
+          if (controlMatch) {
+            const controlId = controlMatch[1];
+            const key = `ctrl:${controlId}`;
+            const existing2 = mlpsRecMap.get(key);
+            if (existing2) {
+              existing2.count++;
+              if (!existing2.url && url) existing2.url = url;
+              if (SEVERITY_ORDER2.indexOf(f.severity) < SEVERITY_ORDER2.indexOf(existing2.severity)) existing2.severity = f.severity;
+            } else {
+              mlpsRecMap.set(key, { text: `[${controlId}] ${rem}`, severity: f.severity, count: 1, url });
+            }
+            continue;
+          }
+        }
         const existing = mlpsRecMap.get(rem);
         if (existing) {
           existing.count++;
@@ -8115,6 +8210,17 @@ ${itemsHtml}
         } else {
           mlpsRecMap.set(rem, { text: rem, severity: f.severity, count: 1, url });
         }
+      }
+    }
+    if (mlpsKbPatches.length > 0) {
+      const unique = [...new Set(mlpsKbPatches)];
+      const kbList = unique.slice(0, 5).join(", ") + (unique.length > 5 ? ", \u2026" : "");
+      mlpsRecMap.set("__kb__", { text: t.installWindowsPatches(unique.length, kbList), severity: mlpsKbSeverity, count: 1, url: mlpsKbUrl });
+    }
+    for (const [key, rec] of mlpsRecMap) {
+      if (key.startsWith("ctrl:") && rec.count > 1) {
+        rec.text += ` \u2014 ${t.affectedResources(rec.count)}`;
+        rec.count = 1;
       }
     }
     const mlpsUniqueRecs = [...mlpsRecMap.values()].sort((a, b) => {

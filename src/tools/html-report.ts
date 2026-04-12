@@ -668,9 +668,46 @@ export function generateHtmlReport(
   let recsHtml = "";
   if (summary.totalFindings > 0) {
     const recMap = new Map<string, { text: string; severity: Severity; count: number; url?: string }>();
+    const kbPatches: string[] = [];
+    let kbSeverity: Severity = "LOW";
+    let kbUrl: string | undefined;
+    const genericPatterns = ["See References", "None Provided", "Review the finding", "Review and remediate."];
+
     for (const f of allFindings) {
       const rem = f.remediationSteps[0] ?? "Review and remediate.";
       const url = f.remediationSteps.find((s) => s.startsWith("Documentation:"))?.replace("Documentation: ", "");
+
+      // Skip generic remediation
+      if (genericPatterns.some(p => rem.startsWith(p))) continue;
+
+      // Group KB patches together
+      const kbMatch = f.title.match(/KB\d+/);
+      if (kbMatch && (f.module === "security_hub_findings" || f.module === "inspector_findings")) {
+        kbPatches.push(kbMatch[0]);
+        if (SEVERITY_ORDER.indexOf(f.severity) < SEVERITY_ORDER.indexOf(kbSeverity)) kbSeverity = f.severity;
+        if (!kbUrl && url) kbUrl = url;
+        continue;
+      }
+
+      // Group Security Hub findings by control ID
+      if (f.module === "security_hub_findings") {
+        const controlMatch = f.title.match(/^([A-Z][A-Za-z0-9]*\.\d+)\s/);
+        if (controlMatch) {
+          const controlId = controlMatch[1];
+          const key = `ctrl:${controlId}`;
+          const existing = recMap.get(key);
+          if (existing) {
+            existing.count++;
+            if (!existing.url && url) existing.url = url;
+            if (SEVERITY_ORDER.indexOf(f.severity) < SEVERITY_ORDER.indexOf(existing.severity)) existing.severity = f.severity;
+          } else {
+            recMap.set(key, { text: `[${controlId}] ${rem}`, severity: f.severity, count: 1, url });
+          }
+          continue;
+        }
+      }
+
+      // Default grouping by remediation text
       const existing = recMap.get(rem);
       if (existing) {
         existing.count++;
@@ -682,6 +719,22 @@ export function generateHtmlReport(
         recMap.set(rem, { text: rem, severity: f.severity, count: 1, url });
       }
     }
+
+    // Add grouped KB patches as a single entry
+    if (kbPatches.length > 0) {
+      const unique = [...new Set(kbPatches)];
+      const kbList = unique.slice(0, 5).join(", ") + (unique.length > 5 ? ", \u2026" : "");
+      recMap.set("__kb__", { text: t.installWindowsPatches(unique.length, kbList), severity: kbSeverity, count: 1, url: kbUrl });
+    }
+
+    // Post-process: embed resource count for control-ID groups
+    for (const [key, rec] of recMap) {
+      if (key.startsWith("ctrl:") && rec.count > 1) {
+        rec.text += ` \u2014 ${t.affectedResources(rec.count)}`;
+        rec.count = 1;
+      }
+    }
+
     const uniqueRecs = [...recMap.values()].sort((a, b) => {
       const sevDiff = SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity);
       if (sevDiff !== 0) return sevDiff;
@@ -972,10 +1025,46 @@ export function generateMlps3HtmlReport(
   let remediationHtml = "";
   if (failedResults.length > 0) {
     const mlpsRecMap = new Map<string, { text: string; severity: Severity; count: number; url?: string }>();
+    const mlpsKbPatches: string[] = [];
+    let mlpsKbSeverity: Severity = "LOW";
+    let mlpsKbUrl: string | undefined;
+    const mlpsGenericPatterns = ["See References", "None Provided", "Review the finding", "Review and remediate."];
+
     for (const r of failedResults) {
       for (const f of r.relatedFindings) {
         const rem = f.remediationSteps[0] ?? "Review and remediate.";
         const url = f.remediationSteps.find((s) => s.startsWith("Documentation:"))?.replace("Documentation: ", "");
+
+        // Skip generic remediation
+        if (mlpsGenericPatterns.some(p => rem.startsWith(p))) continue;
+
+        // Group KB patches
+        const kbMatch = f.title.match(/KB\d+/);
+        if (kbMatch && (f.module === "security_hub_findings" || f.module === "inspector_findings")) {
+          mlpsKbPatches.push(kbMatch[0]);
+          if (SEVERITY_ORDER.indexOf(f.severity) < SEVERITY_ORDER.indexOf(mlpsKbSeverity)) mlpsKbSeverity = f.severity;
+          if (!mlpsKbUrl && url) mlpsKbUrl = url;
+          continue;
+        }
+
+        // Group by control ID for Security Hub
+        if (f.module === "security_hub_findings") {
+          const controlMatch = f.title.match(/^([A-Z][A-Za-z0-9]*\.\d+)\s/);
+          if (controlMatch) {
+            const controlId = controlMatch[1];
+            const key = `ctrl:${controlId}`;
+            const existing = mlpsRecMap.get(key);
+            if (existing) {
+              existing.count++;
+              if (!existing.url && url) existing.url = url;
+              if (SEVERITY_ORDER.indexOf(f.severity) < SEVERITY_ORDER.indexOf(existing.severity)) existing.severity = f.severity;
+            } else {
+              mlpsRecMap.set(key, { text: `[${controlId}] ${rem}`, severity: f.severity, count: 1, url });
+            }
+            continue;
+          }
+        }
+
         const existing = mlpsRecMap.get(rem);
         if (existing) {
           existing.count++;
@@ -988,6 +1077,22 @@ export function generateMlps3HtmlReport(
         }
       }
     }
+
+    // Add grouped KB patches
+    if (mlpsKbPatches.length > 0) {
+      const unique = [...new Set(mlpsKbPatches)];
+      const kbList = unique.slice(0, 5).join(", ") + (unique.length > 5 ? ", \u2026" : "");
+      mlpsRecMap.set("__kb__", { text: t.installWindowsPatches(unique.length, kbList), severity: mlpsKbSeverity, count: 1, url: mlpsKbUrl });
+    }
+
+    // Post-process: embed resource count for control-ID groups
+    for (const [key, rec] of mlpsRecMap) {
+      if (key.startsWith("ctrl:") && rec.count > 1) {
+        rec.text += ` \u2014 ${t.affectedResources(rec.count)}`;
+        rec.count = 1;
+      }
+    }
+
     const mlpsUniqueRecs = [...mlpsRecMap.values()].sort((a, b) => {
       const sevDiff = SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity);
       if (sevDiff !== 0) return sevDiff;

@@ -84,14 +84,31 @@ export class InspectorFindingsScanner implements Scanner {
             remediationSteps.push(f.remediation.recommendation.text);
           }
 
+          // Check if remediation is generic/useless — replace with actionable text
+          const genericPatterns = ["See References", "None Provided", "Review the finding"];
+          if (remediationSteps.length === 0 || genericPatterns.some(p => remediationSteps[0]?.startsWith(p))) {
+            remediationSteps.length = 0;
+            const rawTitle = f.title ?? "";
+            if (rawTitle.includes("KB")) {
+              const kbMatch = rawTitle.match(/KB\d+/);
+              const kb = kbMatch ? kbMatch[0] : "patch";
+              remediationSteps.push(`Install Windows patch ${kb} via WSUS or AWS Systems Manager Patch Manager`);
+              remediationSteps.push(`Run: aws ssm send-command --document-name "AWS-InstallWindowsUpdates" --targets "Key=InstanceIds,Values=${resourceId}"`);
+            } else if (rawTitle.includes("CVE-") || cveId) {
+              const cveMatch = rawTitle.match(/CVE-[\d-]+/);
+              const cve = cveMatch ? cveMatch[0] : (cveId ?? "vulnerability");
+              remediationSteps.push(`Fix ${cve}: update the affected software package to the latest patched version`);
+            } else {
+              remediationSteps.push(`Review and remediate: ${rawTitle}`);
+            }
+          }
+
+          // Add useful reference URLs
           if (f.remediation?.recommendation?.Url) {
             remediationSteps.push(`Documentation: ${f.remediation.recommendation.Url}`);
           }
           if (f.packageVulnerabilityDetails?.referenceUrls?.length) {
             remediationSteps.push(`CVE references: ${f.packageVulnerabilityDetails.referenceUrls.slice(0, 3).join(", ")}`);
-          }
-          if (remediationSteps.length === 0) {
-            remediationSteps.push(title);
           }
 
           const description = f.description ?? titleBase;

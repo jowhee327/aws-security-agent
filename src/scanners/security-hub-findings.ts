@@ -63,15 +63,26 @@ export class SecurityHubFindingsScanner implements Scanner {
             : `arn:${partition}:securityhub:${region}:${accountId}:finding/${f.Id ?? "unknown"}`;
 
           const remediationSteps: string[] = [];
+          const title = f.Title ?? "Security Hub Finding";
 
-          // Use Title as primary action item — it describes what SHOULD be done
-          // e.g. "S3.4 S3 buckets should have server-side encryption enabled"
-          const actionFromTitle = f.Title ?? "Review this finding";
-          remediationSteps.push(actionFromTitle);
+          // Check if Title is actually informative or just a KB/CVE number
+          if (/^KB\d+$/.test(title)) {
+            remediationSteps.push(`Install Windows patch ${title} via WSUS or SSM Patch Manager`);
+          } else if (/^CVE-/.test(title)) {
+            remediationSteps.push(`Fix vulnerability ${title}: update affected software to patched version`);
+          } else {
+            remediationSteps.push(title);
+          }
 
-          // Add documentation URL if available (actually useful)
+          // Add documentation URL if available and useful
           if (f.Remediation?.Recommendation?.Url) {
             remediationSteps.push(`Documentation: ${f.Remediation.Recommendation.Url}`);
+          }
+
+          // Add Recommendation.Text only if it's not generic
+          const recText = f.Remediation?.Recommendation?.Text ?? "";
+          if (recText && !["See References", "None Provided", ""].includes(recText.trim())) {
+            remediationSteps.push(recText);
           }
 
           findings.push({

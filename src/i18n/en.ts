@@ -140,6 +140,8 @@ export const enI18n: I18n = {
     "This report is for evidence collection reference and does not include compliance determination. A complete MLPS assessment must be conducted by a certified assessment institution.",
   andMore: (n: number) => `\u2026 and ${n} more`,
   remediationByPriority: "Remediation Items (by Priority)",
+  affectedResources: (n: number) => `${n} resource${n === 1 ? "" : "s"} affected`,
+  installWindowsPatches: (n: number, kbs: string) => `Install ${n} Windows patch${n === 1 ? "" : "es"} (${kbs})`,
   mlpsCategorySection: {
     "\u5b89\u5168\u7269\u7406\u73af\u5883": "I. Physical Environment Security",
     "\u5b89\u5168\u901a\u4fe1\u7f51\u7edc": "II. Communication Network Security",

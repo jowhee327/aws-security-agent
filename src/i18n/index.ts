@@ -96,6 +96,8 @@ export interface I18n {
   mlpsFooterDisclaimer: string;
   andMore: (n: number) => string;
   remediationByPriority: string;
+  affectedResources: (n: number) => string;
+  installWindowsPatches: (n: number, kbs: string) => string;
   mlpsCategorySection: Record<string, string>;
 
   // Service recommendations (per service)
