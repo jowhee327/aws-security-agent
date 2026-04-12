@@ -1,9 +1,7 @@
 import type { FullScanResult, Finding } from "../types.js";
 import {
   MLPS3_FULL_CHECKLIST,
-  MLPS3_CHECK_MAPPING,
   MLPS3_CATEGORY_ORDER,
-  MLPS3_CATEGORY_SECTION,
   getMappingById,
   type MlpsChecklistItem,
   type MlpsCheckMapping,

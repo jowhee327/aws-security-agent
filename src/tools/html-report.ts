@@ -21,12 +21,27 @@ function esc(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
+/** Only allow http/https URLs — reject javascript:, data:, vbscript:, etc. */
+function safeUrl(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (u.protocol === "https:" || u.protocol === "http:") return url;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 /** Escape HTML but render URLs as clickable links */
 function escWithLinks(s: string): string {
   const parts = s.split(/(https?:\/\/\S+)/);
   return parts.map((part, i) => {
     if (i % 2 === 1) {
-      return `<a href="${esc(part)}" style="color:#60a5fa" target="_blank" rel="noopener">${esc(part)}</a>`;
+      const safe = safeUrl(part);
+      if (safe) {
+        return `<a href="${esc(safe)}" style="color:#60a5fa" target="_blank" rel="noopener">${esc(part)}</a>`;
+      }
+      return esc(part);
     }
     return esc(part);
   }).join("");
@@ -929,7 +944,8 @@ export function generateHtmlReport(
     const renderRec = (r: { text: string; severity: Severity; count: number; url?: string }): string => {
       const sev = r.severity.toLowerCase();
       const countLabel = r.count > 1 ? ` (&times; ${r.count})` : "";
-      const linkHtml = r.url ? ` <a href="${esc(r.url)}" style="color:#60a5fa" target="_blank" rel="noopener">&#128214;</a>` : "";
+      const safeLink = r.url ? safeUrl(r.url) : null;
+      const linkHtml = safeLink ? ` <a href="${esc(safeLink)}" style="color:#60a5fa" target="_blank" rel="noopener">&#128214;</a>` : "";
       return `<li><span class="badge badge-${esc(sev)}">${esc(r.severity)}</span> ${esc(r.text)}${countLabel}${linkHtml}</li>`;
     };
 
@@ -1109,7 +1125,6 @@ export function generateMlps3HtmlReport(
 
   // Helper to pick item text by lang
   const isEn = (lang ?? "zh") === "en";
-  const itemCat = (r: FullCheckResult) => isEn ? r.item.categoryEn : r.item.categoryCn;
   const itemControl = (r: FullCheckResult) => isEn ? r.item.controlEn : r.item.controlCn;
   const itemReq = (r: FullCheckResult) => isEn ? r.item.requirementEn : r.item.requirementCn;
 
@@ -1370,7 +1385,8 @@ export function generateMlps3HtmlReport(
       const renderMlpsRec = (r: { text: string; severity: Severity; count: number; url?: string }): string => {
         const sev = r.severity.toLowerCase();
         const countLabel = r.count > 1 ? ` (&times; ${r.count})` : "";
-        const linkHtml = r.url ? ` <a href="${esc(r.url)}" style="color:#60a5fa" target="_blank" rel="noopener">&#128214;</a>` : "";
+        const safeLink = r.url ? safeUrl(r.url) : null;
+        const linkHtml = safeLink ? ` <a href="${esc(safeLink)}" style="color:#60a5fa" target="_blank" rel="noopener">&#128214;</a>` : "";
         return `<li><span class="badge badge-${esc(sev)}">${esc(r.severity)}</span> ${esc(r.text)}${countLabel}${linkHtml}</li>`;
       };
 

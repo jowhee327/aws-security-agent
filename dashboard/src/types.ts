@@ -15,6 +15,7 @@ export interface Finding {
   priority: Priority;
   module: string;
   accountId?: string;
+  accountAlias?: string;
   source?: string;
 }
 

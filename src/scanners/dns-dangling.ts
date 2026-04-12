@@ -60,7 +60,7 @@ export class DnsDanglingScanner implements Scanner {
   readonly moduleName = "dns_dangling";
 
   async scan(ctx: ScanContext): Promise<ScanResult> {
-    const { region, partition, accountId } = ctx;
+    const { region, partition } = ctx;
     const startMs = Date.now();
     const findings: Finding[] = [];
     const warnings: string[] = [];
