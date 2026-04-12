@@ -85,15 +85,15 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
   security_hub_findings:
     "Aggregates active findings from AWS Security Hub — replaces individual config scanners with centralized compliance checks.",
   guardduty_findings:
-    "Aggregates threat detection findings from Amazon GuardDuty — account compromise, instance compromise, and reconnaissance.",
+    "Checks if GuardDuty is enabled. Findings are aggregated via Security Hub.",
   inspector_findings:
-    "Aggregates vulnerability findings from Amazon Inspector — CVEs in EC2, Lambda, and container images.",
+    "Checks if Inspector is enabled. Findings are aggregated via Security Hub.",
   trusted_advisor_findings:
     "Aggregates security checks from AWS Trusted Advisor — requires Business or Enterprise Support plan.",
   config_rules_findings:
-    "Pulls non-compliant AWS Config Rule evaluation results — configuration compliance violations across all resource types.",
+    "Checks if AWS Config Rules are configured. Findings are aggregated via Security Hub.",
   access_analyzer_findings:
-    "Pulls active IAM Access Analyzer findings — resources accessible from outside the account (external principals, public access).",
+    "Checks if IAM Access Analyzer is configured. Findings are aggregated via Security Hub.",
   patch_compliance_findings:
     "Checks SSM Patch Manager compliance — managed instances with missing or failed security and system patches.",
   imdsv2_enforcement:

@@ -24,80 +24,52 @@ describe("InspectorFindingsScanner", () => {
     mockSend.mockReset();
   });
 
-  it("returns findings with CVE IDs in titles", async () => {
+  it("reports Inspector enabled when EC2 scanning is active (detection-only, 0 findings)", async () => {
     mockSend.mockResolvedValueOnce({
-      findings: [
+      accounts: [
         {
-          findingArn: "arn:aws:inspector2:us-east-1:123456789012:finding/f1",
-          title: "Kernel vulnerability in amazon linux 2",
-          description: "A critical vulnerability exists in the Linux kernel",
-          severity: "CRITICAL",
-          type: "PACKAGE_VULNERABILITY",
-          resources: [
-            {
-              id: "arn:aws:ec2:us-east-1:123456789012:instance/i-abc123",
-              type: "AWS_EC2_INSTANCE",
-            },
-          ],
-          packageVulnerabilityDetails: {
-            vulnerabilityId: "CVE-2024-1234",
-            cvss: [{ baseScore: 9.8 }],
-            referenceUrls: ["https://nvd.nist.gov/vuln/detail/CVE-2024-1234"],
+          accountId: "123456789012",
+          resourceState: {
+            ec2: { status: "ENABLED" },
+            lambda: { status: "DISABLED" },
           },
-          remediation: {
-            recommendation: {
-              text: "Update the kernel to the latest version",
-            },
-          },
-        },
-        {
-          findingArn: "arn:aws:inspector2:us-east-1:123456789012:finding/f2",
-          title: "OpenSSL vulnerability",
-          description: "Medium-severity OpenSSL issue",
-          severity: "MEDIUM",
-          type: "PACKAGE_VULNERABILITY",
-          resources: [
-            {
-              id: "arn:aws:lambda:us-east-1:123456789012:function:my-func",
-              type: "AWS_LAMBDA_FUNCTION",
-            },
-          ],
-          packageVulnerabilityDetails: {
-            vulnerabilityId: "CVE-2024-5678",
-            referenceUrls: [],
-          },
-        },
-        {
-          findingArn: "arn:aws:inspector2:us-east-1:123456789012:finding/f3",
-          title: "Info finding",
-          severity: "INFORMATIONAL",
-          type: "PACKAGE_VULNERABILITY",
-          resources: [{ id: "some-resource", type: "AWS_EC2_INSTANCE" }],
         },
       ],
-      nextToken: undefined,
     });
 
     const result = await scanner.scan(ctx);
 
     expect(result.status).toBe("success");
     expect(result.module).toBe("inspector_findings");
-    // INFORMATIONAL should be skipped
-    expect(result.findingsCount).toBe(2);
-
-    const critical = result.findings.find((f) => f.title.includes("CVE-2024-1234"));
-    expect(critical).toBeDefined();
-    expect(critical!.severity).toBe("CRITICAL");
-    expect(critical!.riskScore).toBe(9.5);
-    expect(critical!.title).toContain("[CVE-2024-1234]");
-    expect(critical!.remediationSteps).toContain("Update the kernel to the latest version");
-
-    const medium = result.findings.find((f) => f.title.includes("CVE-2024-5678"));
-    expect(medium).toBeDefined();
-    expect(medium!.severity).toBe("MEDIUM");
+    expect(result.findingsCount).toBe(0);
+    expect(result.findings).toHaveLength(0);
+    expect(result.warnings).toBeDefined();
+    expect(result.warnings!.some((w) => w.includes("Inspector is enabled"))).toBe(true);
+    expect(result.warnings!.some((w) => w.includes("Security Hub"))).toBe(true);
   });
 
-  it("returns empty findings with warning when Inspector is not enabled", async () => {
+  it("reports Inspector not enabled when no scanning is active", async () => {
+    mockSend.mockResolvedValueOnce({
+      accounts: [
+        {
+          accountId: "123456789012",
+          resourceState: {
+            ec2: { status: "DISABLED" },
+            lambda: { status: "DISABLED" },
+          },
+        },
+      ],
+    });
+
+    const result = await scanner.scan(ctx);
+
+    expect(result.status).toBe("success");
+    expect(result.findingsCount).toBe(0);
+    expect(result.warnings).toBeDefined();
+    expect(result.warnings!.some((w) => w.includes("Inspector is not enabled"))).toBe(true);
+  });
+
+  it("returns empty findings with warning when Inspector is not enabled (error path)", async () => {
     const err = new Error("Inspector is not enabled in this account");
     err.name = "ValidationException";
     mockSend.mockRejectedValue(err);
@@ -111,7 +83,7 @@ describe("InspectorFindingsScanner", () => {
   });
 
   it("returns warning for AccessDeniedException (insufficient permissions)", async () => {
-    const err = new Error("User is not authorized to perform inspector2:ListFindings");
+    const err = new Error("User is not authorized to perform inspector2:BatchGetAccountStatus");
     err.name = "AccessDeniedException";
     mockSend.mockRejectedValue(err);
 
@@ -123,36 +95,13 @@ describe("InspectorFindingsScanner", () => {
     expect(result.warnings!.some((w) => w.includes("Insufficient permissions"))).toBe(true);
   });
 
-  it("paginates through findings", async () => {
-    mockSend
-      .mockResolvedValueOnce({
-        findings: [
-          {
-            findingArn: "f1",
-            title: "Finding 1",
-            severity: "HIGH",
-            type: "PACKAGE_VULNERABILITY",
-            resources: [{ id: "r1", type: "AWS_EC2_INSTANCE" }],
-          },
-        ],
-        nextToken: "page2",
-      })
-      .mockResolvedValueOnce({
-        findings: [
-          {
-            findingArn: "f2",
-            title: "Finding 2",
-            severity: "LOW",
-            type: "PACKAGE_VULNERABILITY",
-            resources: [{ id: "r2", type: "AWS_EC2_INSTANCE" }],
-          },
-        ],
-        nextToken: undefined,
-      });
+  it("returns error on unexpected failure", async () => {
+    mockSend.mockRejectedValue(new Error("Service unavailable"));
 
     const result = await scanner.scan(ctx);
 
-    expect(result.findingsCount).toBe(2);
-    expect(mockSend).toHaveBeenCalledTimes(2);
+    expect(result.status).toBe("error");
+    expect(result.error).toContain("Service unavailable");
+    expect(result.findingsCount).toBe(0);
   });
 });

@@ -24,16 +24,14 @@ Aggregates active findings from AWS Security Hub. Replaces individual config sca
 - INFORMATIONAL findings are skipped.
 
 ## 3. GuardDuty Findings (guardduty_findings)
-Aggregates threat detection findings from Amazon GuardDuty.
-- Covers account compromise, instance compromise, and reconnaissance.
-- Severity mapped from GuardDuty 0–10 scale: ≥7 → HIGH, ≥4 → MEDIUM, <4 → LOW.
-- Only non-archived findings are included.
+Detection-only: checks if GuardDuty is enabled in the region.
+- GuardDuty findings are aggregated via Security Hub (security_hub_findings module).
+- Reports whether GuardDuty detectors are active.
 
 ## 4. Inspector Findings (inspector_findings)
-Aggregates vulnerability findings from Amazon Inspector v2.
-- Covers CVEs in EC2 instances, Lambda functions, and container images.
-- Severity mapped: CRITICAL → 9.5, HIGH → 8.0, MEDIUM → 5.5, LOW → 3.0.
-- CVE IDs are included in finding titles when available.
+Detection-only: checks if Inspector is enabled in the region.
+- Inspector findings are aggregated via Security Hub (security_hub_findings module).
+- Reports whether Inspector scanning (EC2/Lambda) is active.
 
 ## 5. Trusted Advisor Findings (trusted_advisor_findings)
 Aggregates security checks from AWS Trusted Advisor.
@@ -69,19 +67,15 @@ Finds unused/idle AWS resources (unattached EBS volumes, unused EIPs, stopped in
 Assesses disaster recovery readiness — RDS Multi-AZ & backups, EBS snapshot coverage, S3 versioning & cross-region replication.
 
 ## 15. Config Rules Findings (config_rules_findings)
-Pulls non-compliant AWS Config Rule evaluation results.
-- Lists all Config Rules and their compliance status.
-- For NON_COMPLIANT rules, retrieves specific non-compliant resources.
-- Security-related rules (encryption, IAM, public access, etc.) mapped to HIGH severity (7.5).
-- Other non-compliant rules mapped to MEDIUM severity (5.5).
+Detection-only: checks if AWS Config Rules are configured.
+- Config Rule compliance findings are aggregated via Security Hub (security_hub_findings module).
+- Reports whether Config is enabled and counts active rules.
 - Gracefully handles regions where AWS Config is not enabled.
 
 ## 16. IAM Access Analyzer Findings (access_analyzer_findings)
-Pulls active IAM Access Analyzer findings — resources accessible from outside the account.
-- Lists active analyzers (ACCOUNT or ORGANIZATION type).
-- Retrieves ACTIVE findings showing external access to resources.
-- Covers S3 buckets, IAM roles, SQS queues, Lambda functions, KMS keys, and more.
-- Severity mapped: CRITICAL → 9.5, HIGH → 8.0, MEDIUM → 5.5, LOW → 3.0.
+Detection-only: checks if IAM Access Analyzer is configured.
+- Access Analyzer findings are aggregated via Security Hub (security_hub_findings module).
+- Reports whether active analyzers exist.
 - Returns warning if no analyzer is configured.
 
 ## 17. SSM Patch Compliance (patch_compliance_findings)

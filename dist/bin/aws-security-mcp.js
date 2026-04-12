@@ -3037,126 +3037,39 @@ var SecurityHubFindingsScanner = class {
 // src/scanners/guardduty-findings.ts
 import {
   GuardDutyClient as GuardDutyClient2,
-  ListDetectorsCommand as ListDetectorsCommand2,
-  ListFindingsCommand,
-  GetFindingsCommand as GetFindingsCommand2
+  ListDetectorsCommand as ListDetectorsCommand2
 } from "@aws-sdk/client-guardduty";
-function gdSeverityToScore(severity) {
-  if (severity >= 7) return 8;
-  if (severity >= 4) return 5.5;
-  return 3;
-}
 var GuardDutyFindingsScanner = class {
   moduleName = "guardduty_findings";
   async scan(ctx) {
-    const { region, partition, accountId } = ctx;
+    const { region } = ctx;
     const startMs = Date.now();
-    const findings = [];
     const warnings = [];
-    let resourcesScanned = 0;
     try {
       const client = createClient(GuardDutyClient2, region, ctx.credentials);
       const detectorsResp = await client.send(new ListDetectorsCommand2({}));
       const detectorIds = detectorsResp.DetectorIds ?? [];
-      if (detectorIds.length === 0) {
+      if (detectorIds.length > 0) {
+        warnings.push("GuardDuty is enabled. Findings are aggregated via Security Hub.");
+      } else {
         warnings.push("GuardDuty is not enabled in this region (no detectors found).");
-        return {
-          module: this.moduleName,
-          status: "success",
-          warnings,
-          resourcesScanned: 0,
-          findingsCount: 0,
-          scanTimeMs: Date.now() - startMs,
-          findings: []
-        };
-      }
-      const detectorId = detectorIds[0];
-      let nextToken;
-      const findingIds = [];
-      do {
-        const listResp = await client.send(
-          new ListFindingsCommand({
-            DetectorId: detectorId,
-            FindingCriteria: {
-              Criterion: {
-                "service.archived": {
-                  Eq: ["false"]
-                }
-              }
-            },
-            MaxResults: 50,
-            NextToken: nextToken
-          })
-        );
-        findingIds.push(...listResp.FindingIds ?? []);
-        nextToken = listResp.NextToken;
-      } while (nextToken);
-      resourcesScanned = findingIds.length;
-      if (findingIds.length === 0) {
-        return {
-          module: this.moduleName,
-          status: "success",
-          warnings: warnings.length > 0 ? warnings : void 0,
-          resourcesScanned: 0,
-          findingsCount: 0,
-          scanTimeMs: Date.now() - startMs,
-          findings: []
-        };
-      }
-      for (let i = 0; i < findingIds.length; i += 50) {
-        const batch = findingIds.slice(i, i + 50);
-        const detailsResp = await client.send(
-          new GetFindingsCommand2({
-            DetectorId: detectorId,
-            FindingIds: batch
-          })
-        );
-        for (const gdf of detailsResp.Findings ?? []) {
-          const gdSeverity = gdf.Severity ?? 0;
-          const score = gdSeverityToScore(gdSeverity);
-          const severity = severityFromScore(score);
-          const resourceType = gdf.Resource?.ResourceType ?? "AWS::Unknown";
-          const resourceId = gdf.Resource?.InstanceDetails?.InstanceId ?? gdf.Resource?.AccessKeyDetails?.AccessKeyId ?? gdf.Arn ?? "unknown";
-          const resourceArn = gdf.Arn ?? `arn:${partition}:guardduty:${region}:${accountId}:detector/${detectorId}/finding/${gdf.Id ?? "unknown"}`;
-          findings.push({
-            severity,
-            title: `[GuardDuty] ${gdf.Title ?? gdf.Type ?? "Finding"}`,
-            resourceType,
-            resourceId,
-            resourceArn,
-            region: gdf.Region ?? region,
-            description: gdf.Description ?? gdf.Title ?? "No description",
-            impact: `GuardDuty threat type: ${gdf.Type ?? "unknown"} (severity ${gdSeverity})`,
-            riskScore: score,
-            remediationSteps: [
-              `Investigate ${gdf.Type ?? "unknown threat"}: ${gdf.Title ?? "threat detected"}`,
-              gdf.Description ? `Details: ${gdf.Description.substring(0, 200)}` : "",
-              "Isolate affected resources if compromise is confirmed.",
-              "Review CloudTrail logs for related suspicious activity."
-            ].filter(Boolean),
-            priority: priorityFromSeverity(severity),
-            module: this.moduleName,
-            accountId: gdf.AccountId ?? accountId
-          });
-        }
       }
       return {
         module: this.moduleName,
         status: "success",
-        warnings: warnings.length > 0 ? warnings : void 0,
-        resourcesScanned,
-        findingsCount: findings.length,
+        warnings,
+        resourcesScanned: 0,
+        findingsCount: 0,
         scanTimeMs: Date.now() - startMs,
-        findings
+        findings: []
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return {
         module: this.moduleName,
         status: "error",
-        error: `GuardDuty findings scan failed: ${msg}`,
-        warnings: warnings.length > 0 ? warnings : void 0,
-        resourcesScanned,
+        error: `GuardDuty detection check failed: ${msg}`,
+        resourcesScanned: 0,
         findingsCount: 0,
         scanTimeMs: Date.now() - startMs,
         findings: []
@@ -3168,125 +3081,34 @@ var GuardDutyFindingsScanner = class {
 // src/scanners/inspector-findings.ts
 import {
   Inspector2Client as Inspector2Client2,
-  ListFindingsCommand as ListFindingsCommand2
+  BatchGetAccountStatusCommand as BatchGetAccountStatusCommand2
 } from "@aws-sdk/client-inspector2";
-function inspectorSeverityToScore(label) {
-  switch (label) {
-    case "CRITICAL":
-      return 9.5;
-    case "HIGH":
-      return 8;
-    case "MEDIUM":
-      return 5.5;
-    case "LOW":
-      return 3;
-    case "INFORMATIONAL":
-      return null;
-    case "UNTRIAGED":
-      return 5.5;
-    default:
-      return null;
-  }
-}
 var InspectorFindingsScanner = class {
   moduleName = "inspector_findings";
   async scan(ctx) {
-    const { region, partition, accountId } = ctx;
+    const { region } = ctx;
     const startMs = Date.now();
-    const findings = [];
     const warnings = [];
-    let resourcesScanned = 0;
     try {
       const client = createClient(Inspector2Client2, region, ctx.credentials);
-      let nextToken;
-      const filterCriteria = {
-        findingStatus: [{ comparison: "EQUALS", value: "ACTIVE" }]
-      };
-      do {
-        const resp = await client.send(
-          new ListFindingsCommand2({
-            filterCriteria,
-            maxResults: 100,
-            nextToken
-          })
-        );
-        const inspFindings = resp.findings ?? [];
-        resourcesScanned += inspFindings.length;
-        for (const f of inspFindings) {
-          const severityLabel = f.severity ?? "INFORMATIONAL";
-          const score = inspectorSeverityToScore(severityLabel);
-          if (score === null) continue;
-          const severity = severityFromScore(score);
-          const cveId = f.packageVulnerabilityDetails?.vulnerabilityId;
-          const titleBase = f.title ?? "Inspector Finding";
-          const title = cveId ? `[${cveId}] ${titleBase}` : titleBase;
-          const resourceId = f.resources?.[0]?.id ?? "unknown";
-          const resourceType = f.resources?.[0]?.type ?? "AWS::Unknown";
-          const resourceArn = resourceId.startsWith("arn:") ? resourceId : `arn:${partition}:inspector2:${region}:${accountId}:finding/${f.findingArn ?? "unknown"}`;
-          const remediationSteps = [];
-          const vulnPkgs = f.packageVulnerabilityDetails?.vulnerablePackages;
-          if (vulnPkgs?.length) {
-            for (const pkg of vulnPkgs.slice(0, 3)) {
-              const name = pkg.name ?? "unknown-package";
-              const installed = pkg.version ?? "unknown";
-              const fixed = pkg.fixedInVersion ?? "latest";
-              const cveRef = cveId ? ` to fix ${cveId}` : "";
-              remediationSteps.push(`Update ${name} from ${installed} to ${fixed}${cveRef}`);
-            }
-          } else if (f.remediation?.recommendation?.text) {
-            remediationSteps.push(f.remediation.recommendation.text);
-          }
-          const genericPatterns = ["See References", "None Provided", "Review the finding"];
-          if (remediationSteps.length === 0 || genericPatterns.some((p) => remediationSteps[0]?.startsWith(p))) {
-            remediationSteps.length = 0;
-            const rawTitle = f.title ?? "";
-            if (rawTitle.includes("KB")) {
-              const kbMatch = rawTitle.match(/KB\d+/);
-              const kb = kbMatch ? kbMatch[0] : "patch";
-              remediationSteps.push(`Install Windows patch ${kb} via WSUS or AWS Systems Manager Patch Manager`);
-              remediationSteps.push(`Run: aws ssm send-command --document-name "AWS-InstallWindowsUpdates" --targets "Key=InstanceIds,Values=${resourceId}"`);
-            } else if (rawTitle.includes("CVE-") || cveId) {
-              const cveMatch = rawTitle.match(/CVE-[\d-]+/);
-              const cve = cveMatch ? cveMatch[0] : cveId ?? "vulnerability";
-              remediationSteps.push(`Fix ${cve}: update the affected software package to the latest patched version`);
-            } else {
-              remediationSteps.push(`Review and remediate: ${rawTitle}`);
-            }
-          }
-          if (f.remediation?.recommendation?.Url) {
-            remediationSteps.push(`Documentation: ${f.remediation.recommendation.Url}`);
-          }
-          if (f.packageVulnerabilityDetails?.referenceUrls?.length) {
-            remediationSteps.push(`CVE references: ${f.packageVulnerabilityDetails.referenceUrls.slice(0, 3).join(", ")}`);
-          }
-          const description = f.description ?? titleBase;
-          const impact = cveId ? `Vulnerability ${cveId} \u2014 CVSS: ${f.packageVulnerabilityDetails?.cvss?.[0]?.baseScore ?? "N/A"}` : `Inspector finding type: ${f.type ?? "unknown"}`;
-          findings.push({
-            severity,
-            title,
-            resourceType,
-            resourceId,
-            resourceArn,
-            region,
-            description,
-            impact,
-            riskScore: score,
-            remediationSteps,
-            priority: priorityFromSeverity(severity),
-            module: this.moduleName,
-            accountId: f.awsAccountId ?? accountId
-          });
-        }
-        nextToken = resp.nextToken;
-      } while (nextToken);
+      const resp = await client.send(new BatchGetAccountStatusCommand2({ accountIds: [ctx.accountId] }));
+      const acct = resp.accounts?.[0];
+      const ec2Status = acct?.resourceState?.ec2?.status;
+      const lambdaStatus = acct?.resourceState?.lambda?.status;
+      const anyEnabled = ec2Status === "ENABLED" || lambdaStatus === "ENABLED";
+      if (anyEnabled) {
+        warnings.push("Inspector is enabled. Findings are aggregated via Security Hub.");
+      } else {
+        warnings.push("Inspector is not enabled in this region. Enable it to scan for software vulnerabilities.");
+      }
       return {
         module: this.moduleName,
         status: "success",
-        warnings: warnings.length > 0 ? warnings : void 0,
-        resourcesScanned,
-        findingsCount: findings.length,
+        warnings,
+        resourcesScanned: 0,
+        findingsCount: 0,
         scanTimeMs: Date.now() - startMs,
-        findings
+        findings: []
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -3294,7 +3116,7 @@ var InspectorFindingsScanner = class {
       const isAccessDenied2 = errName === "AccessDeniedException" || msg.includes("AccessDeniedException");
       const isNotEnabled2 = msg.includes("not enabled") || msg.includes("not subscribed");
       if (isAccessDenied2) {
-        warnings.push("Insufficient permissions to access Inspector. Grant inspector2:ListFindings to scan for vulnerabilities.");
+        warnings.push("Insufficient permissions to access Inspector. Grant inspector2:BatchGetAccountStatus to check enablement.");
         return {
           module: this.moduleName,
           status: "success",
@@ -3320,9 +3142,8 @@ var InspectorFindingsScanner = class {
       return {
         module: this.moduleName,
         status: "error",
-        error: `Inspector findings scan failed: ${msg}`,
-        warnings: warnings.length > 0 ? warnings : void 0,
-        resourcesScanned,
+        error: `Inspector detection check failed: ${msg}`,
+        resourcesScanned: 0,
         findingsCount: 0,
         scanTimeMs: Date.now() - startMs,
         findings: []
@@ -3495,128 +3316,38 @@ var TrustedAdvisorFindingsScanner = class {
 // src/scanners/config-rules-findings.ts
 import {
   ConfigServiceClient as ConfigServiceClient2,
-  DescribeComplianceByConfigRuleCommand,
-  GetComplianceDetailsByConfigRuleCommand
+  DescribeComplianceByConfigRuleCommand
 } from "@aws-sdk/client-config-service";
-var SECURITY_RULE_PATTERNS = [
-  "securitygroup",
-  "security-group",
-  "encryption",
-  "encrypted",
-  "public",
-  "unrestricted",
-  "mfa",
-  "password",
-  "access-key",
-  "root",
-  "admin",
-  "logging",
-  "cloudtrail",
-  "iam",
-  "kms",
-  "ssl",
-  "tls",
-  "vpc-flow",
-  "guardduty",
-  "securityhub"
-];
-function ruleIsSecurityRelated(ruleName) {
-  const lower = ruleName.toLowerCase();
-  return SECURITY_RULE_PATTERNS.some((pat) => lower.includes(pat));
-}
 var ConfigRulesFindingsScanner = class {
   moduleName = "config_rules_findings";
   async scan(ctx) {
-    const { region, partition, accountId } = ctx;
+    const { region } = ctx;
     const startMs = Date.now();
-    const findings = [];
     const warnings = [];
-    let resourcesScanned = 0;
     try {
       const client = createClient(ConfigServiceClient2, region, ctx.credentials);
+      let ruleCount = 0;
       let nextToken;
-      const nonCompliantRules = [];
       do {
         const resp = await client.send(
           new DescribeComplianceByConfigRuleCommand({ NextToken: nextToken })
         );
-        for (const rule of resp.ComplianceByConfigRules ?? []) {
-          resourcesScanned++;
-          if (rule.Compliance?.ComplianceType === "NON_COMPLIANT") {
-            nonCompliantRules.push(rule);
-          }
-        }
+        ruleCount += (resp.ComplianceByConfigRules ?? []).length;
         nextToken = resp.NextToken;
       } while (nextToken);
-      if (resourcesScanned === 0) {
+      if (ruleCount > 0) {
+        warnings.push(`AWS Config is enabled with ${ruleCount} rule(s). Findings are aggregated via Security Hub.`);
+      } else {
         warnings.push("AWS Config is not enabled in this region or no Config Rules are defined.");
-        return {
-          module: this.moduleName,
-          status: "success",
-          warnings,
-          resourcesScanned: 0,
-          findingsCount: 0,
-          scanTimeMs: Date.now() - startMs,
-          findings: []
-        };
-      }
-      for (const rule of nonCompliantRules) {
-        const ruleName = rule.ConfigRuleName ?? "unknown";
-        try {
-          let detailToken;
-          do {
-            const detailResp = await client.send(
-              new GetComplianceDetailsByConfigRuleCommand({
-                ConfigRuleName: ruleName,
-                ComplianceTypes: ["NON_COMPLIANT"],
-                NextToken: detailToken
-              })
-            );
-            for (const evalResult of detailResp.EvaluationResults ?? []) {
-              const qualifier = evalResult.EvaluationResultIdentifier?.EvaluationResultQualifier;
-              const resourceType = qualifier?.ResourceType ?? "AWS::Unknown";
-              const resourceId = qualifier?.ResourceId ?? "unknown";
-              const annotation = evalResult.Annotation;
-              const isSecurityRule = ruleIsSecurityRelated(ruleName);
-              const riskScore = isSecurityRule ? 7.5 : 5.5;
-              const severity = severityFromScore(riskScore);
-              const descParts = [`Config Rule: ${ruleName}`, `Resource Type: ${resourceType}`];
-              if (annotation) descParts.push(`Annotation: ${annotation}`);
-              findings.push({
-                severity,
-                title: `Config Rule: ${ruleName} - ${resourceType}/${resourceId} Non-Compliant`,
-                resourceType,
-                resourceId,
-                resourceArn: resourceId,
-                region,
-                description: descParts.join(". "),
-                impact: `Resource is non-compliant with Config Rule: ${ruleName}`,
-                riskScore,
-                remediationSteps: [
-                  `Fix Config Rule violation: ${ruleName}`,
-                  annotation ? `Details: ${annotation}` : "",
-                  `Resource: ${resourceType}/${resourceId}`
-                ].filter(Boolean),
-                priority: priorityFromSeverity(severity),
-                module: this.moduleName,
-                accountId
-              });
-            }
-            detailToken = detailResp.NextToken;
-          } while (detailToken);
-        } catch (detailErr) {
-          const msg = detailErr instanceof Error ? detailErr.message : String(detailErr);
-          warnings.push(`Failed to get details for rule ${ruleName}: ${msg}`);
-        }
       }
       return {
         module: this.moduleName,
         status: "success",
-        warnings: warnings.length > 0 ? warnings : void 0,
-        resourcesScanned,
-        findingsCount: findings.length,
+        warnings,
+        resourcesScanned: ruleCount,
+        findingsCount: 0,
         scanTimeMs: Date.now() - startMs,
-        findings
+        findings: []
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -3635,9 +3366,8 @@ var ConfigRulesFindingsScanner = class {
       return {
         module: this.moduleName,
         status: "error",
-        error: `Config Rules scan failed: ${msg}`,
-        warnings: warnings.length > 0 ? warnings : void 0,
-        resourcesScanned,
+        error: `Config Rules detection check failed: ${msg}`,
+        resourcesScanned: 0,
         findingsCount: 0,
         scanTimeMs: Date.now() - startMs,
         findings: []
@@ -3649,146 +3379,50 @@ var ConfigRulesFindingsScanner = class {
 // src/scanners/access-analyzer-findings.ts
 import {
   AccessAnalyzerClient,
-  ListAnalyzersCommand,
-  ListFindingsV2Command
+  ListAnalyzersCommand
 } from "@aws-sdk/client-accessanalyzer";
-function findingTypeToScore(findingType) {
-  const ft = findingType;
-  switch (ft) {
-    case "ExternalAccess":
-      return 8;
-    case "UnusedIAMRole":
-    case "UnusedIAMUserAccessKey":
-    case "UnusedIAMUserPassword":
-      return 5.5;
-    case "UnusedPermission":
-      return 3;
-    default:
-      return 5.5;
-  }
-}
-var UNUSED_FINDING_TYPES = /* @__PURE__ */ new Set([
-  "UnusedIAMRole",
-  "UnusedIAMUserAccessKey",
-  "UnusedIAMUserPassword",
-  "UnusedPermission"
-]);
-function isSecurityRelevant(findingType) {
-  const ft = findingType;
-  return ft === "ExternalAccess" || UNUSED_FINDING_TYPES.has(ft ?? "");
-}
-function isExternalAccess(findingType) {
-  return findingType === "ExternalAccess";
-}
 var AccessAnalyzerFindingsScanner = class {
   moduleName = "access_analyzer_findings";
   async scan(ctx) {
-    const { region, partition, accountId } = ctx;
+    const { region } = ctx;
     const startMs = Date.now();
-    const findings = [];
     const warnings = [];
-    let resourcesScanned = 0;
     try {
       const client = createClient(AccessAnalyzerClient, region, ctx.credentials);
+      let analyzerCount = 0;
       let analyzerToken;
-      const analyzers = [];
       do {
         const resp = await client.send(
           new ListAnalyzersCommand({ nextToken: analyzerToken })
         );
         for (const analyzer of resp.analyzers ?? []) {
           if (analyzer.status === "ACTIVE") {
-            analyzers.push(analyzer);
+            analyzerCount++;
           }
         }
         analyzerToken = resp.nextToken;
       } while (analyzerToken);
-      if (analyzers.length === 0) {
+      if (analyzerCount > 0) {
+        warnings.push(`IAM Access Analyzer is configured (${analyzerCount} active analyzer${analyzerCount > 1 ? "s" : ""}). Findings are aggregated via Security Hub.`);
+      } else {
         warnings.push("No IAM Access Analyzer found. Create an analyzer to detect external access to your resources.");
-        return {
-          module: this.moduleName,
-          status: "success",
-          warnings,
-          resourcesScanned: 0,
-          findingsCount: 0,
-          scanTimeMs: Date.now() - startMs,
-          findings: []
-        };
-      }
-      for (const analyzer of analyzers) {
-        const analyzerArn = analyzer.arn ?? "unknown";
-        let findingToken;
-        do {
-          const listResp = await client.send(
-            new ListFindingsV2Command({
-              analyzerArn,
-              filter: {
-                status: { eq: ["ACTIVE"] }
-              },
-              nextToken: findingToken
-            })
-          );
-          for (const aaf of listResp.findings ?? []) {
-            if (!isSecurityRelevant(aaf.findingType)) {
-              continue;
-            }
-            resourcesScanned++;
-            const score = findingTypeToScore(aaf.findingType);
-            const severity = severityFromScore(score);
-            const resourceArn = aaf.resource ?? "unknown";
-            const resourceType = aaf.resourceType ?? "AWS::Unknown";
-            const resourceId = resourceArn.split("/").pop() ?? resourceArn.split(":").pop() ?? "unknown";
-            const external = isExternalAccess(aaf.findingType);
-            const descParts = [`Resource Type: ${resourceType}`];
-            if (aaf.resourceOwnerAccount) descParts.push(`Owner Account: ${aaf.resourceOwnerAccount}`);
-            if (aaf.findingType) descParts.push(`Finding Type: ${aaf.findingType}`);
-            const title = buildFindingTitle(aaf);
-            const impact = external ? `Resource is accessible from outside the account. Type: ${aaf.findingType ?? "unknown"}` : `Unused access detected \u2014 review and remove to follow least-privilege. Type: ${aaf.findingType ?? "unknown"}`;
-            const remediationSteps = external ? [
-              `Restrict external access on ${resourceType} ${resourceId}`,
-              "Remove or narrow the resource policy to eliminate unintended external access.",
-              `Resource ARN: ${resourceArn}`
-            ] : [
-              `Remove unused access on ${resourceType} ${resourceId}`,
-              "Remove unused permissions, roles, or credentials to follow least-privilege.",
-              `Resource ARN: ${resourceArn}`
-            ];
-            findings.push({
-              severity,
-              title,
-              resourceType: mapResourceType(resourceType),
-              resourceId,
-              resourceArn,
-              region,
-              description: descParts.join(". "),
-              impact,
-              riskScore: score,
-              remediationSteps,
-              priority: priorityFromSeverity(severity),
-              module: this.moduleName,
-              accountId: aaf.resourceOwnerAccount ?? accountId
-            });
-          }
-          findingToken = listResp.nextToken;
-        } while (findingToken);
       }
       return {
         module: this.moduleName,
         status: "success",
-        warnings: warnings.length > 0 ? warnings : void 0,
-        resourcesScanned,
-        findingsCount: findings.length,
+        warnings,
+        resourcesScanned: 0,
+        findingsCount: 0,
         scanTimeMs: Date.now() - startMs,
-        findings
+        findings: []
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return {
         module: this.moduleName,
         status: "error",
-        error: `Access Analyzer scan failed: ${msg}`,
-        warnings: warnings.length > 0 ? warnings : void 0,
-        resourcesScanned,
+        error: `Access Analyzer detection check failed: ${msg}`,
+        resourcesScanned: 0,
         findingsCount: 0,
         scanTimeMs: Date.now() - startMs,
         findings: []
@@ -3796,29 +3430,6 @@ var AccessAnalyzerFindingsScanner = class {
     }
   }
 };
-function buildFindingTitle(finding) {
-  const resourceType = finding.resourceType ?? "Resource";
-  const resource = finding.resource ? finding.resource.split("/").pop() ?? finding.resource.split(":").pop() ?? finding.resource : "unknown";
-  const label = isExternalAccess(finding.findingType) ? "external access detected" : "unused access detected";
-  return `[Access Analyzer] ${resourceType} ${resource} \u2014 ${label}`;
-}
-function mapResourceType(aaType) {
-  const mapping = {
-    "AWS::S3::Bucket": "AWS::S3::Bucket",
-    "AWS::IAM::Role": "AWS::IAM::Role",
-    "AWS::SQS::Queue": "AWS::SQS::Queue",
-    "AWS::Lambda::Function": "AWS::Lambda::Function",
-    "AWS::Lambda::LayerVersion": "AWS::Lambda::LayerVersion",
-    "AWS::KMS::Key": "AWS::KMS::Key",
-    "AWS::SecretsManager::Secret": "AWS::SecretsManager::Secret",
-    "AWS::SNS::Topic": "AWS::SNS::Topic",
-    "AWS::EFS::FileSystem": "AWS::EFS::FileSystem",
-    "AWS::RDS::DBSnapshot": "AWS::RDS::DBSnapshot",
-    "AWS::RDS::DBClusterSnapshot": "AWS::RDS::DBClusterSnapshot",
-    "AWS::ECR::Repository": "AWS::ECR::Repository"
-  };
-  return mapping[aaType] ?? aaType;
-}
 
 // src/scanners/patch-compliance-findings.ts
 import {
@@ -8760,16 +8371,14 @@ Aggregates active findings from AWS Security Hub. Replaces individual config sca
 - INFORMATIONAL findings are skipped.
 
 ## 3. GuardDuty Findings (guardduty_findings)
-Aggregates threat detection findings from Amazon GuardDuty.
-- Covers account compromise, instance compromise, and reconnaissance.
-- Severity mapped from GuardDuty 0\u201310 scale: \u22657 \u2192 HIGH, \u22654 \u2192 MEDIUM, <4 \u2192 LOW.
-- Only non-archived findings are included.
+Detection-only: checks if GuardDuty is enabled in the region.
+- GuardDuty findings are aggregated via Security Hub (security_hub_findings module).
+- Reports whether GuardDuty detectors are active.
 
 ## 4. Inspector Findings (inspector_findings)
-Aggregates vulnerability findings from Amazon Inspector v2.
-- Covers CVEs in EC2 instances, Lambda functions, and container images.
-- Severity mapped: CRITICAL \u2192 9.5, HIGH \u2192 8.0, MEDIUM \u2192 5.5, LOW \u2192 3.0.
-- CVE IDs are included in finding titles when available.
+Detection-only: checks if Inspector is enabled in the region.
+- Inspector findings are aggregated via Security Hub (security_hub_findings module).
+- Reports whether Inspector scanning (EC2/Lambda) is active.
 
 ## 5. Trusted Advisor Findings (trusted_advisor_findings)
 Aggregates security checks from AWS Trusted Advisor.
@@ -8805,19 +8414,15 @@ Finds unused/idle AWS resources (unattached EBS volumes, unused EIPs, stopped in
 Assesses disaster recovery readiness \u2014 RDS Multi-AZ & backups, EBS snapshot coverage, S3 versioning & cross-region replication.
 
 ## 15. Config Rules Findings (config_rules_findings)
-Pulls non-compliant AWS Config Rule evaluation results.
-- Lists all Config Rules and their compliance status.
-- For NON_COMPLIANT rules, retrieves specific non-compliant resources.
-- Security-related rules (encryption, IAM, public access, etc.) mapped to HIGH severity (7.5).
-- Other non-compliant rules mapped to MEDIUM severity (5.5).
+Detection-only: checks if AWS Config Rules are configured.
+- Config Rule compliance findings are aggregated via Security Hub (security_hub_findings module).
+- Reports whether Config is enabled and counts active rules.
 - Gracefully handles regions where AWS Config is not enabled.
 
 ## 16. IAM Access Analyzer Findings (access_analyzer_findings)
-Pulls active IAM Access Analyzer findings \u2014 resources accessible from outside the account.
-- Lists active analyzers (ACCOUNT or ORGANIZATION type).
-- Retrieves ACTIVE findings showing external access to resources.
-- Covers S3 buckets, IAM roles, SQS queues, Lambda functions, KMS keys, and more.
-- Severity mapped: CRITICAL \u2192 9.5, HIGH \u2192 8.0, MEDIUM \u2192 5.5, LOW \u2192 3.0.
+Detection-only: checks if IAM Access Analyzer is configured.
+- Access Analyzer findings are aggregated via Security Hub (security_hub_findings module).
+- Reports whether active analyzers exist.
 - Returns warning if no analyzer is configured.
 
 ## 17. SSM Patch Compliance (patch_compliance_findings)
@@ -8902,11 +8507,11 @@ var MODULE_DESCRIPTIONS = {
   idle_resources: "Finds unused/idle AWS resources (unattached EBS volumes, unused EIPs, stopped instances, unused security groups) that waste money and increase attack surface.",
   disaster_recovery: "Assesses disaster recovery readiness \u2014 RDS Multi-AZ & backups, EBS snapshot coverage, S3 versioning & cross-region replication.",
   security_hub_findings: "Aggregates active findings from AWS Security Hub \u2014 replaces individual config scanners with centralized compliance checks.",
-  guardduty_findings: "Aggregates threat detection findings from Amazon GuardDuty \u2014 account compromise, instance compromise, and reconnaissance.",
-  inspector_findings: "Aggregates vulnerability findings from Amazon Inspector \u2014 CVEs in EC2, Lambda, and container images.",
+  guardduty_findings: "Checks if GuardDuty is enabled. Findings are aggregated via Security Hub.",
+  inspector_findings: "Checks if Inspector is enabled. Findings are aggregated via Security Hub.",
   trusted_advisor_findings: "Aggregates security checks from AWS Trusted Advisor \u2014 requires Business or Enterprise Support plan.",
-  config_rules_findings: "Pulls non-compliant AWS Config Rule evaluation results \u2014 configuration compliance violations across all resource types.",
-  access_analyzer_findings: "Pulls active IAM Access Analyzer findings \u2014 resources accessible from outside the account (external principals, public access).",
+  config_rules_findings: "Checks if AWS Config Rules are configured. Findings are aggregated via Security Hub.",
+  access_analyzer_findings: "Checks if IAM Access Analyzer is configured. Findings are aggregated via Security Hub.",
   patch_compliance_findings: "Checks SSM Patch Manager compliance \u2014 managed instances with missing or failed security and system patches.",
   imdsv2_enforcement: "Checks if EC2 instances enforce IMDSv2 (HttpTokens: required) \u2014 IMDSv1 allows credential theft via SSRF.",
   waf_coverage: "Checks if internet-facing ALBs have WAF Web ACL associated for protection against common web exploits."

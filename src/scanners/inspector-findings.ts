@@ -1,149 +1,46 @@
 import {
   Inspector2Client,
-  ListFindingsCommand,
-  type FilterCriteria,
+  BatchGetAccountStatusCommand,
 } from "@aws-sdk/client-inspector2";
 import { Scanner } from "./base.js";
-import { ScanResult, ScanContext, Finding } from "../types.js";
+import { ScanResult, ScanContext } from "../types.js";
 import { createClient } from "../utils/aws-client.js";
-import { severityFromScore, priorityFromSeverity } from "../utils/risk-scoring.js";
 
-function inspectorSeverityToScore(label: string): number | null {
-  switch (label) {
-    case "CRITICAL": return 9.5;
-    case "HIGH": return 8.0;
-    case "MEDIUM": return 5.5;
-    case "LOW": return 3.0;
-    case "INFORMATIONAL": return null;
-    case "UNTRIAGED": return 5.5;
-    default: return null;
-  }
-}
-
+/**
+ * Detection-only scanner: checks if Inspector is enabled.
+ * Findings are aggregated via Security Hub.
+ */
 export class InspectorFindingsScanner implements Scanner {
   readonly moduleName = "inspector_findings";
 
   async scan(ctx: ScanContext): Promise<ScanResult> {
-    const { region, partition, accountId } = ctx;
+    const { region } = ctx;
     const startMs = Date.now();
-    const findings: Finding[] = [];
     const warnings: string[] = [];
-    let resourcesScanned = 0;
 
     try {
       const client = createClient(Inspector2Client, region, ctx.credentials);
-      let nextToken: string | undefined;
+      const resp = await client.send(new BatchGetAccountStatusCommand({ accountIds: [ctx.accountId] }));
+      const acct = resp.accounts?.[0];
 
-      const filterCriteria: FilterCriteria = {
-        findingStatus: [{ comparison: "EQUALS", value: "ACTIVE" }],
-      };
+      const ec2Status = acct?.resourceState?.ec2?.status;
+      const lambdaStatus = acct?.resourceState?.lambda?.status;
+      const anyEnabled = ec2Status === "ENABLED" || lambdaStatus === "ENABLED";
 
-      do {
-        const resp = await client.send(
-          new ListFindingsCommand({
-            filterCriteria,
-            maxResults: 100,
-            nextToken,
-          }),
-        );
-
-        const inspFindings = resp.findings ?? [];
-        resourcesScanned += inspFindings.length;
-
-        for (const f of inspFindings) {
-          const severityLabel = f.severity ?? "INFORMATIONAL";
-          const score = inspectorSeverityToScore(severityLabel);
-          if (score === null) continue;
-
-          const severity = severityFromScore(score);
-
-          // Build title with CVE if available
-          const cveId = f.packageVulnerabilityDetails?.vulnerabilityId;
-          const titleBase = f.title ?? "Inspector Finding";
-          const title = cveId ? `[${cveId}] ${titleBase}` : titleBase;
-
-          const resourceId = f.resources?.[0]?.id ?? "unknown";
-          const resourceType = f.resources?.[0]?.type ?? "AWS::Unknown";
-          const resourceArn = resourceId.startsWith("arn:")
-            ? resourceId
-            : `arn:${partition}:inspector2:${region}:${accountId}:finding/${f.findingArn ?? "unknown"}`;
-
-          const remediationSteps: string[] = [];
-
-          // Build specific package update guidance from vulnerable packages
-          const vulnPkgs = f.packageVulnerabilityDetails?.vulnerablePackages;
-          if (vulnPkgs?.length) {
-            for (const pkg of vulnPkgs.slice(0, 3)) {
-              const name = pkg.name ?? "unknown-package";
-              const installed = pkg.version ?? "unknown";
-              const fixed = pkg.fixedInVersion ?? "latest";
-              const cveRef = cveId ? ` to fix ${cveId}` : "";
-              remediationSteps.push(`Update ${name} from ${installed} to ${fixed}${cveRef}`);
-            }
-          } else if (f.remediation?.recommendation?.text) {
-            remediationSteps.push(f.remediation.recommendation.text);
-          }
-
-          // Check if remediation is generic/useless — replace with actionable text
-          const genericPatterns = ["See References", "None Provided", "Review the finding"];
-          if (remediationSteps.length === 0 || genericPatterns.some(p => remediationSteps[0]?.startsWith(p))) {
-            remediationSteps.length = 0;
-            const rawTitle = f.title ?? "";
-            if (rawTitle.includes("KB")) {
-              const kbMatch = rawTitle.match(/KB\d+/);
-              const kb = kbMatch ? kbMatch[0] : "patch";
-              remediationSteps.push(`Install Windows patch ${kb} via WSUS or AWS Systems Manager Patch Manager`);
-              remediationSteps.push(`Run: aws ssm send-command --document-name "AWS-InstallWindowsUpdates" --targets "Key=InstanceIds,Values=${resourceId}"`);
-            } else if (rawTitle.includes("CVE-") || cveId) {
-              const cveMatch = rawTitle.match(/CVE-[\d-]+/);
-              const cve = cveMatch ? cveMatch[0] : (cveId ?? "vulnerability");
-              remediationSteps.push(`Fix ${cve}: update the affected software package to the latest patched version`);
-            } else {
-              remediationSteps.push(`Review and remediate: ${rawTitle}`);
-            }
-          }
-
-          // Add useful reference URLs
-          if (f.remediation?.recommendation?.Url) {
-            remediationSteps.push(`Documentation: ${f.remediation.recommendation.Url}`);
-          }
-          if (f.packageVulnerabilityDetails?.referenceUrls?.length) {
-            remediationSteps.push(`CVE references: ${f.packageVulnerabilityDetails.referenceUrls.slice(0, 3).join(", ")}`);
-          }
-
-          const description = f.description ?? titleBase;
-          const impact = cveId
-            ? `Vulnerability ${cveId} — CVSS: ${f.packageVulnerabilityDetails?.cvss?.[0]?.baseScore ?? "N/A"}`
-            : `Inspector finding type: ${f.type ?? "unknown"}`;
-
-          findings.push({
-            severity,
-            title,
-            resourceType,
-            resourceId,
-            resourceArn,
-            region,
-            description,
-            impact,
-            riskScore: score,
-            remediationSteps,
-            priority: priorityFromSeverity(severity),
-            module: this.moduleName,
-            accountId: f.awsAccountId ?? accountId,
-          });
-        }
-
-        nextToken = resp.nextToken;
-      } while (nextToken);
+      if (anyEnabled) {
+        warnings.push("Inspector is enabled. Findings are aggregated via Security Hub.");
+      } else {
+        warnings.push("Inspector is not enabled in this region. Enable it to scan for software vulnerabilities.");
+      }
 
       return {
         module: this.moduleName,
         status: "success",
-        warnings: warnings.length > 0 ? warnings : undefined,
-        resourcesScanned,
-        findingsCount: findings.length,
+        warnings,
+        resourcesScanned: 0,
+        findingsCount: 0,
         scanTimeMs: Date.now() - startMs,
-        findings,
+        findings: [],
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -153,7 +50,7 @@ export class InspectorFindingsScanner implements Scanner {
       const isNotEnabled = msg.includes("not enabled") || msg.includes("not subscribed");
 
       if (isAccessDenied) {
-        warnings.push("Insufficient permissions to access Inspector. Grant inspector2:ListFindings to scan for vulnerabilities.");
+        warnings.push("Insufficient permissions to access Inspector. Grant inspector2:BatchGetAccountStatus to check enablement.");
         return {
           module: this.moduleName,
           status: "success",
@@ -181,9 +78,8 @@ export class InspectorFindingsScanner implements Scanner {
       return {
         module: this.moduleName,
         status: "error",
-        error: `Inspector findings scan failed: ${msg}`,
-        warnings: warnings.length > 0 ? warnings : undefined,
-        resourcesScanned,
+        error: `Inspector detection check failed: ${msg}`,
+        resourcesScanned: 0,
         findingsCount: 0,
         scanTimeMs: Date.now() - startMs,
         findings: [],
