@@ -77,7 +77,7 @@ export const SCAN_GROUPS: Record<string, {
   hw_defense: {
     name: "护网蓝队加固",
     description: "护网前安全自查 — 攻击者视角的攻击面+弱点评估",
-    modules: ["network_reachability", "dns_dangling", "public_access_verify", "ssl_certificate", "waf_coverage", "imdsv2_enforcement", "secret_exposure", "iam_privilege_escalation", "patch_compliance_findings", "security_hub_findings"],
+    modules: ["service_detection", "network_reachability", "dns_dangling", "public_access_verify", "ssl_certificate", "waf_coverage", "imdsv2_enforcement", "secret_exposure", "iam_privilege_escalation", "patch_compliance_findings", "security_hub_findings"],
     findingsFilter: {
       securityHubCategories: ["network", "public", "exposure", "port", "WAF", "vulnerability", "patch", "IAM", "iam", "access", "privilege", "secret", "credential", "password", "IMDS"],
       minSeverity: "MEDIUM",
