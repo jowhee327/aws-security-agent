@@ -455,7 +455,6 @@ export function generateHwDefenseHtmlReport(
 <header>
   <h1>&#128737;&#65039; ${esc(t.hwReportTitle)}</h1>
   <div class="meta">${esc(t.account)}: ${esc(accountId)} | ${esc(t.region)}: ${esc(region)} | ${esc(t.scanTime)}: ${esc(scanTime)}</div>
-  <div class="disclaimer">${esc(t.hwReportDisclaimer)}</div>
 </header>
 
 <section class="summary-cards">
@@ -469,7 +468,7 @@ ${sectionsHtml}
 
 <footer>
   <p>${esc(t.generatedBy)} v${VERSION}</p>
-  <p>${esc(t.hwReportDisclaimer)}</p>
+
 </footer>
 
 </div>
