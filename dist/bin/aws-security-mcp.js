@@ -2867,6 +2867,22 @@ import {
   SecurityHubClient as SecurityHubClient2,
   GetFindingsCommand
 } from "@aws-sdk/client-securityhub";
+
+// src/utils/sh-source.ts
+function getSecurityHubSource(finding) {
+  const impact = finding.impact ?? "";
+  const match = impact.match(/^Source:\s*([^(]+)/);
+  if (!match) return "Other";
+  const product = match[1].trim();
+  if (product === "Security Hub" || product.includes("Foundational")) return "FSBP";
+  if (product === "Inspector" || product.includes("Inspector")) return "Inspector";
+  if (product === "GuardDuty" || product.includes("GuardDuty")) return "GuardDuty";
+  if (product === "Config" || product.includes("Config")) return "Config";
+  if (product === "IAM Access Analyzer" || product.includes("Access Analyzer")) return "Access Analyzer";
+  return "Other";
+}
+
+// src/scanners/security-hub-findings.ts
 function shSeverityToScore(label) {
   switch (label) {
     case "CRITICAL":
@@ -2936,7 +2952,7 @@ var SecurityHubFindingsScanner = class {
           if (recText && !["See References", "None Provided", ""].includes(recText.trim())) {
             remediationSteps.push(recText);
           }
-          findings.push({
+          const finding = {
             severity,
             title: f.Title ?? "Security Hub Finding",
             resourceType,
@@ -2950,7 +2966,9 @@ var SecurityHubFindingsScanner = class {
             priority: priorityFromSeverity(severity),
             module: this.moduleName,
             accountId: f.AwsAccountId ?? accountId
-          });
+          };
+          finding.source = getSecurityHubSource(finding);
+          findings.push(finding);
         }
         nextToken = resp.NextToken;
       } while (nextToken);
@@ -7274,18 +7292,6 @@ var SEVERITY_ORDER2 = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 function getRecommendationTemplate(rem) {
   return rem.replace(/\b(i-[0-9a-f]+)\b/g, "{instance}").replace(/\b(vol-[0-9a-f]+)\b/g, "{volume}").replace(/\b(sg-[0-9a-f]+)\b/g, "{sg}").replace(/\b(eipalloc-[0-9a-f]+)\b/g, "{eip}").replace(/\b(arn:aws[-\w]*:[^"\s]+)\b/g, "{arn}").replace(/"[^"]+"/g, "{name}").replace(/bucket \S+/g, "bucket {name}").replace(/instance \S+/g, "instance {id}").replace(/volume \S+/g, "volume {id}").replace(/rule \S+/g, "rule {name}");
 }
-function getSecurityHubSource(finding) {
-  const impact = finding.impact ?? "";
-  const match = impact.match(/^Source:\s*([^(]+)/);
-  if (!match) return "Other";
-  const product = match[1].trim();
-  if (product === "Security Hub" || product.includes("Foundational")) return "FSBP";
-  if (product === "Inspector" || product.includes("Inspector")) return "Inspector";
-  if (product === "GuardDuty" || product.includes("GuardDuty")) return "GuardDuty";
-  if (product === "Config" || product.includes("Config")) return "Config";
-  if (product === "IAM Access Analyzer" || product.includes("Access Analyzer")) return "Access Analyzer";
-  return "Other";
-}
 var SECURITY_HUB_SUB_CAT_ORDER = ["FSBP", "Inspector", "GuardDuty", "Config", "Access Analyzer", "Other"];
 function scoreColor(score) {
   if (score >= 80) return "#22c55e";
@@ -7481,6 +7487,7 @@ function sharedCss() {
     .filter-count{color:#64748b;font-size:13px;margin-left:auto}
     @media print{
       .filter-toolbar{display:none !important}
+      .finding-card,.module-fold{display:block !important}
       body{background:#fff;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .container{max-width:100%;padding:20px}
       .card,.score-card,.stat-card,.chart-box,.finding-fold,.top5-card,.trend-chart,.category-fold,.module-fold,.finding-card,.rec-fold{background:#fff;border:1px solid #e2e8f0}
@@ -8023,7 +8030,8 @@ ${remaining.map(renderRec).join("\n")}
     document.querySelectorAll('.module-fold').forEach(function(f){
       var mod=f.getAttribute('data-module');
       if(activeMod!=='ALL'&&mod!==activeMod){f.style.display='none';return;}
-      f.style.display='';
+      var hasVisible=f.querySelectorAll('.finding-card:not([style*="display: none"])').length>0;
+      f.style.display=hasVisible?'':'none';
     });
     document.querySelectorAll('.severity-group-fold').forEach(function(g){
       g.style.display=g.querySelectorAll('.finding-card:not([style*="display: none"])').length?'':'none';

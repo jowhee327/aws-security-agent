@@ -6,6 +6,7 @@ import {
 } from "./mlps-report.js";
 import { VERSION } from "../version.js";
 import { getI18n, type Lang } from "../i18n/index.js";
+import { getSecurityHubSource } from "../utils/sh-source.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -71,20 +72,6 @@ function getRecommendationTemplate(rem: string): string {
     .replace(/instance \S+/g, 'instance {id}')
     .replace(/volume \S+/g, 'volume {id}')
     .replace(/rule \S+/g, 'rule {name}');
-}
-
-/** Extract source sub-category from a Security Hub finding's impact field. */
-function getSecurityHubSource(finding: Finding): string {
-  const impact = finding.impact ?? "";
-  const match = impact.match(/^Source:\s*([^(]+)/);
-  if (!match) return "Other";
-  const product = match[1].trim();
-  if (product === "Security Hub" || product.includes("Foundational")) return "FSBP";
-  if (product === "Inspector" || product.includes("Inspector")) return "Inspector";
-  if (product === "GuardDuty" || product.includes("GuardDuty")) return "GuardDuty";
-  if (product === "Config" || product.includes("Config")) return "Config";
-  if (product === "IAM Access Analyzer" || product.includes("Access Analyzer")) return "Access Analyzer";
-  return "Other";
 }
 
 const SECURITY_HUB_SUB_CAT_ORDER = ["FSBP", "Inspector", "GuardDuty", "Config", "Access Analyzer", "Other"];
@@ -299,6 +286,7 @@ function sharedCss(): string {
     .filter-count{color:#64748b;font-size:13px;margin-left:auto}
     @media print{
       .filter-toolbar{display:none !important}
+      .finding-card,.module-fold{display:block !important}
       body{background:#fff;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .container{max-width:100%;padding:20px}
       .card,.score-card,.stat-card,.chart-box,.finding-fold,.top5-card,.trend-chart,.category-fold,.module-fold,.finding-card,.rec-fold{background:#fff;border:1px solid #e2e8f0}
@@ -980,7 +968,8 @@ export function generateHtmlReport(
     document.querySelectorAll('.module-fold').forEach(function(f){
       var mod=f.getAttribute('data-module');
       if(activeMod!=='ALL'&&mod!==activeMod){f.style.display='none';return;}
-      f.style.display='';
+      var hasVisible=f.querySelectorAll('.finding-card:not([style*="display: none"])').length>0;
+      f.style.display=hasVisible?'':'none';
     });
     document.querySelectorAll('.severity-group-fold').forEach(function(g){
       g.style.display=g.querySelectorAll('.finding-card:not([style*="display: none"])').length?'':'none';

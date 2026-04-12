@@ -19,6 +19,7 @@ interface Finding {
     module?: string;
     accountId?: string;
     accountAlias?: string;
+    source?: string;
 }
 interface ScanResult {
     module: string;

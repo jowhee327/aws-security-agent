@@ -54,7 +54,11 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
       result = result.filter(
         f =>
           f.title.toLowerCase().includes(q) ||
-          f.description.toLowerCase().includes(q),
+          f.description.toLowerCase().includes(q) ||
+          f.resourceId.toLowerCase().includes(q) ||
+          f.resourceArn.toLowerCase().includes(q) ||
+          f.module.toLowerCase().includes(q) ||
+          (f.accountId?.toLowerCase().includes(q) ?? false),
       );
     }
     return result;
@@ -164,7 +168,7 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
                   : 'bg-slate-700 text-slate-400 border-slate-600 hover:border-slate-500'
               }`}
             >
-              {s}
+              {t(`severity.${s}`)}
             </button>
           ))}
 
@@ -177,7 +181,7 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
             <option value="">{t('findings.allModules')}</option>
             {modules.map(m => (
               <option key={m} value={m}>
-                {m}
+                {t(`module.${m}`)}
               </option>
             ))}
           </select>

@@ -6,6 +6,7 @@ import { Scanner } from "./base.js";
 import { ScanResult, ScanContext, Finding } from "../types.js";
 import { createClient } from "../utils/aws-client.js";
 import { severityFromScore, priorityFromSeverity } from "../utils/risk-scoring.js";
+import { getSecurityHubSource } from "../utils/sh-source.js";
 
 function shSeverityToScore(label: string): number | null {
   switch (label) {
@@ -86,7 +87,7 @@ export class SecurityHubFindingsScanner implements Scanner {
             remediationSteps.push(recText);
           }
 
-          findings.push({
+          const finding: Finding = {
             severity,
             title: f.Title ?? "Security Hub Finding",
             resourceType,
@@ -100,7 +101,9 @@ export class SecurityHubFindingsScanner implements Scanner {
             priority: priorityFromSeverity(severity),
             module: this.moduleName,
             accountId: f.AwsAccountId ?? accountId,
-          });
+          };
+          finding.source = getSecurityHubSource(finding);
+          findings.push(finding);
         }
 
         nextToken = resp.NextToken;

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useState, useCallback, type ReactNode } from 'react';
 
 type Lang = 'en' | 'zh';
 
@@ -48,6 +48,30 @@ const translations: Record<Lang, Record<string, string>> = {
     'severity.high': 'High',
     'severity.medium': 'Medium',
     'severity.low': 'Low',
+    'severity.CRITICAL': 'Critical',
+    'severity.HIGH': 'High',
+    'severity.MEDIUM': 'Medium',
+    'severity.LOW': 'Low',
+
+    'module.service_detection': 'Security Service Detection',
+    'module.secret_exposure': 'Secret Exposure',
+    'module.ssl_certificate': 'SSL Certificate',
+    'module.dns_dangling': 'Dangling DNS',
+    'module.network_reachability': 'Network Reachability',
+    'module.iam_privilege_escalation': 'IAM Privilege Escalation',
+    'module.public_access_verify': 'Public Access Verification',
+    'module.tag_compliance': 'Tag Compliance',
+    'module.idle_resources': 'Idle Resources',
+    'module.disaster_recovery': 'Disaster Recovery',
+    'module.security_hub_findings': 'Security Hub',
+    'module.guardduty_findings': 'GuardDuty',
+    'module.inspector_findings': 'Inspector',
+    'module.trusted_advisor_findings': 'Trusted Advisor',
+    'module.config_rules_findings': 'Config Rules',
+    'module.access_analyzer_findings': 'Access Analyzer',
+    'module.patch_compliance_findings': 'Patch Compliance',
+    'module.imdsv2_enforcement': 'IMDSv2 Enforcement',
+    'module.waf_coverage': 'WAF Coverage',
 
     'grade': 'Grade',
     'findings': 'findings',
@@ -98,6 +122,30 @@ const translations: Record<Lang, Record<string, string>> = {
     'severity.high': '高',
     'severity.medium': '中',
     'severity.low': '低',
+    'severity.CRITICAL': '严重/Critical',
+    'severity.HIGH': '高/High',
+    'severity.MEDIUM': '中/Medium',
+    'severity.LOW': '低/Low',
+
+    'module.service_detection': '安全服务检测',
+    'module.secret_exposure': '密钥暴露',
+    'module.ssl_certificate': 'SSL 证书',
+    'module.dns_dangling': '悬挂 DNS',
+    'module.network_reachability': '网络可达性',
+    'module.iam_privilege_escalation': 'IAM 提权分析',
+    'module.public_access_verify': '公网访问验证',
+    'module.tag_compliance': '标签合规',
+    'module.idle_resources': '闲置资源',
+    'module.disaster_recovery': '灾备评估',
+    'module.security_hub_findings': 'Security Hub',
+    'module.guardduty_findings': 'GuardDuty',
+    'module.inspector_findings': 'Inspector',
+    'module.trusted_advisor_findings': 'Trusted Advisor',
+    'module.config_rules_findings': 'Config Rules',
+    'module.access_analyzer_findings': 'Access Analyzer',
+    'module.patch_compliance_findings': '补丁合规',
+    'module.imdsv2_enforcement': 'IMDSv2 强制',
+    'module.waf_coverage': 'WAF 覆盖',
 
     'grade': '等级',
     'findings': '发现',
@@ -111,7 +159,7 @@ interface I18nContextType {
   t: (key: string) => string;
 }
 
-const I18nContext = createContext<I18nContextType>(null!);
+export const I18nContext = createContext<I18nContextType>(null!);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(() => {
@@ -136,6 +184,4 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useI18n() {
-  return useContext(I18nContext);
-}
+export { useI18n } from './hooks/useI18n';

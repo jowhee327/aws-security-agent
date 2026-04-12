@@ -16,6 +16,7 @@ export interface Finding {
   module?: string;
   accountId?: string;
   accountAlias?: string;
+  source?: string;
 }
 
 export interface ScanResult {
