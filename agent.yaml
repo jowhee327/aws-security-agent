@@ -1,11 +1,12 @@
 name: aws-security-mcp
 description: >
-  AWS Security MCP Server - A Model Context Protocol server that provides
-  AI-powered security scanning for AWS infrastructure. Runs 14 read-only
-  security scanner modules (10 unique scanners + 4 aggregation scanners)
-  with risk scoring, parallel execution, and a React dashboard.
+  AWS Security MCP Server — AI-native security scanning for AWS infrastructure.
+  19 read-only scanner modules (12 proprietary deep checks + 5 detection-only +
+  2 aggregation), 11 preset scan groups, MLPS Level 3 compliance, interactive
+  HTML reports, React dashboard, multi-account org scanning, bilingual (zh/en),
+  and full China region (aws-cn) support.
 
-version: "0.3.1"
+version: "0.7.1"
 license: MIT
 
 architecture:
@@ -16,23 +17,25 @@ architecture:
   module_system: esm
 
 entry_points:
-  mcp_server: dist/index.js
+  mcp_server: dist/src/index.js
   cli: dist/bin/aws-security-mcp.js
+  dashboard_command: dist/src/commands/dashboard.js
+  deploy_command: dist/src/commands/deploy-dashboard.js
 
 scanner_modules:
-  unique:
+  proprietary:
     - name: service_detection
       file: src/scanners/service-detection.ts
-      description: Detects enabled security services (Security Hub, GuardDuty, Inspector, Config) and assesses maturity
+      description: Detects enabled security services (Security Hub, GuardDuty, Inspector, Config, CloudTrail, Access Analyzer) and assesses maturity
     - name: secret_exposure
       file: src/scanners/secret-exposure.ts
-      description: Checks Lambda env vars and EC2 userData for exposed secrets
+      description: Checks Lambda env vars and EC2 userData for exposed secrets (hardcoded credentials)
     - name: ssl_certificate
       file: src/scanners/ssl-certificate.ts
       description: Checks ACM certificates for expiry, failed status, upcoming renewals
     - name: dns_dangling
       file: src/scanners/dns-dangling.ts
-      description: Detects Route53 CNAME records pointing to non-existent resources (subdomain takeover)
+      description: Detects Route53 CNAME records pointing to non-existent resources (subdomain takeover risk)
     - name: network_reachability
       file: src/scanners/network-reachability.ts
       description: Analyzes true network reachability combining Security Group + NACL rules for public EC2 instances
@@ -41,7 +44,7 @@ scanner_modules:
       description: Detects IAM privilege escalation paths via policy manipulation, role creation, or service abuse
     - name: public_access_verify
       file: src/scanners/public-access-verify.ts
-      description: Verifies actual public accessibility of resources (S3 HTTP check, RDS DNS resolution)
+      description: Verifies actual public accessibility (S3 HTTP check, RDS DNS resolution) — not just config
     - name: tag_compliance
       file: src/scanners/tag-compliance.ts
       description: Checks EC2, RDS, S3 resources for required tags (Environment, Project, Owner)
@@ -50,54 +53,106 @@ scanner_modules:
       description: Finds unused resources (unattached EBS, unused EIPs, stopped instances, unused SGs)
     - name: disaster_recovery
       file: src/scanners/disaster-recovery.ts
-      description: Assesses disaster recovery readiness (RDS Multi-AZ, EBS snapshots, S3 versioning)
+      description: Assesses DR readiness (RDS Multi-AZ, EBS snapshots, S3 versioning)
+    - name: imdsv2_enforcement
+      file: src/scanners/imdsv2-enforcement.ts
+      description: Checks if EC2 instances enforce IMDSv2 (HttpTokens required) — SSRF protection
+    - name: waf_coverage
+      file: src/scanners/waf-coverage.ts
+      description: Checks if internet-facing ALBs have WAF Web ACL associated
+  detection_only:
+    - name: guardduty_findings
+      file: src/scanners/guardduty-findings.ts
+      description: Detects if GuardDuty is enabled; findings aggregated via Security Hub
+    - name: inspector_findings
+      file: src/scanners/inspector-findings.ts
+      description: Detects if Inspector is enabled with all resource scan types active
+    - name: config_rules_findings
+      file: src/scanners/config-rules-findings.ts
+      description: Detects if AWS Config is enabled; findings aggregated via Security Hub
+    - name: access_analyzer_findings
+      file: src/scanners/access-analyzer-findings.ts
+      description: Detects if IAM Access Analyzer is configured; findings aggregated via Security Hub
+    - name: patch_compliance_findings
+      file: src/scanners/patch-compliance-findings.ts
+      description: Checks SSM Patch Manager compliance — missing or failed security patches
   aggregation:
     - name: security_hub_findings
       file: src/scanners/security-hub-findings.ts
-      description: Aggregates active findings from AWS Security Hub (FSBP, CIS, PCI DSS)
-    - name: guardduty_findings
-      file: src/scanners/guardduty-findings.ts
-      description: Aggregates threat detection findings from Amazon GuardDuty
-    - name: inspector_findings
-      file: src/scanners/inspector-findings.ts
-      description: Aggregates vulnerability findings from Amazon Inspector (CVEs)
+      description: >
+        Aggregates active findings from Security Hub with source sub-categorization
+        (FSBP, Inspector, GuardDuty, Config, Access Analyzer, Other)
     - name: trusted_advisor_findings
       file: src/scanners/trusted-advisor-findings.ts
       description: Aggregates security checks from AWS Trusted Advisor
 
-mcp_tools:
-  - scan_all
-  - detect_services
-  - scan_secret_exposure
-  - scan_ssl_certificate
-  - scan_dns_dangling
-  - scan_network_reachability
-  - scan_iam_privilege_escalation
-  - scan_public_access_verify
-  - scan_tag_compliance
-  - scan_idle_resources
-  - scan_disaster_recovery
-  - scan_security_hub_findings
-  - scan_guardduty_findings
-  - scan_inspector_findings
-  - scan_trusted_advisor_findings
-  - scan_group
-  - list_groups
-  - list_modules
-  - generate_report
-  - generate_html_report
-  - generate_mlps3_report
-  - generate_mlps3_html_report
-  - generate_maturity_report
-  - save_results
+scan_groups:
+  - mlps3_precheck    # 等保三级预检
+  - hw_defense        # 护网蓝队加固 (14 scanners)
+  - exposure          # 公网暴露面收敛
+  - data_encryption   # 数据加密审计
+  - least_privilege   # 最小权限审查
+  - log_integrity     # 日志完整性审计
+  - disaster_recovery # 灾备评估
+  - idle_resources    # 闲置资源清理
+  - tag_compliance    # 标签合规
+  - new_account_baseline  # 新账号安全基线
+  - aggregation       # 安全服务聚合
 
-mcp_resources:
-  - security-rules
-  - risk-scoring
+mcp_interface:
+  tools:
+    - scan_all
+    - scan_group
+    - list_groups
+    - list_modules
+    - detect_services
+    - scan_secret_exposure
+    - scan_ssl_certificate
+    - scan_dns_dangling
+    - scan_network_reachability
+    - scan_iam_privilege_escalation
+    - scan_public_access_verify
+    - scan_tag_compliance
+    - scan_idle_resources
+    - scan_disaster_recovery
+    - scan_imdsv2_enforcement
+    - scan_waf_coverage
+    - scan_security_hub_findings
+    - scan_guardduty_findings
+    - scan_inspector_findings
+    - scan_config_rules_findings
+    - scan_access_analyzer_findings
+    - scan_patch_compliance_findings
+    - scan_trusted_advisor_findings
+    - generate_report
+    - generate_html_report
+    - generate_mlps3_report
+    - generate_mlps3_html_report
+    - generate_maturity_report
+    - save_results
+  prompts:
+    - security-scan
+    - analyze-finding
+    - hw_defense_checklist
+  resources:
+    - security-rules
+    - risk-scoring
 
-mcp_prompts:
-  - security-scan
-  - analyze-finding
+reports:
+  - type: html
+    description: Interactive HTML with severity/module filtering, SVG charts, dark theme
+  - type: markdown
+    description: Plain text for AI analysis
+  - type: mlps3_html
+    description: MLPS Level 3 (GB/T 22239-2019) evidence collection, 184 check items
+  - type: mlps3_markdown
+    description: MLPS Level 3 plain text
+  - type: maturity
+    description: Security maturity assessment scoring
+
+i18n:
+  languages: [zh, en]
+  default: zh
 
 risk_scoring:
   scale: 0-10
@@ -115,19 +170,28 @@ risk_scoring:
 aws:
   mode: read-only
   api_pattern: Describe/Get/List only
-  partitions:
-    - aws
-    - aws-cn
+  partitions: [aws, aws-cn]
+  multi_account:
+    method: Organizations + AssumeRole
+    role_name: AWSSecurityMCPAudit
+    external_id: aws-security-mcp-audit
+    stackset_template: templates/stackset-audit-role.yaml
   credential_sources:
     - environment_variables
     - iam_roles
     - aws_profiles
 
 dashboard:
-  framework: react
-  styling: tailwind
-  charts: recharts
+  framework: react 19
+  styling: tailwind 4
+  charts: recharts 3
   build: vite
+  features:
+    - interactive severity/module filtering
+    - Security Hub sub-category display
+    - 30-day trend charts
+    - bilingual (zh/en) with localStorage
+    - responsive dark theme
   deployment:
     - local (port 3000)
     - s3-static-hosting
@@ -136,10 +200,15 @@ compatible_tools:
   - kiro
   - claude-code
   - cursor
+  - any MCP-compatible client
+
+testing:
+  framework: vitest
+  files: 30
+  tests: 146
+  coverage: all scanners have test files
 
 ci_cd:
-  test: vitest
   lint: tsc --noEmit
   build: tsup
-  publish: npm (triggered by v* tags)
-  matrix: [node 18, node 20, node 22]
+  publish: npm
