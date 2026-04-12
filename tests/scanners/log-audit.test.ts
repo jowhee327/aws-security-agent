@@ -47,7 +47,9 @@ describe("LogAuditScanner", () => {
 
     const result = await scanner.scan(ctx);
     expect(result.status).toBe("success");
-    expect(result.findingsCount).toBe(0);
+    // With no trails, expect a HIGH finding for missing CloudTrail
+    const ctFinding = result.findings.find(f => f.title.includes("CloudTrail"));
+    expect(ctFinding).toBeDefined();
     expect(result.module).toBe("log_audit");
   });
 
