@@ -121,7 +121,7 @@ interface OrgAccount {
 }
 declare function listOrgAccounts(region: string): Promise<OrgAccount[]>;
 
-declare function generateMarkdownReport(scanResults: FullScanResult, _lang?: Lang): string;
+declare function generateMarkdownReport(scanResults: FullScanResult, lang?: Lang): string;
 
 declare function generateHtmlReport(scanResults: FullScanResult, history?: DashboardHistoryEntry[], lang?: Lang): string;
 declare function generateMlps3HtmlReport(scanResults: FullScanResult, history?: DashboardHistoryEntry[], lang?: Lang): string;

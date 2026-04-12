@@ -116,6 +116,13 @@ export const zhI18n: I18n = {
     `\u663e\u793a\u5269\u4f59 ${n} \u9879\u2026`,
 
   // Extended — MLPS extras
+  // Markdown report
+  executiveSummary: "\u6267\u884c\u6458\u8981",
+  totalFindingsLabel: "\u53d1\u73b0\u603b\u6570",
+  description: "\u63cf\u8ff0",
+  priority: "\u4f18\u5148\u7ea7",
+  noFindingsForSeverity: (severity: string) => `\u65e0${severity}\u53d1\u73b0\u3002`,
+
   preCheckOverview: "\u9884\u68c0\u603b\u89c8",
   accountInfo: "\u8d26\u6237\u4fe1\u606f",
   checkedCount: (total: number, clean: number, issues: number) =>

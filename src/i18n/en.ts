@@ -117,6 +117,13 @@ export const enI18n: I18n = {
     `Show ${n} more\u2026`,
 
   // Extended \u2014 MLPS extras
+  // Markdown report
+  executiveSummary: "Executive Summary",
+  totalFindingsLabel: "Total Findings",
+  description: "Description",
+  priority: "Priority",
+  noFindingsForSeverity: (severity: string) => `No ${severity.toLowerCase()} findings.`,
+
   preCheckOverview: "Pre-Check Overview",
   accountInfo: "Account Information",
   checkedCount: (total: number, clean: number, issues: number) =>

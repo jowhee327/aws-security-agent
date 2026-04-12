@@ -265,11 +265,16 @@ export class ServiceDetectionScanner implements Scanner {
       const insp = createClient(Inspector2Client, region, ctx.credentials);
       const resp = await insp.send(new BatchGetAccountStatusCommand({ accountIds: [accountId] }));
       const accounts = resp.accounts ?? [];
-      const active = accounts.some(
-        (a) =>
-          a.state?.status === "ENABLED" ||
-          a.state?.status === "ENABLING",
-      );
+      const active = accounts.some((a) => {
+        const s = a.state?.status;
+        if (s === "ENABLED" || s === "ENABLING") return true;
+        // Also check individual resource type scanning states (ec2, ecr, lambda, lambdaCode, codeRepository)
+        const rs = a.resourceState as Record<string, { status?: string } | undefined> | undefined;
+        if (!rs) return false;
+        return ["ec2", "ecr", "lambda", "lambdaCode", "codeRepository"].some(
+          (k) => rs[k]?.status === "ENABLED",
+        );
+      });
       if (active) {
         services.push({
           name: "Inspector",

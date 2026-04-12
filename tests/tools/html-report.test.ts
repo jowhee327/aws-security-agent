@@ -69,7 +69,7 @@ describe("generateHtmlReport", () => {
     const result = makeResult([
       { module: "network_reachability", findings: [sampleFinding] },
     ]);
-    const html = generateHtmlReport(result);
+    const html = generateHtmlReport(result, undefined, "en");
 
     expect(html).toContain("<!DOCTYPE html>");
     expect(html).toContain("<html lang=\"en\">");
@@ -83,7 +83,7 @@ describe("generateHtmlReport", () => {
     const result = makeResult([
       { module: "network_reachability", findings: [sampleFinding] },
     ]);
-    const html = generateHtmlReport(result);
+    const html = generateHtmlReport(result, undefined, "en");
 
     expect(html).toContain("i-abc123 has SSH");
     expect(html).toContain("CRITICAL");
@@ -96,7 +96,7 @@ describe("generateHtmlReport", () => {
     const result = makeResult([
       { module: "network_reachability", findings: [sampleFinding] },
     ]);
-    const html = generateHtmlReport(result);
+    const html = generateHtmlReport(result, undefined, "en");
 
     expect(html).toContain("<svg");
     expect(html).toContain("viewBox");
@@ -108,7 +108,7 @@ describe("generateHtmlReport", () => {
     const result = makeResult([
       { module: "network_reachability", findings: [sampleFinding] },
     ]);
-    const html = generateHtmlReport(result);
+    const html = generateHtmlReport(result, undefined, "en");
 
     expect(html).toContain("network_reachability");
     expect(html).toContain("<rect");
@@ -118,7 +118,7 @@ describe("generateHtmlReport", () => {
     const result = makeResult([
       { module: "network_reachability", findings: [sampleFinding] },
     ]);
-    const html = generateHtmlReport(result);
+    const html = generateHtmlReport(result, undefined, "en");
 
     expect(html).toContain("<table>");
     expect(html).toContain("<th>Module</th>");
@@ -129,7 +129,7 @@ describe("generateHtmlReport", () => {
     const result = makeResult([
       { module: "network_reachability", findings: [sampleFinding] },
     ]);
-    const html = generateHtmlReport(result);
+    const html = generateHtmlReport(result, undefined, "en");
 
     expect(html).toContain("Recommendations (");
     expect(html).toContain("unique)");
@@ -140,7 +140,7 @@ describe("generateHtmlReport", () => {
     const result = makeResult([
       { module: "service_detection", findings: [] },
     ]);
-    const html = generateHtmlReport(result);
+    const html = generateHtmlReport(result, undefined, "en");
 
     expect(html).toContain("No security issues found.");
     expect(html).not.toContain("Recommendations");
@@ -152,7 +152,7 @@ describe("generateHtmlReport", () => {
 
   it("includes print styles", () => {
     const result = makeResult([{ module: "service_detection", findings: [] }]);
-    const html = generateHtmlReport(result);
+    const html = generateHtmlReport(result, undefined, "en");
 
     expect(html).toContain("@media print");
   });
@@ -162,14 +162,14 @@ describe("generateHtmlReport", () => {
     const result = makeResult([
       { module: "network_reachability", findings: [sampleFinding] },
     ]);
-    const html = generateHtmlReport(result);
+    const html = generateHtmlReport(result, undefined, "en");
 
     expect(html).toContain(">85</div>");
   });
 
   it("includes footer with version", () => {
     const result = makeResult([{ module: "service_detection", findings: [] }]);
-    const html = generateHtmlReport(result);
+    const html = generateHtmlReport(result, undefined, "en");
 
     expect(html).toContain("AWS Security MCP Server v");
     expect(html).toContain("informational purposes only");
@@ -185,7 +185,7 @@ describe("generateHtmlReport", () => {
         }],
       },
     ]);
-    const html = generateHtmlReport(result);
+    const html = generateHtmlReport(result, undefined, "en");
 
     expect(html).not.toContain("<script>");
     expect(html).toContain("&lt;script&gt;");
@@ -203,7 +203,7 @@ describe("generateHtmlReport", () => {
         ],
       },
     ]);
-    const html = generateHtmlReport(result);
+    const html = generateHtmlReport(result, undefined, "en");
 
     expect(html).toContain("badge-critical");
     expect(html).toContain("badge-high");

@@ -44,7 +44,7 @@ describe("generateMarkdownReport", () => {
       },
     };
 
-    const report = generateMarkdownReport(mockResult);
+    const report = generateMarkdownReport(mockResult, "en");
 
     expect(report).toContain("# AWS Security Scan Report");
     expect(report).toContain("## Executive Summary");
@@ -81,7 +81,7 @@ describe("generateMarkdownReport", () => {
       },
     };
 
-    const report = generateMarkdownReport(emptyResult);
+    const report = generateMarkdownReport(emptyResult, "en");
 
     expect(report).toContain("No security issues");
   });

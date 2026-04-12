@@ -24,18 +24,8 @@ describe("InspectorFindingsScanner", () => {
     mockSend.mockReset();
   });
 
-  it("reports Inspector enabled when EC2 scanning is active (detection-only, 0 findings)", async () => {
-    mockSend.mockResolvedValueOnce({
-      accounts: [
-        {
-          accountId: "123456789012",
-          resourceState: {
-            ec2: { status: "ENABLED" },
-            lambda: { status: "DISABLED" },
-          },
-        },
-      ],
-    });
+  it("returns 0 findings when no active Inspector findings exist", async () => {
+    mockSend.mockResolvedValueOnce({ findings: [] });
 
     const result = await scanner.scan(ctx);
 
@@ -43,30 +33,29 @@ describe("InspectorFindingsScanner", () => {
     expect(result.module).toBe("inspector_findings");
     expect(result.findingsCount).toBe(0);
     expect(result.findings).toHaveLength(0);
-    expect(result.warnings).toBeDefined();
-    expect(result.warnings!.some((w) => w.includes("Inspector is enabled"))).toBe(true);
-    expect(result.warnings!.some((w) => w.includes("Security Hub"))).toBe(true);
   });
 
-  it("reports Inspector not enabled when no scanning is active", async () => {
+  it("returns findings for active Inspector vulnerabilities", async () => {
     mockSend.mockResolvedValueOnce({
-      accounts: [
-        {
-          accountId: "123456789012",
-          resourceState: {
-            ec2: { status: "DISABLED" },
-            lambda: { status: "DISABLED" },
-          },
+      findings: [{
+        severity: "HIGH",
+        title: "CVE-2024-1234 test vulnerability",
+        findingArn: "arn:aws:inspector2:us-east-1:123456789012:finding/f-1",
+        resources: [{ id: "i-abc123", type: "AWS::EC2::Instance" }],
+        packageVulnerabilityDetails: {
+          vulnerabilityId: "CVE-2024-1234",
+          vulnerablePackages: [{ name: "openssl", version: "1.1.1", fixedInVersion: "1.1.2" }],
         },
-      ],
+        awsAccountId: "123456789012",
+      }],
     });
 
     const result = await scanner.scan(ctx);
 
     expect(result.status).toBe("success");
-    expect(result.findingsCount).toBe(0);
-    expect(result.warnings).toBeDefined();
-    expect(result.warnings!.some((w) => w.includes("Inspector is not enabled"))).toBe(true);
+    expect(result.findingsCount).toBe(1);
+    expect(result.findings[0].title).toContain("CVE-2024-1234");
+    expect(result.findings[0].remediationSteps[0]).toContain("openssl");
   });
 
   it("returns empty findings with warning when Inspector is not enabled (error path)", async () => {
@@ -83,7 +72,7 @@ describe("InspectorFindingsScanner", () => {
   });
 
   it("returns warning for AccessDeniedException (insufficient permissions)", async () => {
-    const err = new Error("User is not authorized to perform inspector2:BatchGetAccountStatus");
+    const err = new Error("User is not authorized to perform inspector2:ListFindings");
     err.name = "AccessDeniedException";
     mockSend.mockRejectedValue(err);
 

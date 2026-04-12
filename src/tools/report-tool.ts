@@ -1,11 +1,11 @@
 import type { FullScanResult, Finding, Severity } from "../types.js";
-import type { Lang } from "../i18n/index.js";
+import { getI18n, type Lang } from "../i18n/index.js";
 
 const SEVERITY_ICON: Record<Severity, string> = {
-  CRITICAL: "🔴",
-  HIGH: "🟠",
-  MEDIUM: "🟡",
-  LOW: "🟢",
+  CRITICAL: "\ud83d\udd34",
+  HIGH: "\ud83d\udfe0",
+  MEDIUM: "\ud83d\udfe1",
+  LOW: "\ud83d\udfe2",
 };
 
 const SEVERITY_ORDER: Severity[] = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
@@ -20,49 +20,57 @@ function formatDuration(start: string, end: string): string {
   return `${mins}m ${remainSecs}s`;
 }
 
-function renderFinding(f: Finding): string {
-  const steps = f.remediationSteps
-    .map((s, i) => `  ${i + 1}. ${s}`)
-    .join("\n");
-
-  return [
-    `#### ${f.title}`,
-    `- **Resource:** ${f.resourceId} (\`${f.resourceArn}\`)`,
-    `- **Description:** ${f.description}`,
-    `- **Impact:** ${f.impact}`,
-    `- **Risk Score:** ${f.riskScore}/10`,
-    `- **Remediation:**`,
-    steps,
-    `- **Priority:** ${f.priority}`,
-  ].join("\n");
-}
-
-export function generateMarkdownReport(scanResults: FullScanResult, _lang?: Lang): string {
+export function generateMarkdownReport(scanResults: FullScanResult, lang?: Lang): string {
+  const t = getI18n(lang ?? "zh");
   const { summary, modules, accountId, region, scanStart, scanEnd } =
     scanResults;
   const date = scanStart.split("T")[0];
   const duration = formatDuration(scanStart, scanEnd);
 
+  const sevLabel: Record<Severity, string> = {
+    CRITICAL: t.critical,
+    HIGH: t.high,
+    MEDIUM: t.medium,
+    LOW: t.low,
+  };
+
+  function renderFinding(f: Finding): string {
+    const steps = f.remediationSteps
+      .map((s, i) => `  ${i + 1}. ${s}`)
+      .join("\n");
+
+    return [
+      `#### ${f.title}`,
+      `- **${t.resource}:** ${f.resourceId} (\`${f.resourceArn}\`)`,
+      `- **${t.description}:** ${f.description}`,
+      `- **${t.impact}:** ${f.impact}`,
+      `- **${t.riskScore}:** ${f.riskScore}/10`,
+      `- **${t.remediation}:**`,
+      steps,
+      `- **${t.priority}:** ${f.priority}`,
+    ].join("\n");
+  }
+
   const lines: string[] = [];
 
-  lines.push(`# AWS Security Scan Report — ${date}`);
+  lines.push(`# ${t.securityReportTitle} \u2014 ${date}`);
   lines.push("");
 
   // Executive Summary
-  lines.push("## Executive Summary");
-  lines.push(`- **Account:** ${accountId}`);
-  lines.push(`- **Region:** ${region}`);
-  lines.push(`- **Scan Duration:** ${duration}`);
+  lines.push(`## ${t.executiveSummary}`);
+  lines.push(`- **${t.account}:** ${accountId}`);
+  lines.push(`- **${t.region}:** ${region}`);
+  lines.push(`- **${t.duration}:** ${duration}`);
   lines.push(
-    `- **Total Findings:** ${summary.totalFindings} (🔴 ${summary.critical} Critical | 🟠 ${summary.high} High | 🟡 ${summary.medium} Medium | 🟢 ${summary.low} Low)`,
+    `- **${t.totalFindingsLabel}:** ${summary.totalFindings} (${SEVERITY_ICON.CRITICAL} ${summary.critical} ${t.critical} | ${SEVERITY_ICON.HIGH} ${summary.high} ${t.high} | ${SEVERITY_ICON.MEDIUM} ${summary.medium} ${t.medium} | ${SEVERITY_ICON.LOW} ${summary.low} ${t.low})`,
   );
   lines.push("");
 
   // Edge case: no findings
   if (summary.totalFindings === 0) {
-    lines.push("## Findings by Severity");
+    lines.push(`## ${t.findingsBySeverity}`);
     lines.push("");
-    lines.push("✅ No security issues found.");
+    lines.push(`\u2705 ${t.noIssuesFound}`);
     lines.push("");
   } else {
     // Collect all findings
@@ -77,17 +85,17 @@ export function generateMarkdownReport(scanResults: FullScanResult, _lang?: Lang
       grouped.get(f.severity)!.push(f);
     }
 
-    lines.push("## Findings by Severity");
+    lines.push(`## ${t.findingsBySeverity}`);
     lines.push("");
 
     for (const sev of SEVERITY_ORDER) {
       const findings = grouped.get(sev)!;
       const icon = SEVERITY_ICON[sev];
-      lines.push(`### ${icon} ${sev.charAt(0)}${sev.slice(1).toLowerCase()}`);
+      lines.push(`### ${icon} ${sevLabel[sev]}`);
       lines.push("");
 
       if (findings.length === 0) {
-        lines.push(`No ${sev.toLowerCase()} findings.`);
+        lines.push(t.noFindingsForSeverity(sevLabel[sev]));
         lines.push("");
         continue;
       }
@@ -102,13 +110,13 @@ export function generateMarkdownReport(scanResults: FullScanResult, _lang?: Lang
   }
 
   // Scan Statistics
-  lines.push("## Scan Statistics");
+  lines.push(`## ${t.scanStatistics}`);
   lines.push(
-    "| Module | Resources Scanned | Findings | Status |",
+    `| ${t.module} | ${t.resources} | ${t.findings} | ${t.status} |`,
   );
   lines.push("|--------|------------------|----------|--------|");
   for (const m of modules) {
-    const status = m.status === "success" ? "✅" : "❌";
+    const status = m.status === "success" ? "\u2705" : "\u274c";
     lines.push(
       `| ${m.module} | ${m.resourcesScanned} | ${m.findingsCount} | ${status} |`,
     );
@@ -120,7 +128,7 @@ export function generateMarkdownReport(scanResults: FullScanResult, _lang?: Lang
     const allFindings: Finding[] = modules.flatMap((m) => m.findings);
     allFindings.sort((a, b) => b.riskScore - a.riskScore);
 
-    lines.push("## Recommendations (Priority Order)");
+    lines.push(`## ${t.recommendations}`);
     for (let i = 0; i < allFindings.length; i++) {
       const f = allFindings[i];
       lines.push(`${i + 1}. [${f.priority}] ${f.title}: ${f.remediationSteps[0] ?? "Review and remediate."}`);

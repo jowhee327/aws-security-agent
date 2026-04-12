@@ -24,12 +24,25 @@ describe("ConfigRulesFindingsScanner", () => {
     mockSend.mockReset();
   });
 
-  it("reports Config enabled with rule count (detection-only, 0 findings)", async () => {
+  it("returns findings for non-compliant Config rules", async () => {
+    // DescribeComplianceByConfigRule
     mockSend.mockResolvedValueOnce({
       ComplianceByConfigRules: [
         { ConfigRuleName: "s3-bucket-encryption-enabled", Compliance: { ComplianceType: "NON_COMPLIANT" } },
         { ConfigRuleName: "required-tags", Compliance: { ComplianceType: "COMPLIANT" } },
       ],
+    });
+    // GetComplianceDetailsByConfigRule for s3-bucket-encryption-enabled
+    mockSend.mockResolvedValueOnce({
+      EvaluationResults: [{
+        EvaluationResultIdentifier: {
+          EvaluationResultQualifier: {
+            ResourceType: "AWS::S3::Bucket",
+            ResourceId: "my-bucket",
+          },
+        },
+        Annotation: "Bucket is not encrypted",
+      }],
     });
 
     const result = await scanner.scan(ctx);
@@ -37,11 +50,9 @@ describe("ConfigRulesFindingsScanner", () => {
     expect(result.status).toBe("success");
     expect(result.module).toBe("config_rules_findings");
     expect(result.resourcesScanned).toBe(2);
-    expect(result.findingsCount).toBe(0);
-    expect(result.findings).toHaveLength(0);
-    expect(result.warnings).toBeDefined();
-    expect(result.warnings!.some((w) => w.includes("Config is enabled with 2 rule(s)"))).toBe(true);
-    expect(result.warnings!.some((w) => w.includes("Security Hub"))).toBe(true);
+    expect(result.findingsCount).toBe(1);
+    expect(result.findings[0].title).toContain("s3-bucket-encryption-enabled");
+    expect(result.findings[0].resourceId).toBe("my-bucket");
   });
 
   it("reports Config not enabled when no rules exist", async () => {

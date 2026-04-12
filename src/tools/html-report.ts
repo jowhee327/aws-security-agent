@@ -509,8 +509,8 @@ export function generateHtmlReport(
   history?: DashboardHistoryEntry[],
   lang?: Lang,
 ): string {
-  const t = getI18n(lang ?? "en");
-  const htmlLang = (lang ?? "en") === "zh" ? "zh-CN" : "en";
+  const t = getI18n(lang ?? "zh");
+  const htmlLang = (lang ?? "zh") === "zh" ? "zh-CN" : "en";
   const { summary, modules, accountId, region, scanStart, scanEnd } =
     scanResults;
   const date = scanStart.split("T")[0];

@@ -9,6 +9,8 @@ const AGGREGATION_MODULES = new Set([
   "security_hub_findings",
   "guardduty_findings",
   "inspector_findings",
+  "config_rules_findings",
+  "access_analyzer_findings",
 ]);
 
 function buildSummary(modules: ScanResult[]) {

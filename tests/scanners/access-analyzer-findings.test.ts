@@ -24,7 +24,8 @@ describe("AccessAnalyzerFindingsScanner", () => {
     mockSend.mockReset();
   });
 
-  it("reports Access Analyzer configured when active analyzers exist (detection-only, 0 findings)", async () => {
+  it("returns 0 findings when analyzer is active but no findings", async () => {
+    // ListAnalyzers
     mockSend.mockResolvedValueOnce({
       analyzers: [
         {
@@ -35,6 +36,8 @@ describe("AccessAnalyzerFindingsScanner", () => {
         },
       ],
     });
+    // ListFindingsV2
+    mockSend.mockResolvedValueOnce({ findings: [] });
 
     const result = await scanner.scan(ctx);
 
@@ -42,9 +45,6 @@ describe("AccessAnalyzerFindingsScanner", () => {
     expect(result.module).toBe("access_analyzer_findings");
     expect(result.findingsCount).toBe(0);
     expect(result.findings).toHaveLength(0);
-    expect(result.warnings).toBeDefined();
-    expect(result.warnings!.some((w) => w.includes("Access Analyzer is configured"))).toBe(true);
-    expect(result.warnings!.some((w) => w.includes("Security Hub"))).toBe(true);
   });
 
   it("reports no analyzer when none exist", async () => {

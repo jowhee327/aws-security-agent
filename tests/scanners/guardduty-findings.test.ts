@@ -24,8 +24,9 @@ describe("GuardDutyFindingsScanner", () => {
     mockSend.mockReset();
   });
 
-  it("reports GuardDuty enabled when detectors exist (detection-only, 0 findings)", async () => {
-    mockSend.mockResolvedValueOnce({ DetectorIds: ["detector-1"] });
+  it("returns 0 findings when GuardDuty is enabled but no active findings", async () => {
+    mockSend.mockResolvedValueOnce({ DetectorIds: ["detector-1"] }); // ListDetectors
+    mockSend.mockResolvedValueOnce({ FindingIds: [] }); // ListFindings
 
     const result = await scanner.scan(ctx);
 
@@ -33,9 +34,6 @@ describe("GuardDutyFindingsScanner", () => {
     expect(result.module).toBe("guardduty_findings");
     expect(result.findingsCount).toBe(0);
     expect(result.findings).toHaveLength(0);
-    expect(result.warnings).toBeDefined();
-    expect(result.warnings!.some((w) => w.includes("GuardDuty is enabled"))).toBe(true);
-    expect(result.warnings!.some((w) => w.includes("Security Hub"))).toBe(true);
   });
 
   it("reports GuardDuty not enabled when no detectors exist", async () => {

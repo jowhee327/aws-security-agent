@@ -68,6 +68,7 @@ export class SecurityHubFindingsScanner implements Scanner {
           // Check if Title is actually informative or just a KB/CVE number
           if (/^KB\d+$/.test(title)) {
             remediationSteps.push(`Install Windows patch ${title} via WSUS or SSM Patch Manager`);
+            remediationSteps.push(`Microsoft KB article: https://support.microsoft.com/help/${title}`);
           } else if (/^CVE-/.test(title)) {
             remediationSteps.push(`Fix vulnerability ${title}: update affected software to patched version`);
           } else {
