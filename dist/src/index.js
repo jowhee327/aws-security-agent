@@ -7504,6 +7504,9 @@ ${rest}
     const kbPatches = [];
     let kbSeverity = "LOW";
     let kbUrl;
+    const cveList = [];
+    let cveSeverity = "LOW";
+    let cveUrl;
     const genericPatterns = ["See References", "None Provided", "Review the finding", "Review and remediate."];
     for (const f of allFindings) {
       const rem = f.remediationSteps[0] ?? "Review and remediate.";
@@ -7514,6 +7517,13 @@ ${rest}
         kbPatches.push(kbMatch[0]);
         if (SEVERITY_ORDER2.indexOf(f.severity) < SEVERITY_ORDER2.indexOf(kbSeverity)) kbSeverity = f.severity;
         if (!kbUrl && url) kbUrl = url;
+        continue;
+      }
+      const cveMatch = f.title.match(/CVE-[\d-]+/);
+      if (cveMatch && (f.module === "security_hub_findings" || f.module === "inspector_findings")) {
+        cveList.push(cveMatch[0]);
+        if (SEVERITY_ORDER2.indexOf(f.severity) < SEVERITY_ORDER2.indexOf(cveSeverity)) cveSeverity = f.severity;
+        if (!cveUrl && url) cveUrl = url;
         continue;
       }
       if (f.module === "security_hub_findings") {
@@ -7547,6 +7557,12 @@ ${rest}
       const unique = [...new Set(kbPatches)];
       const kbList = unique.slice(0, 5).join(", ") + (unique.length > 5 ? ", \u2026" : "");
       recMap.set("__kb__", { text: t.installWindowsPatches(unique.length, kbList), severity: kbSeverity, count: 1, url: kbUrl });
+    }
+    if (cveList.length > 0) {
+      const unique = [...new Set(cveList)];
+      const cveDisplay = unique.slice(0, 5).join(", ") + (unique.length > 5 ? ", \u2026" : "");
+      const cveText = (lang ?? "zh") === "zh" ? `\u4FEE\u590D ${unique.length} \u4E2A\u8F6F\u4EF6\u6F0F\u6D1E (${cveDisplay})\uFF0C\u66F4\u65B0\u53D7\u5F71\u54CD\u7684\u8F6F\u4EF6\u5305\u5230\u6700\u65B0\u7248\u672C` : `Fix ${unique.length} software vulnerabilities (${cveDisplay}) \u2014 update affected packages to latest patched versions`;
+      recMap.set("__cve__", { text: cveText, severity: cveSeverity, count: 1, url: cveUrl });
     }
     for (const [key, rec] of recMap) {
       if (key.startsWith("ctrl:") && rec.count > 1) {
@@ -7789,6 +7805,9 @@ ${itemsHtml}
     const mlpsKbPatches = [];
     let mlpsKbSeverity = "LOW";
     let mlpsKbUrl;
+    const mlpsCveList = [];
+    let mlpsCveSeverity = "LOW";
+    let mlpsCveUrl;
     const mlpsGenericPatterns = ["See References", "None Provided", "Review the finding", "Review and remediate."];
     for (const r of failedResults) {
       for (const f of r.relatedFindings) {
@@ -7800,6 +7819,13 @@ ${itemsHtml}
           mlpsKbPatches.push(kbMatch[0]);
           if (SEVERITY_ORDER2.indexOf(f.severity) < SEVERITY_ORDER2.indexOf(mlpsKbSeverity)) mlpsKbSeverity = f.severity;
           if (!mlpsKbUrl && url) mlpsKbUrl = url;
+          continue;
+        }
+        const cveMatch = f.title.match(/CVE-[\d-]+/);
+        if (cveMatch) {
+          mlpsCveList.push(cveMatch[0]);
+          if (SEVERITY_ORDER2.indexOf(f.severity) < SEVERITY_ORDER2.indexOf(mlpsCveSeverity)) mlpsCveSeverity = f.severity;
+          if (!mlpsCveUrl && url) mlpsCveUrl = url;
           continue;
         }
         if (f.module === "security_hub_findings") {
@@ -7834,6 +7860,12 @@ ${itemsHtml}
       const unique = [...new Set(mlpsKbPatches)];
       const kbList = unique.slice(0, 5).join(", ") + (unique.length > 5 ? ", \u2026" : "");
       mlpsRecMap.set("__kb__", { text: t.installWindowsPatches(unique.length, kbList), severity: mlpsKbSeverity, count: 1, url: mlpsKbUrl });
+    }
+    if (mlpsCveList.length > 0) {
+      const unique = [...new Set(mlpsCveList)];
+      const cveDisplay = unique.slice(0, 5).join(", ") + (unique.length > 5 ? ", \u2026" : "");
+      const cveText = (lang ?? "zh") === "zh" ? `\u4FEE\u590D ${unique.length} \u4E2A\u8F6F\u4EF6\u6F0F\u6D1E (${cveDisplay})\uFF0C\u66F4\u65B0\u53D7\u5F71\u54CD\u7684\u8F6F\u4EF6\u5305\u5230\u6700\u65B0\u7248\u672C` : `Fix ${unique.length} software vulnerabilities (${cveDisplay}) \u2014 update affected packages to latest patched versions`;
+      mlpsRecMap.set("__cve__", { text: cveText, severity: mlpsCveSeverity, count: 1, url: mlpsCveUrl });
     }
     for (const [key, rec] of mlpsRecMap) {
       if (key.startsWith("ctrl:") && rec.count > 1) {

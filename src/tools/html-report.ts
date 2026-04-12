@@ -671,6 +671,9 @@ export function generateHtmlReport(
     const kbPatches: string[] = [];
     let kbSeverity: Severity = "LOW";
     let kbUrl: string | undefined;
+    const cveList: string[] = [];
+    let cveSeverity: Severity = "LOW";
+    let cveUrl: string | undefined;
     const genericPatterns = ["See References", "None Provided", "Review the finding", "Review and remediate."];
 
     for (const f of allFindings) {
@@ -686,6 +689,15 @@ export function generateHtmlReport(
         kbPatches.push(kbMatch[0]);
         if (SEVERITY_ORDER.indexOf(f.severity) < SEVERITY_ORDER.indexOf(kbSeverity)) kbSeverity = f.severity;
         if (!kbUrl && url) kbUrl = url;
+        continue;
+      }
+
+      // Group CVE vulnerabilities together
+      const cveMatch = f.title.match(/CVE-[\d-]+/);
+      if (cveMatch && (f.module === "security_hub_findings" || f.module === "inspector_findings")) {
+        cveList.push(cveMatch[0]);
+        if (SEVERITY_ORDER.indexOf(f.severity) < SEVERITY_ORDER.indexOf(cveSeverity)) cveSeverity = f.severity;
+        if (!cveUrl && url) cveUrl = url;
         continue;
       }
 
@@ -725,6 +737,16 @@ export function generateHtmlReport(
       const unique = [...new Set(kbPatches)];
       const kbList = unique.slice(0, 5).join(", ") + (unique.length > 5 ? ", \u2026" : "");
       recMap.set("__kb__", { text: t.installWindowsPatches(unique.length, kbList), severity: kbSeverity, count: 1, url: kbUrl });
+    }
+
+    // Add grouped CVE vulnerabilities as a single entry
+    if (cveList.length > 0) {
+      const unique = [...new Set(cveList)];
+      const cveDisplay = unique.slice(0, 5).join(", ") + (unique.length > 5 ? ", \u2026" : "");
+      const cveText = (lang ?? "zh") === "zh"
+        ? `\u4fee\u590d ${unique.length} \u4e2a\u8f6f\u4ef6\u6f0f\u6d1e (${cveDisplay})\uff0c\u66f4\u65b0\u53d7\u5f71\u54cd\u7684\u8f6f\u4ef6\u5305\u5230\u6700\u65b0\u7248\u672c`
+        : `Fix ${unique.length} software vulnerabilities (${cveDisplay}) — update affected packages to latest patched versions`;
+      recMap.set("__cve__", { text: cveText, severity: cveSeverity, count: 1, url: cveUrl });
     }
 
     // Post-process: embed resource count for control-ID groups
@@ -1028,6 +1050,9 @@ export function generateMlps3HtmlReport(
     const mlpsKbPatches: string[] = [];
     let mlpsKbSeverity: Severity = "LOW";
     let mlpsKbUrl: string | undefined;
+    const mlpsCveList: string[] = [];
+    let mlpsCveSeverity: Severity = "LOW";
+    let mlpsCveUrl: string | undefined;
     const mlpsGenericPatterns = ["See References", "None Provided", "Review the finding", "Review and remediate."];
 
     for (const r of failedResults) {
@@ -1044,6 +1069,15 @@ export function generateMlps3HtmlReport(
           mlpsKbPatches.push(kbMatch[0]);
           if (SEVERITY_ORDER.indexOf(f.severity) < SEVERITY_ORDER.indexOf(mlpsKbSeverity)) mlpsKbSeverity = f.severity;
           if (!mlpsKbUrl && url) mlpsKbUrl = url;
+          continue;
+        }
+
+        // Group CVE vulnerabilities
+        const cveMatch = f.title.match(/CVE-[\d-]+/);
+        if (cveMatch) {
+          mlpsCveList.push(cveMatch[0]);
+          if (SEVERITY_ORDER.indexOf(f.severity) < SEVERITY_ORDER.indexOf(mlpsCveSeverity)) mlpsCveSeverity = f.severity;
+          if (!mlpsCveUrl && url) mlpsCveUrl = url;
           continue;
         }
 
@@ -1083,6 +1117,15 @@ export function generateMlps3HtmlReport(
       const unique = [...new Set(mlpsKbPatches)];
       const kbList = unique.slice(0, 5).join(", ") + (unique.length > 5 ? ", \u2026" : "");
       mlpsRecMap.set("__kb__", { text: t.installWindowsPatches(unique.length, kbList), severity: mlpsKbSeverity, count: 1, url: mlpsKbUrl });
+    }
+
+    if (mlpsCveList.length > 0) {
+      const unique = [...new Set(mlpsCveList)];
+      const cveDisplay = unique.slice(0, 5).join(", ") + (unique.length > 5 ? ", \u2026" : "");
+      const cveText = (lang ?? "zh") === "zh"
+        ? `\u4fee\u590d ${unique.length} \u4e2a\u8f6f\u4ef6\u6f0f\u6d1e (${cveDisplay})\uff0c\u66f4\u65b0\u53d7\u5f71\u54cd\u7684\u8f6f\u4ef6\u5305\u5230\u6700\u65b0\u7248\u672c`
+        : `Fix ${unique.length} software vulnerabilities (${cveDisplay}) \u2014 update affected packages to latest patched versions`;
+      mlpsRecMap.set("__cve__", { text: cveText, severity: mlpsCveSeverity, count: 1, url: mlpsCveUrl });
     }
 
     // Post-process: embed resource count for control-ID groups
