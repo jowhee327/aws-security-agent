@@ -1,27 +1,35 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import { useI18n } from '../i18n';
 import type { DashboardData } from '../types';
 
-const navItems = [
-  { to: '/', label: 'Overview', icon: '📊' },
-  { to: '/trends', label: 'Trends', icon: '📈' },
-  { to: '/findings', label: 'Findings', icon: '🔍' },
-];
-
 export default function Layout({ data }: { data: DashboardData | null }) {
+  const { lang, setLang, t } = useI18n();
   const lastScan = data?.lastScan;
   const scanTime = lastScan
     ? new Date(lastScan.scanEnd).toLocaleString()
     : '—';
   const accountId = lastScan?.accountId ?? '—';
 
+  const navItems = [
+    { to: '/', label: t('nav.overview'), icon: '📊' },
+    { to: '/trends', label: t('nav.trends'), icon: '📈' },
+    { to: '/findings', label: t('nav.findings'), icon: '🔍' },
+  ];
+
   return (
     <div className="flex min-h-screen">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex fixed top-0 left-0 h-screen w-64 bg-slate-800 border-r border-slate-700 flex-col z-10">
-        <div className="p-6 border-b border-slate-700">
+        <div className="p-6 border-b border-slate-700 flex items-center justify-between">
           <h1 className="text-xl font-bold text-slate-50 flex items-center gap-2">
-            <span>🛡️</span> AWS Security
+            <span>🛡️</span> {t('nav.title')}
           </h1>
+          <button
+            onClick={() => setLang(lang === 'en' ? 'zh' : 'en')}
+            className="text-xs px-2 py-1 rounded border border-slate-600 text-slate-400 hover:text-slate-200 hover:border-slate-400 transition-colors"
+          >
+            {lang === 'en' ? '中文' : 'EN'}
+          </button>
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
@@ -45,8 +53,8 @@ export default function Layout({ data }: { data: DashboardData | null }) {
         </nav>
 
         <div className="p-4 border-t border-slate-700 text-xs text-slate-500 space-y-1">
-          <p>Last scan: {scanTime}</p>
-          <p>Account: {accountId}</p>
+          <p>{t('nav.lastScan')}: {scanTime}</p>
+          <p>{t('nav.account')}: {accountId}</p>
         </div>
       </aside>
 
@@ -54,26 +62,34 @@ export default function Layout({ data }: { data: DashboardData | null }) {
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-slate-800 border-b border-slate-700 p-4 z-10">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-bold text-slate-50 flex items-center gap-2">
-            <span>🛡️</span> AWS Security
+            <span>🛡️</span> {t('nav.title')}
           </h1>
-          <nav className="flex gap-4">
-            {navItems.map(({ to, label, icon }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={to === '/'}
-                className={({ isActive }) =>
-                  `text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'text-blue-400'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`
-                }
-              >
-                <span>{icon}</span> {label}
-              </NavLink>
-            ))}
-          </nav>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setLang(lang === 'en' ? 'zh' : 'en')}
+              className="text-xs px-2 py-1 rounded border border-slate-600 text-slate-400 hover:text-slate-200 hover:border-slate-400 transition-colors"
+            >
+              {lang === 'en' ? '中文' : 'EN'}
+            </button>
+            <nav className="flex gap-4">
+              {navItems.map(({ to, label, icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={to === '/'}
+                  className={({ isActive }) =>
+                    `text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'text-blue-400'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`
+                  }
+                >
+                  <span>{icon}</span> {label}
+                </NavLink>
+              ))}
+            </nav>
+          </div>
         </div>
       </div>
 

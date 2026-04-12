@@ -14,6 +14,8 @@ export interface Finding {
   remediationSteps: string[];
   priority: Priority;
   module: string;
+  accountId?: string;
+  source?: string;
 }
 
 export interface DashboardHistoryEntry {
@@ -40,6 +42,7 @@ export interface DashboardData {
       low: number;
       modulesSuccess: number;
       modulesError: number;
+      modulesDisabled?: number;
     };
     modules: Array<{ module: string; findingsCount: number; status: string }>;
     findings: Finding[];

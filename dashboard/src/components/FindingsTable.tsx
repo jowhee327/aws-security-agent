@@ -1,4 +1,5 @@
 import { useState, useMemo, Fragment } from 'react';
+import { useI18n } from '../i18n';
 import type { Finding, Severity } from '../types';
 
 interface FindingsTableProps {
@@ -19,14 +20,20 @@ const SEVERITY_ORDER: Record<Severity, number> = {
   LOW: 1,
 };
 
+const ALL_SEVERITIES: Severity[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+const PAGE_SIZE = 20;
+
 type SortKey = 'severity' | 'title' | 'module' | 'resourceId' | 'riskScore';
 type SortDir = 'asc' | 'desc';
 
 export default function FindingsTable({ findings }: FindingsTableProps) {
+  const { t } = useI18n();
   const [sortKey, setSortKey] = useState<SortKey>('riskScore');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [severityFilter, setSeverityFilter] = useState<Set<Severity>>(new Set());
-  const [moduleFilter, setModuleFilter] = useState<Set<string>>(new Set());
+  const [moduleFilter, setModuleFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
 
   const modules = useMemo(
@@ -39,11 +46,19 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
     if (severityFilter.size > 0) {
       result = result.filter(f => severityFilter.has(f.severity));
     }
-    if (moduleFilter.size > 0) {
-      result = result.filter(f => moduleFilter.has(f.module));
+    if (moduleFilter) {
+      result = result.filter(f => f.module === moduleFilter);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        f =>
+          f.title.toLowerCase().includes(q) ||
+          f.description.toLowerCase().includes(q),
+      );
     }
     return result;
-  }, [findings, severityFilter, moduleFilter]);
+  }, [findings, severityFilter, moduleFilter, search]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -69,6 +84,9 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
     });
   }, [filtered, sortKey, sortDir]);
 
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   function handleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
@@ -85,60 +103,94 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
       else next.add(s);
       return next;
     });
+    setPage(1);
+    setExpandedRow(null);
   }
 
-  function toggleModule(m: string) {
-    setModuleFilter(prev => {
-      const next = new Set(prev);
-      if (next.has(m)) next.delete(m);
-      else next.add(m);
-      return next;
-    });
+  function clearSeverityFilter() {
+    setSeverityFilter(new Set());
+    setPage(1);
+    setExpandedRow(null);
+  }
+
+  function handleModuleChange(m: string) {
+    setModuleFilter(m);
+    setPage(1);
+    setExpandedRow(null);
+  }
+
+  function handleSearch(q: string) {
+    setSearch(q);
+    setPage(1);
+    setExpandedRow(null);
   }
 
   const sortArrow = (key: SortKey) => {
-    if (sortKey !== key) return ' ↕';
-    return sortDir === 'asc' ? ' ↑' : ' ↓';
+    if (sortKey !== key) return ' \u2195';
+    return sortDir === 'asc' ? ' \u2191' : ' \u2193';
   };
+
+  const columns: [SortKey, string][] = [
+    ['severity', t('findings.severity')],
+    ['title', t('findings.titleCol')],
+    ['module', t('findings.module')],
+    ['resourceId', t('findings.resource')],
+    ['riskScore', t('findings.riskScore')],
+  ];
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-wrap gap-6">
-        <div>
-          <span className="text-xs text-slate-400 block mb-2">Severity</span>
-          <div className="flex gap-2">
-            {(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as Severity[]).map(s => (
-              <button
-                key={s}
-                onClick={() => toggleSeverity(s)}
-                className={`text-xs px-3 py-1.5 rounded border transition-colors ${
-                  severityFilter.has(s)
-                    ? SEVERITY_BADGE[s] + ' border-current'
-                    : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500'
-                }`}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <span className="text-xs text-slate-400 block mb-2">Module</span>
-          <div className="flex gap-2 flex-wrap">
+      {/* Filter Toolbar */}
+      <div className="bg-slate-800 border border-slate-700 rounded-lg p-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Severity buttons */}
+          <button
+            onClick={clearSeverityFilter}
+            className={`text-xs px-3 py-1.5 rounded border transition-colors font-medium ${
+              severityFilter.size === 0
+                ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                : 'bg-slate-700 text-slate-400 border-slate-600 hover:border-slate-500'
+            }`}
+          >
+            {t('findings.all')}
+          </button>
+          {ALL_SEVERITIES.map(s => (
+            <button
+              key={s}
+              onClick={() => toggleSeverity(s)}
+              className={`text-xs px-3 py-1.5 rounded border transition-colors font-medium ${
+                severityFilter.has(s)
+                  ? SEVERITY_BADGE[s] + ' border-current'
+                  : 'bg-slate-700 text-slate-400 border-slate-600 hover:border-slate-500'
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+
+          {/* Module dropdown */}
+          <select
+            value={moduleFilter}
+            onChange={e => handleModuleChange(e.target.value)}
+            className="text-xs px-3 py-1.5 rounded border border-slate-600 bg-slate-700 text-slate-300 hover:border-slate-500 transition-colors cursor-pointer"
+          >
+            <option value="">{t('findings.allModules')}</option>
             {modules.map(m => (
-              <button
-                key={m}
-                onClick={() => toggleModule(m)}
-                className={`text-xs px-3 py-1.5 rounded border transition-colors ${
-                  moduleFilter.has(m)
-                    ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-                    : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500'
-                }`}
-              >
+              <option key={m} value={m}>
                 {m}
-              </button>
+              </option>
             ))}
+          </select>
+
+          {/* Search */}
+          <div className="flex-1 min-w-[200px]">
+            <input
+              type="text"
+              placeholder={`🔍 ${t('findings.search')}`}
+              value={search}
+              onChange={e => handleSearch(e.target.value)}
+              className="w-full text-sm px-3 py-1.5 rounded border border-slate-600 bg-slate-700 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+            />
           </div>
         </div>
       </div>
@@ -148,13 +200,7 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-800 text-slate-400 text-left">
-              {([
-                ['severity', 'Severity'],
-                ['title', 'Title'],
-                ['module', 'Module'],
-                ['resourceId', 'Resource'],
-                ['riskScore', 'Risk Score'],
-              ] as [SortKey, string][]).map(([key, label]) => (
+              {columns.map(([key, label]) => (
                 <th
                   key={key}
                   onClick={() => handleSort(key)}
@@ -166,61 +212,96 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
             </tr>
           </thead>
           <tbody>
-            {sorted.map((f, i) => (
-              <Fragment key={`${f.resourceId}-${f.title}`}>
-                <tr
-                  onClick={() => setExpandedRow(expandedRow === i ? null : i)}
-                  className={`border-t border-slate-700 cursor-pointer transition-colors hover:bg-slate-700/50 ${
-                    i % 2 === 0 ? 'bg-slate-800/50' : 'bg-slate-800/30'
-                  }`}
-                >
-                  <td className="px-4 py-3">
-                    <span
-                      className={`text-xs font-semibold px-2 py-0.5 rounded border ${SEVERITY_BADGE[f.severity]}`}
+            {paged.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                  {t('findings.noFindings')}
+                </td>
+              </tr>
+            ) : (
+              paged.map((f, i) => {
+                const globalIndex = (page - 1) * PAGE_SIZE + i;
+                return (
+                  <Fragment key={`${f.resourceId}-${f.title}-${globalIndex}`}>
+                    <tr
+                      onClick={() => setExpandedRow(expandedRow === globalIndex ? null : globalIndex)}
+                      className={`border-t border-slate-700 cursor-pointer transition-colors hover:bg-slate-700/50 ${
+                        i % 2 === 0 ? 'bg-slate-800/50' : 'bg-slate-800/30'
+                      }`}
                     >
-                      {f.severity}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-slate-200">{f.title}</td>
-                  <td className="px-4 py-3 text-slate-400">{f.module}</td>
-                  <td className="px-4 py-3 text-slate-400 font-mono text-xs">{f.resourceId}</td>
-                  <td className="px-4 py-3 text-slate-200 font-bold">{f.riskScore}</td>
-                </tr>
-                {expandedRow === i && (
-                  <tr className="bg-slate-800/80">
-                    <td colSpan={5} className="px-6 py-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <h4 className="text-slate-400 text-xs font-semibold mb-1">Description</h4>
-                          <p className="text-slate-300">{f.description}</p>
-                        </div>
-                        <div>
-                          <h4 className="text-slate-400 text-xs font-semibold mb-1">Impact</h4>
-                          <p className="text-slate-300">{f.impact}</p>
-                        </div>
-                        <div className="md:col-span-2">
-                          <h4 className="text-slate-400 text-xs font-semibold mb-1">Remediation Steps</h4>
-                          <ol className="list-decimal list-inside text-slate-300 space-y-1">
-                            {f.remediationSteps.map((step, j) => (
-                              <li key={j}>{step}</li>
-                            ))}
-                          </ol>
-                        </div>
-                        <div className="md:col-span-2">
-                          <span className="text-xs text-slate-500 font-mono">{f.resourceArn}</span>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            ))}
+                      <td className="px-4 py-3">
+                        <span
+                          className={`text-xs font-semibold px-2 py-0.5 rounded border ${SEVERITY_BADGE[f.severity]}`}
+                        >
+                          {f.severity}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-200">{f.title}</td>
+                      <td className="px-4 py-3 text-slate-400">{f.module}</td>
+                      <td className="px-4 py-3 text-slate-400 font-mono text-xs">{f.resourceId}</td>
+                      <td className="px-4 py-3 text-slate-200 font-bold">{f.riskScore}</td>
+                    </tr>
+                    {expandedRow === globalIndex && (
+                      <tr className="bg-slate-800/80">
+                        <td colSpan={5} className="px-6 py-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <h4 className="text-slate-400 text-xs font-semibold mb-1">{t('findings.description')}</h4>
+                              <p className="text-slate-300">{f.description}</p>
+                            </div>
+                            <div>
+                              <h4 className="text-slate-400 text-xs font-semibold mb-1">{t('findings.impact')}</h4>
+                              <p className="text-slate-300">{f.impact}</p>
+                            </div>
+                            <div className="md:col-span-2">
+                              <h4 className="text-slate-400 text-xs font-semibold mb-1">{t('findings.remediation')}</h4>
+                              <ol className="list-decimal list-inside text-slate-300 space-y-1">
+                                {f.remediationSteps.map((step, j) => (
+                                  <li key={j}>{step}</li>
+                                ))}
+                              </ol>
+                            </div>
+                            <div className="md:col-span-2">
+                              <span className="text-xs text-slate-500 font-mono">{f.resourceArn}</span>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
 
-      <div className="text-xs text-slate-500">
-        Showing {sorted.length} of {findings.length} findings
+      {/* Pagination */}
+      <div className="flex items-center justify-between text-xs text-slate-500">
+        <span>
+          {t('findings.showing')} {sorted.length > 0 ? (page - 1) * PAGE_SIZE + 1 : 0}–{Math.min(page * PAGE_SIZE, sorted.length)} {t('findings.of')} {sorted.length} {t('findings.findingsLabel')}
+        </span>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setPage(p => Math.max(1, p - 1)); setExpandedRow(null); }}
+              disabled={page <= 1}
+              className="px-3 py-1 rounded border border-slate-600 text-slate-400 hover:text-slate-200 hover:border-slate-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {t('findings.prev')}
+            </button>
+            <span className="text-slate-400">
+              {t('findings.page')} {page} / {totalPages}
+            </span>
+            <button
+              onClick={() => { setPage(p => Math.min(totalPages, p + 1)); setExpandedRow(null); }}
+              disabled={page >= totalPages}
+              className="px-3 py-1 rounded border border-slate-600 text-slate-400 hover:text-slate-200 hover:border-slate-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {t('findings.next')}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

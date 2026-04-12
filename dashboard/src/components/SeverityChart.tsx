@@ -1,10 +1,11 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { useI18n } from '../i18n';
 
 const SEVERITY_COLORS: Record<string, string> = {
-  Critical: '#ef4444',
-  High: '#f97316',
-  Medium: '#eab308',
-  Low: '#22c55e',
+  CRITICAL: '#ef4444',
+  HIGH: '#f97316',
+  MEDIUM: '#eab308',
+  LOW: '#22c55e',
 };
 
 interface SeverityChartProps {
@@ -15,11 +16,12 @@ interface SeverityChartProps {
 }
 
 export default function SeverityChart({ critical, high, medium, low }: SeverityChartProps) {
+  const { t } = useI18n();
   const data = [
-    { name: 'Critical', value: critical },
-    { name: 'High', value: high },
-    { name: 'Medium', value: medium },
-    { name: 'Low', value: low },
+    { name: t('severity.critical'), key: 'CRITICAL', value: critical },
+    { name: t('severity.high'), key: 'HIGH', value: high },
+    { name: t('severity.medium'), key: 'MEDIUM', value: medium },
+    { name: t('severity.low'), key: 'LOW', value: low },
   ];
   const total = critical + high + medium + low;
 
@@ -37,7 +39,7 @@ export default function SeverityChart({ critical, high, medium, low }: SeverityC
             strokeWidth={0}
           >
             {data.map((entry) => (
-              <Cell key={entry.name} fill={SEVERITY_COLORS[entry.name]} />
+              <Cell key={entry.key} fill={SEVERITY_COLORS[entry.key]} />
             ))}
           </Pie>
           <Tooltip
@@ -55,11 +57,10 @@ export default function SeverityChart({ critical, high, medium, low }: SeverityC
           />
         </PieChart>
       </ResponsiveContainer>
-      {/* Center text overlay */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ paddingBottom: '40px' }}>
         <div className="text-center">
           <div className="text-3xl font-bold text-slate-50">{total}</div>
-          <div className="text-xs text-slate-400">findings</div>
+          <div className="text-xs text-slate-400">{t('findings')}</div>
         </div>
       </div>
     </div>

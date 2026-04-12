@@ -35,7 +35,7 @@ export default function TopFindings({ findings }: TopFindingsProps) {
             {f.title}
           </h3>
           <p className="text-xs text-slate-500 truncate">{f.resourceId}</p>
-          <p className="text-xs text-slate-600">{f.module}</p>
+          <p className="text-xs text-slate-600">{f.module}{f.source ? ` (${f.source})` : ''}</p>
         </div>
       ))}
     </div>

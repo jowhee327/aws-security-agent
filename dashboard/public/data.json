@@ -1,89 +1,36 @@
 {
   "lastScan": {
-    "scanStart": "2026-04-10T15:35:01.552Z",
-    "scanEnd": "2026-04-10T15:35:25.816Z",
+    "scanStart": "2026-04-12T08:30:01.552Z",
+    "scanEnd": "2026-04-12T08:31:15.816Z",
     "region": "cn-north-1",
     "accountId": "468254682119",
     "summary": {
-      "totalFindings": 12,
-      "critical": 0,
-      "high": 2,
-      "medium": 5,
-      "low": 5,
-      "modulesSuccess": 14,
-      "modulesError": 0
+      "totalFindings": 24,
+      "critical": 2,
+      "high": 7,
+      "medium": 9,
+      "low": 6,
+      "modulesSuccess": 12,
+      "modulesError": 0,
+      "modulesDisabled": 4
     },
     "modules": [
-      {
-        "module": "service_detection",
-        "findingsCount": 2,
-        "status": "success"
-      },
-      {
-        "module": "secret_exposure",
-        "findingsCount": 0,
-        "status": "success"
-      },
-      {
-        "module": "ssl_certificate",
-        "findingsCount": 0,
-        "status": "success"
-      },
-      {
-        "module": "dns_dangling",
-        "findingsCount": 0,
-        "status": "success"
-      },
-      {
-        "module": "network_reachability",
-        "findingsCount": 1,
-        "status": "success"
-      },
-      {
-        "module": "iam_privilege_escalation",
-        "findingsCount": 1,
-        "status": "success"
-      },
-      {
-        "module": "public_access_verify",
-        "findingsCount": 0,
-        "status": "success"
-      },
-      {
-        "module": "tag_compliance",
-        "findingsCount": 3,
-        "status": "success"
-      },
-      {
-        "module": "idle_resources",
-        "findingsCount": 2,
-        "status": "success"
-      },
-      {
-        "module": "disaster_recovery",
-        "findingsCount": 1,
-        "status": "success"
-      },
-      {
-        "module": "security_hub_findings",
-        "findingsCount": 2,
-        "status": "success"
-      },
-      {
-        "module": "guardduty_findings",
-        "findingsCount": 0,
-        "status": "success"
-      },
-      {
-        "module": "inspector_findings",
-        "findingsCount": 0,
-        "status": "success"
-      },
-      {
-        "module": "trusted_advisor_findings",
-        "findingsCount": 0,
-        "status": "success"
-      }
+      { "module": "service_detection", "findingsCount": 2, "status": "success" },
+      { "module": "secret_exposure", "findingsCount": 1, "status": "success" },
+      { "module": "ssl_certificate", "findingsCount": 0, "status": "success" },
+      { "module": "dns_dangling", "findingsCount": 0, "status": "success" },
+      { "module": "network_reachability", "findingsCount": 2, "status": "success" },
+      { "module": "iam_privilege_escalation", "findingsCount": 2, "status": "success" },
+      { "module": "public_access_verify", "findingsCount": 1, "status": "success" },
+      { "module": "tag_compliance", "findingsCount": 3, "status": "success" },
+      { "module": "idle_resources", "findingsCount": 2, "status": "success" },
+      { "module": "disaster_recovery", "findingsCount": 2, "status": "success" },
+      { "module": "security_hub_findings", "findingsCount": 8, "status": "success" },
+      { "module": "trusted_advisor_findings", "findingsCount": 1, "status": "success" },
+      { "module": "guardduty_findings", "findingsCount": 0, "status": "disabled" },
+      { "module": "inspector_findings", "findingsCount": 0, "status": "disabled" },
+      { "module": "config_rules_findings", "findingsCount": 0, "status": "disabled" },
+      { "module": "access_analyzer_findings", "findingsCount": 0, "status": "disabled" }
     ],
     "findings": [
       {
@@ -101,7 +48,8 @@
         ],
         "severity": "HIGH",
         "priority": "P1",
-        "module": "service_detection"
+        "module": "service_detection",
+        "accountId": "468254682119"
       },
       {
         "riskScore": 6.0,
@@ -118,7 +66,27 @@
         ],
         "severity": "MEDIUM",
         "priority": "P2",
-        "module": "service_detection"
+        "module": "service_detection",
+        "accountId": "468254682119"
+      },
+      {
+        "riskScore": 9.5,
+        "title": "Hardcoded AWS access key found in Lambda environment variables",
+        "resourceType": "AWS::Lambda::Function",
+        "resourceId": "data-processor-fn",
+        "resourceArn": "arn:aws-cn:lambda:cn-north-1:468254682119:function:data-processor-fn",
+        "region": "cn-north-1",
+        "description": "Lambda function data-processor-fn has AWS access key ID (AKIA...) stored as plaintext in environment variables.",
+        "impact": "Exposed credentials can be used for unauthorized access to AWS resources. Keys may be leaked via CloudWatch logs.",
+        "remediationSteps": [
+          "Remove hardcoded credentials from environment variables.",
+          "Use an IAM execution role with appropriate permissions instead.",
+          "Rotate the exposed access key immediately."
+        ],
+        "severity": "CRITICAL",
+        "priority": "P0",
+        "module": "secret_exposure",
+        "accountId": "468254682119"
       },
       {
         "riskScore": 8.0,
@@ -135,10 +103,29 @@
         ],
         "severity": "HIGH",
         "priority": "P1",
-        "module": "network_reachability"
+        "module": "network_reachability",
+        "accountId": "468254682119"
       },
       {
-        "riskScore": 7.0,
+        "riskScore": 6.5,
+        "title": "EC2 instance i-0xyz789 has RDP (3389) reachable from 0.0.0.0/0",
+        "resourceType": "AWS::EC2::Instance",
+        "resourceId": "i-0xyz789",
+        "resourceArn": "arn:aws-cn:ec2:cn-north-1:468254682119:instance/i-0xyz789",
+        "region": "cn-north-1",
+        "description": "Instance i-0xyz789 has RDP port 3389 reachable from the internet via security group sg-0aabb11.",
+        "impact": "RDP exposed to the internet enables remote desktop brute-force attacks.",
+        "remediationSteps": [
+          "Restrict port 3389 to known IP ranges or VPN CIDR.",
+          "Use AWS Systems Manager Fleet Manager for remote desktop access."
+        ],
+        "severity": "MEDIUM",
+        "priority": "P2",
+        "module": "network_reachability",
+        "accountId": "468254682119"
+      },
+      {
+        "riskScore": 9.0,
         "title": "IAM user admin-user can escalate privileges via iam:CreatePolicyVersion",
         "resourceType": "AWS::IAM::User",
         "resourceId": "admin-user",
@@ -150,9 +137,47 @@
           "Remove iam:CreatePolicyVersion from the user's permissions.",
           "Use AWS Organizations SCPs to prevent privilege escalation."
         ],
-        "severity": "MEDIUM",
-        "priority": "P2",
-        "module": "iam_privilege_escalation"
+        "severity": "CRITICAL",
+        "priority": "P0",
+        "module": "iam_privilege_escalation",
+        "accountId": "468254682119"
+      },
+      {
+        "riskScore": 7.0,
+        "title": "IAM role data-pipeline-role has overly permissive sts:AssumeRole trust policy",
+        "resourceType": "AWS::IAM::Role",
+        "resourceId": "data-pipeline-role",
+        "resourceArn": "arn:aws-cn:iam::468254682119:role/data-pipeline-role",
+        "region": "global",
+        "description": "Role data-pipeline-role trust policy allows sts:AssumeRole from any principal in account 468254682119 without conditions.",
+        "impact": "Any IAM entity in the account can assume this role, potentially gaining unintended permissions.",
+        "remediationSteps": [
+          "Restrict the trust policy to specific principals.",
+          "Add conditions such as aws:PrincipalTag or aws:SourceIp."
+        ],
+        "severity": "HIGH",
+        "priority": "P1",
+        "module": "iam_privilege_escalation",
+        "accountId": "468254682119"
+      },
+      {
+        "riskScore": 7.5,
+        "title": "S3 bucket data-exports-bucket has public ACL grants",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "data-exports-bucket",
+        "resourceArn": "arn:aws-cn:s3:::data-exports-bucket",
+        "region": "cn-north-1",
+        "description": "S3 bucket data-exports-bucket has ACL grants allowing public read access (AllUsers or AuthenticatedUsers).",
+        "impact": "Sensitive data in the bucket may be publicly accessible.",
+        "remediationSteps": [
+          "Remove public ACL grants from the bucket.",
+          "Enable S3 Block Public Access at the bucket level.",
+          "Review bucket contents for sensitive data exposure."
+        ],
+        "severity": "HIGH",
+        "priority": "P1",
+        "module": "public_access_verify",
+        "accountId": "468254682119"
       },
       {
         "riskScore": 3.5,
@@ -168,7 +193,8 @@
         ],
         "severity": "LOW",
         "priority": "P3",
-        "module": "tag_compliance"
+        "module": "tag_compliance",
+        "accountId": "468254682119"
       },
       {
         "riskScore": 3.5,
@@ -184,7 +210,8 @@
         ],
         "severity": "LOW",
         "priority": "P3",
-        "module": "tag_compliance"
+        "module": "tag_compliance",
+        "accountId": "468254682119"
       },
       {
         "riskScore": 3.5,
@@ -200,7 +227,8 @@
         ],
         "severity": "LOW",
         "priority": "P3",
-        "module": "tag_compliance"
+        "module": "tag_compliance",
+        "accountId": "468254682119"
       },
       {
         "riskScore": 4.0,
@@ -217,7 +245,8 @@
         ],
         "severity": "MEDIUM",
         "priority": "P2",
-        "module": "idle_resources"
+        "module": "idle_resources",
+        "accountId": "468254682119"
       },
       {
         "riskScore": 3.5,
@@ -233,7 +262,8 @@
         ],
         "severity": "LOW",
         "priority": "P3",
-        "module": "idle_resources"
+        "module": "idle_resources",
+        "accountId": "468254682119"
       },
       {
         "riskScore": 5.5,
@@ -250,7 +280,26 @@
         ],
         "severity": "MEDIUM",
         "priority": "P2",
-        "module": "disaster_recovery"
+        "module": "disaster_recovery",
+        "accountId": "468254682119"
+      },
+      {
+        "riskScore": 5.0,
+        "title": "S3 bucket app-assets has no cross-region replication configured",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "app-assets",
+        "resourceArn": "arn:aws-cn:s3:::app-assets",
+        "region": "cn-north-1",
+        "description": "S3 bucket app-assets does not have cross-region replication (CRR) enabled.",
+        "impact": "Data loss risk in a regional disaster — no offsite backup for bucket contents.",
+        "remediationSteps": [
+          "Enable cross-region replication to cn-northwest-1.",
+          "Ensure versioning is enabled on both source and destination buckets."
+        ],
+        "severity": "MEDIUM",
+        "priority": "P2",
+        "module": "disaster_recovery",
+        "accountId": "468254682119"
       },
       {
         "riskScore": 5.5,
@@ -266,7 +315,9 @@
         ],
         "severity": "MEDIUM",
         "priority": "P2",
-        "module": "security_hub_findings"
+        "module": "security_hub_findings",
+        "source": "FSBP",
+        "accountId": "468254682119"
       },
       {
         "riskScore": 5.5,
@@ -282,24 +333,161 @@
         ],
         "severity": "MEDIUM",
         "priority": "P2",
-        "module": "security_hub_findings"
+        "module": "security_hub_findings",
+        "source": "FSBP",
+        "accountId": "468254682119"
+      },
+      {
+        "riskScore": 8.5,
+        "title": "[Security Hub] IAM.4 — IAM root user access key should not exist",
+        "resourceType": "AWS::IAM::User",
+        "resourceId": "root",
+        "resourceArn": "arn:aws-cn:iam::468254682119:root",
+        "region": "global",
+        "description": "FSBP control IAM.4: Root user has active access keys. MFA status not verified.",
+        "impact": "Root account compromise gives unrestricted access to all AWS services and resources.",
+        "remediationSteps": [
+          "Delete root user access keys.",
+          "Enable MFA on the root account.",
+          "Use IAM users or roles for daily operations."
+        ],
+        "severity": "HIGH",
+        "priority": "P1",
+        "module": "security_hub_findings",
+        "source": "FSBP",
+        "accountId": "468254682119"
+      },
+      {
+        "riskScore": 6.0,
+        "title": "[Security Hub] CloudTrail is not enabled in all regions",
+        "resourceType": "AWS::CloudTrail::Trail",
+        "resourceId": "management-trail",
+        "resourceArn": "arn:aws-cn:cloudtrail:cn-north-1:468254682119:trail/management-trail",
+        "region": "cn-north-1",
+        "description": "AWS Config rule: CloudTrail is configured for cn-north-1 only, not all regions.",
+        "impact": "API activity in other regions will not be logged, reducing audit visibility.",
+        "remediationSteps": [
+          "Update CloudTrail to enable multi-region logging.",
+          "Enable log file validation for tamper detection."
+        ],
+        "severity": "MEDIUM",
+        "priority": "P2",
+        "module": "security_hub_findings",
+        "source": "Config",
+        "accountId": "468254682119"
+      },
+      {
+        "riskScore": 4.0,
+        "title": "[Security Hub] S3 bucket versioning is not enabled",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "logs-archive-bucket",
+        "resourceArn": "arn:aws-cn:s3:::logs-archive-bucket",
+        "region": "cn-north-1",
+        "description": "AWS Config rule: S3 bucket logs-archive-bucket does not have versioning enabled.",
+        "impact": "Accidental or malicious deletion of objects cannot be recovered.",
+        "remediationSteps": [
+          "Enable versioning on the S3 bucket.",
+          "Consider adding lifecycle rules to manage version retention."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "security_hub_findings",
+        "source": "Config",
+        "accountId": "468254682119"
+      },
+      {
+        "riskScore": 8.0,
+        "title": "[Security Hub] CVE-2024-6387 — OpenSSH regresshion vulnerability on i-0abc123",
+        "resourceType": "AWS::EC2::Instance",
+        "resourceId": "i-0abc123",
+        "resourceArn": "arn:aws-cn:ec2:cn-north-1:468254682119:instance/i-0abc123",
+        "region": "cn-north-1",
+        "description": "Inspector finding: EC2 instance i-0abc123 running OpenSSH 8.5p1 affected by CVE-2024-6387 (regresshion).",
+        "impact": "Remote code execution via race condition in signal handler. CVSS 8.1.",
+        "remediationSteps": [
+          "Update OpenSSH to version 9.8p1 or later.",
+          "As a workaround, set LoginGraceTime to 0 in sshd_config (may cause DoS)."
+        ],
+        "severity": "HIGH",
+        "priority": "P1",
+        "module": "security_hub_findings",
+        "source": "Inspector",
+        "accountId": "468254682119"
+      },
+      {
+        "riskScore": 6.0,
+        "title": "[Security Hub] S3 bucket allows cross-account access from external account",
+        "resourceType": "AWS::S3::Bucket",
+        "resourceId": "shared-data-bucket",
+        "resourceArn": "arn:aws-cn:s3:::shared-data-bucket",
+        "region": "cn-north-1",
+        "description": "Access Analyzer finding: S3 bucket shared-data-bucket policy grants access to external account 123456789012.",
+        "impact": "Data in the bucket is accessible to an external AWS account, which may be unintended.",
+        "remediationSteps": [
+          "Review the bucket policy and remove unintended cross-account grants.",
+          "Use S3 Access Points for controlled cross-account access."
+        ],
+        "severity": "MEDIUM",
+        "priority": "P2",
+        "module": "security_hub_findings",
+        "source": "AA",
+        "accountId": "468254682119"
+      },
+      {
+        "riskScore": 7.0,
+        "title": "[Security Hub] Unusual API call pattern detected from EC2 instance",
+        "resourceType": "AWS::EC2::Instance",
+        "resourceId": "i-0xyz789",
+        "resourceArn": "arn:aws-cn:ec2:cn-north-1:468254682119:instance/i-0xyz789",
+        "region": "cn-north-1",
+        "description": "GuardDuty finding: EC2 instance i-0xyz789 made unusual DescribeInstances and GetCallerIdentity API calls at 03:00 UTC.",
+        "impact": "Potential reconnaissance activity indicating compromised instance credentials.",
+        "remediationSteps": [
+          "Investigate the instance for unauthorized access.",
+          "Rotate instance role credentials.",
+          "Review CloudTrail logs for the full API call timeline."
+        ],
+        "severity": "HIGH",
+        "priority": "P1",
+        "module": "security_hub_findings",
+        "source": "GuardDuty",
+        "accountId": "468254682119"
+      },
+      {
+        "riskScore": 3.0,
+        "title": "VPC limit approaching: 4 of 5 VPCs in use",
+        "resourceType": "AWS::EC2::VPC",
+        "resourceId": "vpc-limit-cn-north-1",
+        "resourceArn": "arn:aws-cn:ec2:cn-north-1:468254682119:vpc-limit",
+        "region": "cn-north-1",
+        "description": "Trusted Advisor check: 4 of 5 VPCs are in use (80% utilization) in cn-north-1.",
+        "impact": "Approaching the VPC limit may prevent creation of new VPCs when needed.",
+        "remediationSteps": [
+          "Request a VPC limit increase via AWS Support.",
+          "Review existing VPCs and delete unused ones."
+        ],
+        "severity": "LOW",
+        "priority": "P3",
+        "module": "trusted_advisor_findings",
+        "accountId": "468254682119"
       }
     ]
   },
   "history": [
-    {
-      "date": "2026-04-10",
-      "score": 72,
-      "critical": 0,
-      "high": 2,
-      "medium": 5,
-      "low": 5,
-      "totalFindings": 12
-    }
+    { "date": "2026-03-14", "score": 55, "critical": 4, "high": 10, "medium": 14, "low": 9, "totalFindings": 37 },
+    { "date": "2026-03-17", "score": 53, "critical": 5, "high": 11, "medium": 13, "low": 10, "totalFindings": 39 },
+    { "date": "2026-03-20", "score": 58, "critical": 3, "high": 9, "medium": 13, "low": 9, "totalFindings": 34 },
+    { "date": "2026-03-23", "score": 60, "critical": 3, "high": 8, "medium": 12, "low": 9, "totalFindings": 32 },
+    { "date": "2026-03-26", "score": 59, "critical": 3, "high": 9, "medium": 11, "low": 10, "totalFindings": 33 },
+    { "date": "2026-03-29", "score": 62, "critical": 3, "high": 8, "medium": 11, "low": 8, "totalFindings": 30 },
+    { "date": "2026-04-01", "score": 63, "critical": 2, "high": 8, "medium": 10, "low": 8, "totalFindings": 28 },
+    { "date": "2026-04-04", "score": 65, "critical": 2, "high": 7, "medium": 10, "low": 7, "totalFindings": 26 },
+    { "date": "2026-04-08", "score": 66, "critical": 2, "high": 7, "medium": 9, "low": 7, "totalFindings": 25 },
+    { "date": "2026-04-12", "score": 68, "critical": 2, "high": 7, "medium": 9, "low": 6, "totalFindings": 24 }
   ],
   "meta": {
-    "generatedAt": "2026-04-10T15:35:25.822Z",
-    "version": "1.0.0",
+    "generatedAt": "2026-04-12T08:31:15.822Z",
+    "version": "2.0.0",
     "dataRetentionDays": 30
   }
 }

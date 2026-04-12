@@ -1,3 +1,5 @@
+import { useI18n } from '../i18n';
+
 interface ScoreGaugeProps {
   score: number;
 }
@@ -19,6 +21,7 @@ function getGrade(score: number): string {
 }
 
 export default function ScoreGauge({ score }: ScoreGaugeProps) {
+  const { t } = useI18n();
   const color = getScoreColor(score);
   const grade = getGrade(score);
   const radius = 80;
@@ -29,7 +32,6 @@ export default function ScoreGauge({ score }: ScoreGaugeProps) {
   return (
     <div className="flex flex-col items-center justify-center">
       <svg width="200" height="200" viewBox="0 0 200 200">
-        {/* Background circle */}
         <circle
           cx="100"
           cy="100"
@@ -38,7 +40,6 @@ export default function ScoreGauge({ score }: ScoreGaugeProps) {
           stroke="#334155"
           strokeWidth="12"
         />
-        {/* Progress arc */}
         <circle
           cx="100"
           cy="100"
@@ -52,7 +53,6 @@ export default function ScoreGauge({ score }: ScoreGaugeProps) {
           transform="rotate(-90 100 100)"
           style={{ transition: 'stroke-dashoffset 0.8s ease' }}
         />
-        {/* Score text */}
         <text
           x="100"
           y="95"
@@ -78,7 +78,7 @@ export default function ScoreGauge({ score }: ScoreGaugeProps) {
           className="text-2xl font-bold"
           style={{ color }}
         >
-          Grade {grade}
+          {t('grade')} {grade}
         </span>
       </div>
     </div>

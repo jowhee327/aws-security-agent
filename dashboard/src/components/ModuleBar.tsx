@@ -1,8 +1,15 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import type { Finding } from '../types';
 
+const DETECTION_MODULES = new Set([
+  'guardduty_findings',
+  'inspector_findings',
+  'config_rules_findings',
+  'access_analyzer_findings',
+]);
+
 interface ModuleBarProps {
-  modules: Array<{ module: string; findingsCount: number }>;
+  modules: Array<{ module: string; findingsCount: number; status: string }>;
   findings: Finding[];
 }
 
@@ -20,39 +27,82 @@ const SEVERITY_COLORS: Record<string, string> = {
   LOW: '#22c55e',
 };
 
-function getModuleColor(moduleName: string, findings: Finding[]): string {
-  const moduleFindings = findings.filter(f => f.module === moduleName);
-  if (moduleFindings.length === 0) return '#22c55e';
+const SH_SOURCE_LABELS: Record<string, string> = {
+  FSBP: 'SH: FSBP',
+  Inspector: 'SH: Inspector',
+  GuardDuty: 'SH: GuardDuty',
+  Config: 'SH: Config',
+  AA: 'SH: Access Analyzer',
+};
 
-  let maxSeverity = 'LOW';
+function getMaxSeverityColor(items: Finding[]): string {
+  if (items.length === 0) return '#22c55e';
   let maxRank = 0;
-  for (const f of moduleFindings) {
+  let maxSev = 'LOW';
+  for (const f of items) {
     const rank = SEVERITY_RANK[f.severity] ?? 0;
     if (rank > maxRank) {
       maxRank = rank;
-      maxSeverity = f.severity;
+      maxSev = f.severity;
     }
   }
-  return SEVERITY_COLORS[maxSeverity];
+  return SEVERITY_COLORS[maxSev];
+}
+
+function formatModuleName(name: string): string {
+  return name
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
 }
 
 export default function ModuleBar({ modules, findings }: ModuleBarProps) {
-  const data = modules.map(m => ({
-    name: m.module,
-    count: m.findingsCount,
-    color: getModuleColor(m.module, findings),
-  }));
+  const data: Array<{ name: string; count: number; color: string }> = [];
+
+  for (const m of modules) {
+    if (DETECTION_MODULES.has(m.module)) continue;
+
+    if (m.module === 'security_hub_findings') {
+      const shFindings = findings.filter(f => f.module === 'security_hub_findings');
+      const bySource = new Map<string, Finding[]>();
+      for (const f of shFindings) {
+        const src = f.source ?? 'Other';
+        if (!bySource.has(src)) bySource.set(src, []);
+        bySource.get(src)!.push(f);
+      }
+      for (const [src, srcFindings] of bySource) {
+        data.push({
+          name: SH_SOURCE_LABELS[src] ?? `SH: ${src}`,
+          count: srcFindings.length,
+          color: getMaxSeverityColor(srcFindings),
+        });
+      }
+      continue;
+    }
+
+    const moduleFindings = findings.filter(f => f.module === m.module);
+    data.push({
+      name: formatModuleName(m.module),
+      count: m.findingsCount,
+      color: getMaxSeverityColor(moduleFindings),
+    });
+  }
+
+  // Sort by count descending for visual clarity
+  data.sort((a, b) => b.count - a.count);
+
+  const chartHeight = Math.max(250, data.length * 36 + 40);
 
   return (
-    <ResponsiveContainer width="100%" height={300}>
+    <ResponsiveContainer width="100%" height={chartHeight}>
       <BarChart data={data} layout="vertical" margin={{ left: 20, right: 30, top: 10, bottom: 10 }}>
-        <XAxis type="number" stroke="#94a3b8" fontSize={12} />
+        <XAxis type="number" stroke="#94a3b8" fontSize={12} allowDecimals={false} />
         <YAxis
           type="category"
           dataKey="name"
           stroke="#94a3b8"
-          fontSize={12}
-          width={80}
+          fontSize={11}
+          width={140}
+          tick={{ fill: '#94a3b8' }}
         />
         <Tooltip
           contentStyle={{
