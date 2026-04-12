@@ -77,7 +77,7 @@ export const SCAN_GROUPS: Record<string, {
   hw_defense: {
     name: "护网蓝队加固",
     description: "护网前安全自查 — 攻击面+弱点评估",
-    modules: ["service_detection", "secret_exposure", "network_reachability", "dns_dangling", "ssl_certificate", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "inspector_findings", "config_rules_findings", "access_analyzer_findings", "patch_compliance_findings", "imdsv2_enforcement", "waf_coverage"],
+    modules: ["service_detection", "secret_exposure", "network_reachability", "dns_dangling", "ssl_certificate", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "inspector_findings", "config_rules_findings", "access_analyzer_findings", "patch_compliance_findings", "imdsv2_enforcement", "waf_coverage", "log_audit"],
     findingsFilter: {
       guardDutyTypes: ["Backdoor", "Trojan", "PenTest", "CryptoCurrency"],
       minSeverity: "MEDIUM",
@@ -110,7 +110,7 @@ export const SCAN_GROUPS: Record<string, {
   log_integrity: {
     name: "日志完整性审计",
     description: "审计日志完整性和保护",
-    modules: ["service_detection", "security_hub_findings"],
+    modules: ["service_detection", "log_audit", "security_hub_findings"],
     findingsFilter: {
       securityHubCategories: ["logging", "CloudTrail", "audit"],
     },
@@ -133,7 +133,7 @@ export const SCAN_GROUPS: Record<string, {
   new_account_baseline: {
     name: "新账户基线检查",
     description: "新 AWS 账户安全基线",
-    modules: ["service_detection", "secret_exposure", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "access_analyzer_findings", "imdsv2_enforcement"],
+    modules: ["service_detection", "secret_exposure", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "access_analyzer_findings", "imdsv2_enforcement", "log_audit"],
   },
   aggregation: {
     name: "安全服务聚合",

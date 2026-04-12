@@ -185,6 +185,7 @@ export const enI18n: I18n = {
     patch_compliance_findings: "Patch Compliance",
     imdsv2_enforcement: "IMDSv2 Enforcement",
     waf_coverage: "WAF Coverage",
+    log_audit: "Log Audit",
     // Security Hub sub-categories
     "sh:FSBP": "Security Best Practices",
     "sh:Inspector": "Software Vulnerabilities",

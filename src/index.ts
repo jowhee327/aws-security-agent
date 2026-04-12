@@ -25,6 +25,7 @@ import { AccessAnalyzerFindingsScanner } from "./scanners/access-analyzer-findin
 import { PatchComplianceFindingsScanner } from "./scanners/patch-compliance-findings.js";
 import { Imdsv2EnforcementScanner } from "./scanners/imdsv2-enforcement.js";
 import { WafCoverageScanner } from "./scanners/waf-coverage.js";
+import { LogAuditScanner } from "./scanners/log-audit.js";
 import { generateMarkdownReport } from "./tools/report-tool.js";
 import { generateMlps3Report } from "./tools/mlps-report.js";
 import { generateHtmlReport, generateMlps3HtmlReport } from "./tools/html-report.js";
@@ -100,6 +101,8 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
     "Checks if EC2 instances enforce IMDSv2 (HttpTokens: required) — IMDSv1 allows credential theft via SSRF.",
   waf_coverage:
     "Checks if internet-facing ALBs have WAF Web ACL associated for protection against common web exploits.",
+  log_audit:
+    "Checks whether key AWS logging services are enabled — VPC Flow Logs, S3 access logging, ELB access logs, CloudTrail multi-region, RDS audit logs, and CloudWatch Log Group retention.",
 };
 
 function getHwDefenseChecklist(lang?: Lang): string {
@@ -218,6 +221,7 @@ export function createServer(defaultRegion: string): McpServer {
     new PatchComplianceFindingsScanner(),
     new Imdsv2EnforcementScanner(),
     new WafCoverageScanner(),
+    new LogAuditScanner(),
   ];
 
   const scannerMap = new Map<string, Scanner>();
@@ -286,6 +290,7 @@ export function createServer(defaultRegion: string): McpServer {
     { toolName: "scan_patch_compliance_findings", moduleName: "patch_compliance_findings", label: "Patch Compliance Findings" },
     { toolName: "scan_imdsv2_enforcement", moduleName: "imdsv2_enforcement", label: "IMDSv2 Enforcement" },
     { toolName: "scan_waf_coverage", moduleName: "waf_coverage", label: "WAF Coverage" },
+    { toolName: "scan_log_audit", moduleName: "log_audit", label: "Log Audit" },
   ];
 
   for (const { toolName, moduleName, label } of individualScanners) {

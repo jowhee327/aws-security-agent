@@ -183,6 +183,7 @@ export const zhI18n: I18n = {
     patch_compliance_findings: "补丁合规",
     imdsv2_enforcement: "IMDSv2 强制",
     waf_coverage: "WAF 覆盖",
+    log_audit: "日志审计",
     // Security Hub sub-categories
     "sh:FSBP": "安全最佳实践",
     "sh:Inspector": "软件漏洞",
