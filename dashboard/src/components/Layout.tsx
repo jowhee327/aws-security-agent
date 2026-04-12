@@ -18,9 +18,9 @@ export default function Layout({ data }: { data: DashboardData | null }) {
 
   return (
     <div className="flex min-h-screen">
-      {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex fixed top-0 left-0 h-screen w-56 bg-slate-800 border-r border-slate-700 flex-col z-10">
-        <div className="p-5 border-b border-slate-700">
+      {/* Desktop Sidebar — stretches with content, nav stays sticky */}
+      <aside className="hidden lg:flex w-56 shrink-0 bg-slate-800 border-r border-slate-700 flex-col min-h-screen">
+        <div className="sticky top-0 p-5 border-b border-slate-700 bg-slate-800 z-10">
           <div className="flex items-center gap-2.5">
             <span className="text-2xl leading-none">🛡️</span>
             <h1 className="text-lg font-bold text-slate-50 flex-1">{t('nav.title')}</h1>
@@ -33,7 +33,7 @@ export default function Layout({ data }: { data: DashboardData | null }) {
           </div>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="sticky top-16 px-3 py-4 space-y-1">
           {navItems.map(({ to, label, icon }) => (
             <NavLink
               key={to}
@@ -53,7 +53,7 @@ export default function Layout({ data }: { data: DashboardData | null }) {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-700 text-xs text-slate-500 space-y-1">
+        <div className="sticky bottom-0 p-4 border-t border-slate-700 text-xs text-slate-500 space-y-1 bg-slate-800">
           <p>{t('nav.lastScan')}: {scanTime}</p>
           <p>{t('nav.account')}: {accountId}</p>
         </div>
@@ -96,7 +96,7 @@ export default function Layout({ data }: { data: DashboardData | null }) {
       </div>
 
       {/* Main content */}
-      <main className="lg:ml-56 mt-16 lg:mt-0 flex-1 p-8">
+      <main className="mt-16 lg:mt-0 flex-1 min-w-0 p-8">
         <Outlet />
       </main>
     </div>
