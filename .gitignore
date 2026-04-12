@@ -1,3 +1,7 @@
-node_modules/\ndist/\ndashboard/node_modules/\ndashboard/dist/\n.claude/\n*.tgz
-.npmrc
+node_modules/
+dist/
 dashboard/node_modules/
+dashboard/dist/
+.claude/
+*.tgz
+.npmrc
