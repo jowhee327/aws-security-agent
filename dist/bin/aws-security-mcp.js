@@ -7234,6 +7234,9 @@ var SEV_COLOR = {
   LOW: "#22c55e"
 };
 var SEVERITY_ORDER2 = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
+function getRecommendationTemplate(rem) {
+  return rem.replace(/\b(i-[0-9a-f]+)\b/g, "{instance}").replace(/\b(vol-[0-9a-f]+)\b/g, "{volume}").replace(/\b(sg-[0-9a-f]+)\b/g, "{sg}").replace(/\b(eipalloc-[0-9a-f]+)\b/g, "{eip}").replace(/\b(arn:aws[-\w]*:[^"\s]+)\b/g, "{arn}").replace(/"[^"]+"/g, "{name}").replace(/bucket \S+/g, "bucket {name}").replace(/instance \S+/g, "instance {id}").replace(/volume \S+/g, "volume {id}").replace(/rule \S+/g, "rule {name}");
+}
 function scoreColor(score) {
   if (score >= 80) return "#22c55e";
   if (score >= 50) return "#eab308";
@@ -7770,6 +7773,23 @@ ${rest}
           continue;
         }
       }
+      if (f.module !== "security_hub_findings" && f.module !== "inspector_findings") {
+        const template = getRecommendationTemplate(rem);
+        if (template !== rem) {
+          const templateKey = `tmpl:${f.module}:${template}`;
+          const existingTmpl = recMap.get(templateKey);
+          if (existingTmpl) {
+            existingTmpl.count++;
+            if (!existingTmpl.url && url) existingTmpl.url = url;
+            if (SEVERITY_ORDER2.indexOf(f.severity) < SEVERITY_ORDER2.indexOf(existingTmpl.severity)) {
+              existingTmpl.severity = f.severity;
+            }
+            continue;
+          }
+          recMap.set(templateKey, { text: rem, severity: f.severity, count: 1, url });
+          continue;
+        }
+      }
       const existing = recMap.get(rem);
       if (existing) {
         existing.count++;
@@ -7793,7 +7813,7 @@ ${rest}
       recMap.set("__cve__", { text: cveText, severity: cveSeverity, count: 1, url: cveUrl });
     }
     for (const [key, rec] of recMap) {
-      if (key.startsWith("ctrl:") && rec.count > 1) {
+      if ((key.startsWith("ctrl:") || key.startsWith("tmpl:")) && rec.count > 1) {
         rec.text += ` \u2014 ${t.affectedResources(rec.count)}`;
         rec.count = 1;
       }
@@ -8072,6 +8092,23 @@ ${itemsHtml}
             continue;
           }
         }
+        if (f.module !== "security_hub_findings" && f.module !== "inspector_findings") {
+          const template = getRecommendationTemplate(rem);
+          if (template !== rem) {
+            const templateKey = `tmpl:${f.module}:${template}`;
+            const existingTmpl = mlpsRecMap.get(templateKey);
+            if (existingTmpl) {
+              existingTmpl.count++;
+              if (!existingTmpl.url && url) existingTmpl.url = url;
+              if (SEVERITY_ORDER2.indexOf(f.severity) < SEVERITY_ORDER2.indexOf(existingTmpl.severity)) {
+                existingTmpl.severity = f.severity;
+              }
+              continue;
+            }
+            mlpsRecMap.set(templateKey, { text: rem, severity: f.severity, count: 1, url });
+            continue;
+          }
+        }
         const existing = mlpsRecMap.get(rem);
         if (existing) {
           existing.count++;
@@ -8096,7 +8133,7 @@ ${itemsHtml}
       mlpsRecMap.set("__cve__", { text: cveText, severity: mlpsCveSeverity, count: 1, url: mlpsCveUrl });
     }
     for (const [key, rec] of mlpsRecMap) {
-      if (key.startsWith("ctrl:") && rec.count > 1) {
+      if ((key.startsWith("ctrl:") || key.startsWith("tmpl:")) && rec.count > 1) {
         rec.text += ` \u2014 ${t.affectedResources(rec.count)}`;
         rec.count = 1;
       }
