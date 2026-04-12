@@ -276,6 +276,8 @@ export const enI18n: I18n = {
   hwAutoVerified: "Auto-Verified",
   hwManualPending: "Manual Pending",
   hwManualCount: (n: number) => `${n} manual item${n === 1 ? "" : "s"}`,
+  hwAffectedResources: (n: number) => `View affected resources (${n})`,
+  hwRemediation: "Remediation",
   hwReportDisclaimer: "This report is organized by HW Defense SOP checklist categories, for reference only.",
   hwSectionNames: {
     attack_surface: { name: "Attack Surface Reduction", icon: "🎯" },

@@ -153,6 +153,14 @@ function hwCss(): string {
     .finding-card-body p{color:#cbd5e1;font-size:13px;margin-bottom:4px}
     .finding-card-body ol{padding-left:20px}
     .finding-card-body li{color:#cbd5e1;font-size:13px;margin-bottom:2px}
+    .hw-finding-group{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px 16px;margin-bottom:8px}
+    .hw-finding-header{display:flex;align-items:center;gap:8px}
+    .hw-finding-title{color:#e2e8f0;font-size:14px;flex:1}
+    .hw-finding-count{color:#94a3b8;font-size:13px;font-weight:600;background:#334155;padding:2px 8px;border-radius:4px}
+    .hw-finding-resources{padding:8px 0}
+    .hw-resource-item{font-size:12px;color:#94a3b8;padding:2px 0;font-family:monospace}
+    .hw-finding-remediation{border-top:1px solid #334155;margin-top:8px;padding-top:8px}
+    .hw-finding-remediation ol{margin:4px 0;padding-left:20px;font-size:13px;color:#cbd5e1}
     footer{margin-top:48px;padding-top:24px;border-top:1px solid #334155;text-align:center}
     footer p{color:#64748b;font-size:12px;margin-bottom:4px}
     @media print{
@@ -267,19 +275,87 @@ export function generateHwDefenseHtmlReport(
   const autoVerified = sectionResults.filter((s) => s.hasAutoResults).length;
   const totalManualItems = sectionResults.reduce((sum, s) => sum + s.manualItems.length, 0);
 
-  // Render finding card
-  const renderCard = (f: Finding): string => {
-    const sev = f.severity.toLowerCase();
-    return `<div class="finding-card sev-${esc(sev)}">
-      <span class="badge badge-${esc(sev)}">${esc(f.severity)}</span>
-      <span class="finding-title-text">${esc(f.title)}</span>
-      <span class="finding-resource">${esc(f.resourceArn || f.resourceId)}</span>
-      <details><summary>${t.details}</summary><div class="finding-card-body">
-        <p>${esc(f.description)}</p>
-        <p><strong>${t.remediation}:</strong></p>
-        <ol>${f.remediationSteps.map((s) => `<li>${escWithLinks(s)}</li>`).join("")}</ol>
-      </div></details>
-    </div>`;
+  // Group findings by CVE, control ID, or exact title
+  interface FindingGroup {
+    title: string;
+    findings: Finding[];
+    highestSeverity: Severity;
+  }
+
+  function groupFindings(findings: Finding[]): FindingGroup[] {
+    const groups = new Map<string, Finding[]>();
+    const groupTitles = new Map<string, string>();
+
+    for (const f of findings) {
+      const cveMatch = f.title.match(/CVE-\d{4}-\d+/i);
+      if (cveMatch) {
+        const key = `cve:${cveMatch[0].toUpperCase()}`;
+        if (!groups.has(key)) {
+          groups.set(key, []);
+          groupTitles.set(key, f.title);
+        }
+        groups.get(key)!.push(f);
+        continue;
+      }
+      const controlMatch = f.title.match(/[A-Z]+\.\d+/);
+      if (controlMatch) {
+        const key = `ctrl:${controlMatch[0]}`;
+        if (!groups.has(key)) {
+          groups.set(key, []);
+          groupTitles.set(key, f.title);
+        }
+        groups.get(key)!.push(f);
+        continue;
+      }
+      const key = `title:${f.title}`;
+      if (!groups.has(key)) {
+        groups.set(key, []);
+        groupTitles.set(key, f.title);
+      }
+      groups.get(key)!.push(f);
+    }
+
+    const result: FindingGroup[] = [];
+    for (const [key, gFindings] of groups) {
+      let highestSeverity: Severity = "LOW";
+      for (const f of gFindings) {
+        if (SEVERITY_ORDER.indexOf(f.severity) < SEVERITY_ORDER.indexOf(highestSeverity)) {
+          highestSeverity = f.severity;
+        }
+      }
+      result.push({ title: groupTitles.get(key)!, findings: gFindings, highestSeverity });
+    }
+    return result;
+  }
+
+  // Render grouped finding card
+  const renderGroup = (group: FindingGroup): string => {
+    const sev = group.highestSeverity.toLowerCase();
+    const count = group.findings.length;
+    const first = group.findings[0];
+    const resourceItems = group.findings
+      .map((f) => `<div class="hw-resource-item">${esc(f.resourceId)} &mdash; ${esc(f.resourceArn)}</div>`)
+      .join("\n");
+    const remediationSteps = first.remediationSteps
+      .map((s) => `<li>${escWithLinks(s)}</li>`)
+      .join("");
+    return `<div class="hw-finding-group">
+  <div class="hw-finding-header">
+    <span class="badge badge-${esc(sev)}">${esc(group.highestSeverity)}</span>
+    <span class="hw-finding-title">${esc(group.title)}</span>
+    <span class="hw-finding-count">&times;${count}</span>
+  </div>
+  <details>
+    <summary>${t.hwAffectedResources(count)}</summary>
+    <div class="hw-finding-resources">
+      ${resourceItems}
+    </div>
+    <div class="hw-finding-remediation">
+      <strong>${esc(t.hwRemediation)}:</strong>
+      <ol>${remediationSteps}</ol>
+    </div>
+  </details>
+</div>`;
   };
 
   // Render sections
@@ -327,7 +403,8 @@ export function generateHwDefenseHtmlReport(
           if (sevDiff !== 0) return sevDiff;
           return b.riskScore - a.riskScore;
         });
-        autoHtml = sorted.map(renderCard).join("\n");
+        const groups = groupFindings(sorted);
+        autoHtml = groups.map(renderGroup).join("\n");
       }
 
       // Manual checklist section
@@ -343,10 +420,7 @@ export function generateHwDefenseHtmlReport(
         </div>`;
       }
 
-      // Open by default if there are findings
-      const openAttr = section.findings.length > 0 ? " open" : "";
-
-      return `<details class="hw-section"${openAttr}>
+      return `<details class="hw-section">
   <summary>
     <span class="hw-section-icon">${esc(sectionIcon)}</span>
     <span class="hw-section-title">${esc(sectionName)}</span>

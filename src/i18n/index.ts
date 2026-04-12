@@ -143,6 +143,8 @@ export interface I18n {
   hwSectionNames: Record<string, { name: string; icon: string }>;
   hwManualItems: Record<string, string[]>;
   hwManualCount: (n: number) => string;
+  hwAffectedResources: (n: number) => string;
+  hwRemediation: string;
   hwReportDisclaimer: string;
 }
 

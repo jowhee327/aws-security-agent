@@ -274,6 +274,8 @@ export const zhI18n: I18n = {
   hwAutoVerified: "自动验证",
   hwManualPending: "人工待确认",
   hwManualCount: (n: number) => `${n} 项人工确认`,
+  hwAffectedResources: (n: number) => `查看受影响资源 (${n})`,
+  hwRemediation: "修复建议",
   hwReportDisclaimer: "本报告按护网行动 SOP 检查清单组织，仅供参考。",
   hwSectionNames: {
     attack_surface: { name: "攻击面收敛", icon: "🎯" },
