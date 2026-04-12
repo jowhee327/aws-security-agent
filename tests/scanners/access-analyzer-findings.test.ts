@@ -17,15 +17,14 @@ const ctx: ScanContext = {
   accountId: "123456789012",
 };
 
-describe("AccessAnalyzerFindingsScanner", () => {
+describe("AccessAnalyzerFindingsScanner (detection-only)", () => {
   const scanner = new AccessAnalyzerFindingsScanner();
 
   beforeEach(() => {
     mockSend.mockReset();
   });
 
-  it("returns 0 findings when analyzer is active but no findings", async () => {
-    // ListAnalyzers
+  it("returns 0 findings when analyzer is active", async () => {
     mockSend.mockResolvedValueOnce({
       analyzers: [
         {
@@ -36,8 +35,6 @@ describe("AccessAnalyzerFindingsScanner", () => {
         },
       ],
     });
-    // ListFindingsV2
-    mockSend.mockResolvedValueOnce({ findings: [] });
 
     const result = await scanner.scan(ctx);
 
@@ -45,6 +42,7 @@ describe("AccessAnalyzerFindingsScanner", () => {
     expect(result.module).toBe("access_analyzer_findings");
     expect(result.findingsCount).toBe(0);
     expect(result.findings).toHaveLength(0);
+    expect(result.warnings).toBeUndefined();
   });
 
   it("reports no analyzer when none exist", async () => {

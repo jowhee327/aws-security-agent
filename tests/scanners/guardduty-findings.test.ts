@@ -17,16 +17,15 @@ const ctx: ScanContext = {
   accountId: "123456789012",
 };
 
-describe("GuardDutyFindingsScanner", () => {
+describe("GuardDutyFindingsScanner (detection-only)", () => {
   const scanner = new GuardDutyFindingsScanner();
 
   beforeEach(() => {
     mockSend.mockReset();
   });
 
-  it("returns 0 findings when GuardDuty is enabled but no active findings", async () => {
-    mockSend.mockResolvedValueOnce({ DetectorIds: ["detector-1"] }); // ListDetectors
-    mockSend.mockResolvedValueOnce({ FindingIds: [] }); // ListFindings
+  it("returns 0 findings when GuardDuty is enabled", async () => {
+    mockSend.mockResolvedValueOnce({ DetectorIds: ["detector-1"] });
 
     const result = await scanner.scan(ctx);
 
@@ -34,6 +33,7 @@ describe("GuardDutyFindingsScanner", () => {
     expect(result.module).toBe("guardduty_findings");
     expect(result.findingsCount).toBe(0);
     expect(result.findings).toHaveLength(0);
+    expect(result.warnings).toBeUndefined();
   });
 
   it("reports GuardDuty not enabled when no detectors exist", async () => {

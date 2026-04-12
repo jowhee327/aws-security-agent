@@ -17,47 +17,30 @@ const ctx: ScanContext = {
   accountId: "123456789012",
 };
 
-describe("ConfigRulesFindingsScanner", () => {
+describe("ConfigRulesFindingsScanner (detection-only)", () => {
   const scanner = new ConfigRulesFindingsScanner();
 
   beforeEach(() => {
     mockSend.mockReset();
   });
 
-  it("returns findings for non-compliant Config rules", async () => {
-    // DescribeComplianceByConfigRule
+  it("returns 0 findings when Config is enabled", async () => {
     mockSend.mockResolvedValueOnce({
-      ComplianceByConfigRules: [
-        { ConfigRuleName: "s3-bucket-encryption-enabled", Compliance: { ComplianceType: "NON_COMPLIANT" } },
-        { ConfigRuleName: "required-tags", Compliance: { ComplianceType: "COMPLIANT" } },
-      ],
-    });
-    // GetComplianceDetailsByConfigRule for s3-bucket-encryption-enabled
-    mockSend.mockResolvedValueOnce({
-      EvaluationResults: [{
-        EvaluationResultIdentifier: {
-          EvaluationResultQualifier: {
-            ResourceType: "AWS::S3::Bucket",
-            ResourceId: "my-bucket",
-          },
-        },
-        Annotation: "Bucket is not encrypted",
-      }],
+      ConfigurationRecorders: [{ name: "default" }],
     });
 
     const result = await scanner.scan(ctx);
 
     expect(result.status).toBe("success");
     expect(result.module).toBe("config_rules_findings");
-    expect(result.resourcesScanned).toBe(2);
-    expect(result.findingsCount).toBe(1);
-    expect(result.findings[0].title).toContain("s3-bucket-encryption-enabled");
-    expect(result.findings[0].resourceId).toBe("my-bucket");
+    expect(result.findingsCount).toBe(0);
+    expect(result.findings).toHaveLength(0);
+    expect(result.warnings).toBeUndefined();
   });
 
-  it("reports Config not enabled when no rules exist", async () => {
+  it("reports Config not enabled when no recorders exist", async () => {
     mockSend.mockResolvedValueOnce({
-      ComplianceByConfigRules: [],
+      ConfigurationRecorders: [],
     });
 
     const result = await scanner.scan(ctx);
