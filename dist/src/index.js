@@ -3646,6 +3646,12 @@ var zhI18n = {
   trendTitle: "30\u65E5\u8D8B\u52BF",
   findingsBySeverity: "\u6309\u4E25\u91CD\u6027\u5206\u7C7B\u7684\u53D1\u73B0",
   showMoreCount: (n) => `\u663E\u793A\u5269\u4F59 ${n} \u9879\u2026`,
+  // Filter toolbar
+  filterSeverity: "\u4E25\u91CD\u6027\uFF1A",
+  filterModule: "\u6A21\u5757\uFF1A",
+  filterAll: "\u5168\u90E8",
+  filterAllModules: "\u5168\u90E8\u6A21\u5757",
+  filterCountTpl: "\u663E\u793A {shown} / {total} \u4E2A\u53D1\u73B0",
   // Extended — MLPS extras
   // Markdown report
   executiveSummary: "\u6267\u884C\u6458\u8981",
@@ -3916,6 +3922,12 @@ var enI18n = {
   trendTitle: "30-Day Trends",
   findingsBySeverity: "Findings by Severity",
   showMoreCount: (n) => `Show ${n} more\u2026`,
+  // Filter toolbar
+  filterSeverity: "Severity:",
+  filterModule: "Module:",
+  filterAll: "All",
+  filterAllModules: "All Modules",
+  filterCountTpl: "Showing {shown} / {total} findings",
   // Extended \u2014 MLPS extras
   // Markdown report
   executiveSummary: "Executive Summary",
@@ -7231,7 +7243,16 @@ function sharedCss() {
     .rec-body ol{padding-left:24px}
     .rec-body li{margin-bottom:8px;color:#cbd5e1;font-size:13px}
     .rec-body .badge{margin-right:6px;vertical-align:middle}
+    .filter-toolbar{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-bottom:20px;padding:12px 16px;background:#1e293b;border:1px solid #334155;border-radius:8px}
+    .filter-group{display:flex;align-items:center;gap:8px}
+    .filter-label{color:#94a3b8;font-size:13px}
+    .filter-btn{padding:4px 12px;border-radius:4px;border:1px solid #475569;background:transparent;color:#cbd5e1;cursor:pointer;font-size:13px}
+    .filter-btn:hover{background:#334155}
+    .filter-btn.active{background:#3b82f6;border-color:#3b82f6;color:#fff}
+    .filter-select{padding:4px 8px;border-radius:4px;border:1px solid #475569;background:#0f172a;color:#cbd5e1;font-size:13px}
+    .filter-count{color:#64748b;font-size:13px;margin-left:auto}
     @media print{
+      .filter-toolbar{display:none !important}
       body{background:#fff;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .container{max-width:100%;padding:20px}
       .card,.score-card,.stat-card,.chart-box,.finding-fold,.top5-card,.trend-chart,.category-fold,.module-fold,.finding-card,.rec-fold{background:#fff;border:1px solid #e2e8f0}
@@ -7490,13 +7511,14 @@ function generateHtmlReport(scanResults, history, lang) {
     </section>`;
   }
   let findingsHtml;
+  let filterToolbarHtml = "";
   if (summary.totalFindings === 0) {
     findingsHtml = `<div class="no-findings">${esc(t.noIssuesFound)}</div>`;
   } else {
     const FOLD_THRESHOLD = 20;
-    const renderCard = (f) => {
+    const renderCard = (f, moduleKey) => {
       const sev = f.severity.toLowerCase();
-      return `<div class="finding-card sev-${esc(sev)}">
+      return `<div class="finding-card sev-${esc(sev)}" data-severity="${esc(f.severity)}" data-module="${esc(moduleKey)}">
         <span class="badge badge-${esc(sev)}">${esc(f.severity)}</span>
         <span class="finding-title-text">${esc(f.title)}</span>
         <span class="finding-resource">${esc(f.resourceArn || f.resourceId)}</span>
@@ -7507,12 +7529,12 @@ function generateHtmlReport(scanResults, history, lang) {
         </div></details>
       </div>`;
     };
-    const renderCards = (findings) => {
+    const renderCards = (findings, moduleKey) => {
       if (findings.length <= FOLD_THRESHOLD) {
-        return findings.map(renderCard).join("\n");
+        return findings.map((f) => renderCard(f, moduleKey)).join("\n");
       }
-      const first = findings.slice(0, FOLD_THRESHOLD).map(renderCard).join("\n");
-      const rest = findings.slice(FOLD_THRESHOLD).map(renderCard).join("\n");
+      const first = findings.slice(0, FOLD_THRESHOLD).map((f) => renderCard(f, moduleKey)).join("\n");
+      const rest = findings.slice(FOLD_THRESHOLD).map((f) => renderCard(f, moduleKey)).join("\n");
       return `${first}
 <details><summary>${t.showRemainingFindings(findings.length - FOLD_THRESHOLD)}</summary>
 ${rest}
@@ -7547,7 +7569,7 @@ ${rest}
       if (aHasCritHigh !== bHasCritHigh) return aHasCritHigh ? -1 : 1;
       return b[1].length - a[1].length;
     });
-    const renderSeverityGroups = (findings) => {
+    const renderSeverityGroups = (findings, moduleKey) => {
       return SEVERITY_ORDER2.map((sev) => {
         const sevFindings = findings.filter((f) => f.severity === sev);
         if (sevFindings.length === 0) return "";
@@ -7556,7 +7578,7 @@ ${rest}
         const label = sev.charAt(0) + sev.slice(1).toLowerCase();
         return `<details class="severity-group-fold">
           <summary><h4>${emoji} ${label} (${sevFindings.length})</h4></summary>
-          ${renderCards(sevFindings)}
+          ${renderCards(sevFindings, moduleKey)}
         </details>`;
       }).filter(Boolean).join("\n");
     };
@@ -7568,16 +7590,38 @@ ${rest}
     findingsHtml = moduleEntries.map(([modName, modFindings, subCatLabel]) => {
       const badges = renderModuleBadges(modFindings);
       const displayName = subCatLabel ?? (t.moduleNames[modName] ?? modName);
-      return `<details class="module-fold">
+      return `<details class="module-fold" data-module="${esc(modName)}">
         <summary>
           <h3>&#128274; ${esc(displayName)} (${modFindings.length})</h3>
           <span class="module-badges">${badges}</span>
         </summary>
         <div class="module-body">
-          ${renderSeverityGroups(modFindings)}
+          ${renderSeverityGroups(modFindings, modName)}
         </div>
       </details>`;
     }).join("\n");
+    const moduleOptions = moduleEntries.map(([modKey, , subCatLabel]) => {
+      const label = subCatLabel ?? (t.moduleNames[modKey] ?? modKey);
+      return `<option value="${esc(modKey)}">${esc(label)}</option>`;
+    }).join("\n        ");
+    filterToolbarHtml = `<div class="filter-toolbar" id="filterBar">
+      <div class="filter-group">
+        <span class="filter-label">${esc(t.filterSeverity)}</span>
+        <button class="filter-btn active" data-severity="ALL">${esc(t.filterAll)}</button>
+        <button class="filter-btn" data-severity="CRITICAL">Critical</button>
+        <button class="filter-btn" data-severity="HIGH">High</button>
+        <button class="filter-btn" data-severity="MEDIUM">Medium</button>
+        <button class="filter-btn" data-severity="LOW">Low</button>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">${esc(t.filterModule)}</span>
+        <select class="filter-select" id="moduleFilter">
+          <option value="ALL">${esc(t.filterAllModules)}</option>
+          ${moduleOptions}
+        </select>
+      </div>
+      <div class="filter-count" id="filterCount" data-tpl="${esc(t.filterCountTpl)}"></div>
+    </div>`;
   }
   let trendHtml = "";
   if (history && history.length >= 2) {
@@ -7733,6 +7777,43 @@ ${remaining.map(renderRec).join("\n")}
         </div>
       </details>`;
   }
+  const filterScript = summary.totalFindings > 0 ? `<script>
+(function(){
+  var activeSev='ALL',activeMod='ALL';
+  var countEl=document.getElementById('filterCount');
+  var tpl=countEl?countEl.getAttribute('data-tpl'):'';
+  function apply(){
+    var cards=document.querySelectorAll('.finding-card[data-severity]');
+    var shown=0,total=cards.length;
+    cards.forEach(function(c){
+      var sevOk=activeSev==='ALL'||c.getAttribute('data-severity')===activeSev;
+      var modOk=activeMod==='ALL'||c.getAttribute('data-module')===activeMod;
+      c.style.display=(sevOk&&modOk)?'':'none';
+      if(sevOk&&modOk)shown++;
+    });
+    if(countEl)countEl.textContent=tpl.replace('{shown}',shown).replace('{total}',total);
+    document.querySelectorAll('.module-fold').forEach(function(f){
+      var mod=f.getAttribute('data-module');
+      if(activeMod!=='ALL'&&mod!==activeMod){f.style.display='none';return;}
+      f.style.display='';
+    });
+    document.querySelectorAll('.severity-group-fold').forEach(function(g){
+      g.style.display=g.querySelectorAll('.finding-card:not([style*="display: none"])').length?'':'none';
+    });
+  }
+  document.querySelectorAll('.filter-btn[data-severity]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.filter-btn[data-severity]').forEach(function(x){x.classList.remove('active')});
+      b.classList.add('active');
+      activeSev=b.getAttribute('data-severity');
+      apply();
+    });
+  });
+  var sel=document.getElementById('moduleFilter');
+  if(sel)sel.addEventListener('change',function(){activeMod=sel.value;apply();});
+  apply();
+})();
+</script>` : "";
   return `<!DOCTYPE html>
 <html lang="${htmlLang}">
 <head>
@@ -7789,6 +7870,7 @@ ${buildServiceReminderHtml(modules, lang)}
 
 <section>
   <h2>${esc(t.allFindings)}</h2>
+  ${filterToolbarHtml}
   ${findingsHtml}
 </section>
 
@@ -7800,6 +7882,7 @@ ${recsHtml}
 </footer>
 
 </div>
+${filterScript}
 </body>
 </html>`;
 }

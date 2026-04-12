@@ -81,6 +81,13 @@ export interface I18n {
   findingsBySeverity: string;
   showMoreCount: (n: number) => string;
 
+  // Filter toolbar
+  filterSeverity: string;
+  filterModule: string;
+  filterAll: string;
+  filterAllModules: string;
+  filterCountTpl: string;
+
   // Markdown report
   executiveSummary: string;
   totalFindingsLabel: string;

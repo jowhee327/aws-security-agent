@@ -187,7 +187,7 @@ describe("generateHtmlReport", () => {
     ]);
     const html = generateHtmlReport(result, undefined, "en");
 
-    expect(html).not.toContain("<script>");
+    expect(html).not.toContain('alert("xss")');
     expect(html).toContain("&lt;script&gt;");
   });
 

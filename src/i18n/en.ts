@@ -116,6 +116,13 @@ export const enI18n: I18n = {
   showMoreCount: (n: number) =>
     `Show ${n} more\u2026`,
 
+  // Filter toolbar
+  filterSeverity: "Severity:",
+  filterModule: "Module:",
+  filterAll: "All",
+  filterAllModules: "All Modules",
+  filterCountTpl: "Showing {shown} / {total} findings",
+
   // Extended \u2014 MLPS extras
   // Markdown report
   executiveSummary: "Executive Summary",

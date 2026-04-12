@@ -115,6 +115,13 @@ export const zhI18n: I18n = {
   showMoreCount: (n: number) =>
     `\u663e\u793a\u5269\u4f59 ${n} \u9879\u2026`,
 
+  // Filter toolbar
+  filterSeverity: "\u4e25\u91cd\u6027\uff1a",
+  filterModule: "\u6a21\u5757\uff1a",
+  filterAll: "\u5168\u90e8",
+  filterAllModules: "\u5168\u90e8\u6a21\u5757",
+  filterCountTpl: "\u663e\u793a {shown} / {total} \u4e2a\u53d1\u73b0",
+
   // Extended — MLPS extras
   // Markdown report
   executiveSummary: "\u6267\u884c\u6458\u8981",

@@ -289,7 +289,16 @@ function sharedCss(): string {
     .rec-body ol{padding-left:24px}
     .rec-body li{margin-bottom:8px;color:#cbd5e1;font-size:13px}
     .rec-body .badge{margin-right:6px;vertical-align:middle}
+    .filter-toolbar{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-bottom:20px;padding:12px 16px;background:#1e293b;border:1px solid #334155;border-radius:8px}
+    .filter-group{display:flex;align-items:center;gap:8px}
+    .filter-label{color:#94a3b8;font-size:13px}
+    .filter-btn{padding:4px 12px;border-radius:4px;border:1px solid #475569;background:transparent;color:#cbd5e1;cursor:pointer;font-size:13px}
+    .filter-btn:hover{background:#334155}
+    .filter-btn.active{background:#3b82f6;border-color:#3b82f6;color:#fff}
+    .filter-select{padding:4px 8px;border-radius:4px;border:1px solid #475569;background:#0f172a;color:#cbd5e1;font-size:13px}
+    .filter-count{color:#64748b;font-size:13px;margin-left:auto}
     @media print{
+      .filter-toolbar{display:none !important}
       body{background:#fff;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .container{max-width:100%;padding:20px}
       .card,.score-card,.stat-card,.chart-box,.finding-fold,.top5-card,.trend-chart,.category-fold,.module-fold,.finding-card,.rec-fold{background:#fff;border:1px solid #e2e8f0}
@@ -631,14 +640,15 @@ export function generateHtmlReport(
 
   // --- Findings HTML (grouped by module, then severity) ---
   let findingsHtml: string;
+  let filterToolbarHtml = "";
   if (summary.totalFindings === 0) {
     findingsHtml = `<div class="no-findings">${esc(t.noIssuesFound)}</div>`;
   } else {
     const FOLD_THRESHOLD = 20;
 
-    const renderCard = (f: Finding): string => {
+    const renderCard = (f: Finding, moduleKey: string): string => {
       const sev = f.severity.toLowerCase();
-      return `<div class="finding-card sev-${esc(sev)}">
+      return `<div class="finding-card sev-${esc(sev)}" data-severity="${esc(f.severity)}" data-module="${esc(moduleKey)}">
         <span class="badge badge-${esc(sev)}">${esc(f.severity)}</span>
         <span class="finding-title-text">${esc(f.title)}</span>
         <span class="finding-resource">${esc(f.resourceArn || f.resourceId)}</span>
@@ -650,12 +660,12 @@ export function generateHtmlReport(
       </div>`;
     };
 
-    const renderCards = (findings: Finding[]): string => {
+    const renderCards = (findings: Finding[], moduleKey: string): string => {
       if (findings.length <= FOLD_THRESHOLD) {
-        return findings.map(renderCard).join("\n");
+        return findings.map(f => renderCard(f, moduleKey)).join("\n");
       }
-      const first = findings.slice(0, FOLD_THRESHOLD).map(renderCard).join("\n");
-      const rest = findings.slice(FOLD_THRESHOLD).map(renderCard).join("\n");
+      const first = findings.slice(0, FOLD_THRESHOLD).map(f => renderCard(f, moduleKey)).join("\n");
+      const rest = findings.slice(FOLD_THRESHOLD).map(f => renderCard(f, moduleKey)).join("\n");
       return `${first}\n<details><summary>${t.showRemainingFindings(findings.length - FOLD_THRESHOLD)}</summary>\n${rest}\n</details>`;
     };
 
@@ -695,7 +705,7 @@ export function generateHtmlReport(
       return b[1].length - a[1].length;
     });
 
-    const renderSeverityGroups = (findings: Finding[]): string => {
+    const renderSeverityGroups = (findings: Finding[], moduleKey: string): string => {
       return SEVERITY_ORDER.map((sev) => {
         const sevFindings = findings.filter((f) => f.severity === sev);
         if (sevFindings.length === 0) return "";
@@ -706,7 +716,7 @@ export function generateHtmlReport(
 
         return `<details class="severity-group-fold">
           <summary><h4>${emoji} ${label} (${sevFindings.length})</h4></summary>
-          ${renderCards(sevFindings)}
+          ${renderCards(sevFindings, moduleKey)}
         </details>`;
       }).filter(Boolean).join("\n");
     };
@@ -724,16 +734,41 @@ export function generateHtmlReport(
       const badges = renderModuleBadges(modFindings);
       const displayName = subCatLabel ?? (t.moduleNames[modName] ?? modName);
 
-      return `<details class="module-fold">
+      return `<details class="module-fold" data-module="${esc(modName)}">
         <summary>
           <h3>&#128274; ${esc(displayName)} (${modFindings.length})</h3>
           <span class="module-badges">${badges}</span>
         </summary>
         <div class="module-body">
-          ${renderSeverityGroups(modFindings)}
+          ${renderSeverityGroups(modFindings, modName)}
         </div>
       </details>`;
     }).join("\n");
+
+    // --- Filter toolbar (module options from actual findings) ---
+    const moduleOptions = moduleEntries.map(([modKey, , subCatLabel]) => {
+      const label = subCatLabel ?? (t.moduleNames[modKey] ?? modKey);
+      return `<option value="${esc(modKey)}">${esc(label)}</option>`;
+    }).join("\n        ");
+
+    filterToolbarHtml = `<div class="filter-toolbar" id="filterBar">
+      <div class="filter-group">
+        <span class="filter-label">${esc(t.filterSeverity)}</span>
+        <button class="filter-btn active" data-severity="ALL">${esc(t.filterAll)}</button>
+        <button class="filter-btn" data-severity="CRITICAL">Critical</button>
+        <button class="filter-btn" data-severity="HIGH">High</button>
+        <button class="filter-btn" data-severity="MEDIUM">Medium</button>
+        <button class="filter-btn" data-severity="LOW">Low</button>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">${esc(t.filterModule)}</span>
+        <select class="filter-select" id="moduleFilter">
+          <option value="ALL">${esc(t.filterAllModules)}</option>
+          ${moduleOptions}
+        </select>
+      </div>
+      <div class="filter-count" id="filterCount" data-tpl="${esc(t.filterCountTpl)}"></div>
+    </div>`;
   }
 
   // --- Trend Charts ---
@@ -926,6 +961,45 @@ export function generateHtmlReport(
       </details>`;
   }
 
+  // --- Filter script (client-side JS) ---
+  const filterScript = summary.totalFindings > 0 ? `<script>
+(function(){
+  var activeSev='ALL',activeMod='ALL';
+  var countEl=document.getElementById('filterCount');
+  var tpl=countEl?countEl.getAttribute('data-tpl'):'';
+  function apply(){
+    var cards=document.querySelectorAll('.finding-card[data-severity]');
+    var shown=0,total=cards.length;
+    cards.forEach(function(c){
+      var sevOk=activeSev==='ALL'||c.getAttribute('data-severity')===activeSev;
+      var modOk=activeMod==='ALL'||c.getAttribute('data-module')===activeMod;
+      c.style.display=(sevOk&&modOk)?'':'none';
+      if(sevOk&&modOk)shown++;
+    });
+    if(countEl)countEl.textContent=tpl.replace('{shown}',shown).replace('{total}',total);
+    document.querySelectorAll('.module-fold').forEach(function(f){
+      var mod=f.getAttribute('data-module');
+      if(activeMod!=='ALL'&&mod!==activeMod){f.style.display='none';return;}
+      f.style.display='';
+    });
+    document.querySelectorAll('.severity-group-fold').forEach(function(g){
+      g.style.display=g.querySelectorAll('.finding-card:not([style*="display: none"])').length?'':'none';
+    });
+  }
+  document.querySelectorAll('.filter-btn[data-severity]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.filter-btn[data-severity]').forEach(function(x){x.classList.remove('active')});
+      b.classList.add('active');
+      activeSev=b.getAttribute('data-severity');
+      apply();
+    });
+  });
+  var sel=document.getElementById('moduleFilter');
+  if(sel)sel.addEventListener('change',function(){activeMod=sel.value;apply();});
+  apply();
+})();
+<\/script>` : "";
+
   return `<!DOCTYPE html>
 <html lang="${htmlLang}">
 <head>
@@ -982,6 +1056,7 @@ ${buildServiceReminderHtml(modules, lang)}
 
 <section>
   <h2>${esc(t.allFindings)}</h2>
+  ${filterToolbarHtml}
   ${findingsHtml}
 </section>
 
@@ -993,6 +1068,7 @@ ${recsHtml}
 </footer>
 
 </div>
+${filterScript}
 </body>
 </html>`;
 }
