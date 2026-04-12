@@ -3904,6 +3904,35 @@ var zhI18n = {
     "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883": "\u56DB\u3001\u5B89\u5168\u8BA1\u7B97\u73AF\u5883",
     "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3": "\u4E94\u3001\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3"
   },
+  // Module display names
+  moduleNames: {
+    service_detection: "\u5B89\u5168\u670D\u52A1\u68C0\u6D4B",
+    secret_exposure: "\u5BC6\u94A5\u66B4\u9732",
+    ssl_certificate: "SSL \u8BC1\u4E66",
+    dns_dangling: "\u60AC\u6302 DNS",
+    network_reachability: "\u7F51\u7EDC\u53EF\u8FBE\u6027",
+    iam_privilege_escalation: "IAM \u63D0\u6743\u5206\u6790",
+    public_access_verify: "\u516C\u7F51\u8BBF\u95EE\u9A8C\u8BC1",
+    tag_compliance: "\u6807\u7B7E\u5408\u89C4",
+    idle_resources: "\u95F2\u7F6E\u8D44\u6E90",
+    disaster_recovery: "\u707E\u5907\u8BC4\u4F30",
+    security_hub_findings: "Security Hub",
+    guardduty_findings: "GuardDuty",
+    inspector_findings: "Inspector",
+    trusted_advisor_findings: "Trusted Advisor",
+    config_rules_findings: "Config Rules",
+    access_analyzer_findings: "Access Analyzer",
+    patch_compliance_findings: "\u8865\u4E01\u5408\u89C4",
+    imdsv2_enforcement: "IMDSv2 \u5F3A\u5236",
+    waf_coverage: "WAF \u8986\u76D6",
+    // Security Hub sub-categories
+    "sh:FSBP": "\u5B89\u5168\u6700\u4F73\u5B9E\u8DF5",
+    "sh:Inspector": "\u8F6F\u4EF6\u6F0F\u6D1E",
+    "sh:GuardDuty": "\u5A01\u80C1\u68C0\u6D4B",
+    "sh:Config": "\u914D\u7F6E\u5408\u89C4",
+    "sh:Access Analyzer": "\u5916\u90E8\u8BBF\u95EE",
+    "sh:Other": "\u5176\u4ED6\u5B89\u5168\u53D1\u73B0"
+  },
   // Security Hub sub-categories
   securityHubSubCategories: {
     FSBP: { icon: "\u{1F4CB}", label: "\u5B89\u5168\u6700\u4F73\u5B9E\u8DF5" },
@@ -4145,6 +4174,35 @@ var enI18n = {
     "\u5B89\u5168\u8BA1\u7B97\u73AF\u5883": "IV. Computing Environment Security",
     "\u5B89\u5168\u7BA1\u7406\u4E2D\u5FC3": "V. Security Management Center"
   },
+  // Module display names
+  moduleNames: {
+    service_detection: "Security Service Detection",
+    secret_exposure: "Secret Exposure",
+    ssl_certificate: "SSL Certificate",
+    dns_dangling: "Dangling DNS",
+    network_reachability: "Network Reachability",
+    iam_privilege_escalation: "IAM Privilege Escalation",
+    public_access_verify: "Public Access Verification",
+    tag_compliance: "Tag Compliance",
+    idle_resources: "Idle Resources",
+    disaster_recovery: "Disaster Recovery",
+    security_hub_findings: "Security Hub",
+    guardduty_findings: "GuardDuty",
+    inspector_findings: "Inspector",
+    trusted_advisor_findings: "Trusted Advisor",
+    config_rules_findings: "Config Rules",
+    access_analyzer_findings: "Access Analyzer",
+    patch_compliance_findings: "Patch Compliance",
+    imdsv2_enforcement: "IMDSv2 Enforcement",
+    waf_coverage: "WAF Coverage",
+    // Security Hub sub-categories
+    "sh:FSBP": "Security Best Practices",
+    "sh:Inspector": "Software Vulnerabilities",
+    "sh:GuardDuty": "Threat Detection",
+    "sh:Config": "Configuration Compliance",
+    "sh:Access Analyzer": "External Access",
+    "sh:Other": "Other Security Findings"
+  },
   // Security Hub sub-categories
   securityHubSubCategories: {
     FSBP: { icon: "\u{1F4CB}", label: "Security Best Practices" },
@@ -4358,7 +4416,7 @@ function generateMarkdownReport(scanResults, lang) {
   for (const m of modules) {
     const status = m.status === "success" ? "\u2705" : "\u274C";
     lines.push(
-      `| ${m.module} | ${m.resourcesScanned} | ${m.findingsCount} | ${status} |`
+      `| ${t.moduleNames[m.module] ?? m.module} | ${m.resourcesScanned} | ${m.findingsCount} | ${status} |`
     );
   }
   lines.push("");
@@ -7607,9 +7665,10 @@ function generateHtmlReport(scanResults, history, lang) {
       const catFindings = catMap[cat];
       if (catFindings && catFindings.length > 0) {
         const meta = t.securityHubSubCategories[cat];
+        const shLabel = t.moduleNames[`sh:${cat}`] ?? meta?.label ?? cat;
         shSubCats.push({
           key: cat,
-          label: meta ? `${meta.icon} ${meta.label}` : cat,
+          label: meta ? `${meta.icon} ${shLabel}` : shLabel,
           count: catFindings.length,
           findings: catFindings
         });
@@ -7627,12 +7686,12 @@ function generateHtmlReport(scanResults, history, lang) {
     if (m.module === "security_hub_findings" && shSubCats.length > 0) {
       return shSubCats.map((sc) => ({
         ...m,
-        module: sc.key,
+        module: t.moduleNames[`sh:${sc.key}`] ?? sc.key,
         findingsCount: sc.count,
         findings: sc.findings
       }));
     }
-    return [m];
+    return [{ ...m, module: t.moduleNames[m.module] ?? m.module }];
   });
   let top5Html = "";
   if (allFindings.length > 0) {
@@ -7736,7 +7795,7 @@ ${rest}
     };
     findingsHtml = moduleEntries.map(([modName, modFindings, subCatLabel]) => {
       const badges = renderModuleBadges(modFindings);
-      const displayName = subCatLabel ?? modName;
+      const displayName = subCatLabel ?? (t.moduleNames[modName] ?? modName);
       return `<details class="module-fold">
         <summary>
           <h3>&#128274; ${esc(displayName)} (${modFindings.length})</h3>
@@ -7782,9 +7841,9 @@ ${rest}
       if (disabledWarning) {
         const rec = t.serviceRecommendations[m.module];
         const reason = rec ? rec.action : disabledWarning;
-        return [`<tr><td>${esc(m.module)}</td><td>-</td><td>-</td><td style="color:#eab308">&#9888; ${esc(reason)}</td></tr>`];
+        return [`<tr><td>${esc(t.moduleNames[m.module] ?? m.module)}</td><td>-</td><td>-</td><td style="color:#eab308">&#9888; ${esc(reason)}</td></tr>`];
       }
-      return [`<tr><td>${esc(m.module)}</td><td>${m.resourcesScanned}</td><td>${m.findingsCount}</td><td>${m.status === "success" ? "&#10003;" : "&#10007;"}</td></tr>`];
+      return [`<tr><td>${esc(t.moduleNames[m.module] ?? m.module)}</td><td>${m.resourcesScanned}</td><td>${m.findingsCount}</td><td>${m.status === "success" ? "&#10003;" : "&#10007;"}</td></tr>`];
     }
   ).join("\n");
   let recsHtml = "";
