@@ -7668,7 +7668,7 @@ function generateHtmlReport(scanResults, history, lang) {
         const shLabel = t.moduleNames[`sh:${cat}`] ?? meta?.label ?? cat;
         shSubCats.push({
           key: cat,
-          label: meta ? `${meta.icon} ${shLabel}` : shLabel,
+          label: shLabel,
           count: catFindings.length,
           findings: catFindings
         });
