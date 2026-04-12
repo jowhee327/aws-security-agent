@@ -110,7 +110,7 @@ describe("generateHtmlReport", () => {
     ]);
     const html = generateHtmlReport(result, undefined, "en");
 
-    expect(html).toContain("network_reachability");
+    expect(html).toContain("Network Reachability");
     expect(html).toContain("<rect");
   });
 

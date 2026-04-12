@@ -118,7 +118,7 @@ export function generateMarkdownReport(scanResults: FullScanResult, lang?: Lang)
   for (const m of modules) {
     const status = m.status === "success" ? "\u2705" : "\u274c";
     lines.push(
-      `| ${m.module} | ${m.resourcesScanned} | ${m.findingsCount} | ${status} |`,
+      `| ${t.moduleNames[m.module] ?? m.module} | ${m.resourcesScanned} | ${m.findingsCount} | ${status} |`,
     );
   }
   lines.push("");

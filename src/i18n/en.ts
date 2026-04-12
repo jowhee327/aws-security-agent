@@ -157,6 +157,36 @@ export const enI18n: I18n = {
     "\u5b89\u5168\u7ba1\u7406\u4e2d\u5fc3": "V. Security Management Center",
   },
 
+  // Module display names
+  moduleNames: {
+    service_detection: "Security Service Detection",
+    secret_exposure: "Secret Exposure",
+    ssl_certificate: "SSL Certificate",
+    dns_dangling: "Dangling DNS",
+    network_reachability: "Network Reachability",
+    iam_privilege_escalation: "IAM Privilege Escalation",
+    public_access_verify: "Public Access Verification",
+    tag_compliance: "Tag Compliance",
+    idle_resources: "Idle Resources",
+    disaster_recovery: "Disaster Recovery",
+    security_hub_findings: "Security Hub",
+    guardduty_findings: "GuardDuty",
+    inspector_findings: "Inspector",
+    trusted_advisor_findings: "Trusted Advisor",
+    config_rules_findings: "Config Rules",
+    access_analyzer_findings: "Access Analyzer",
+    patch_compliance_findings: "Patch Compliance",
+    imdsv2_enforcement: "IMDSv2 Enforcement",
+    waf_coverage: "WAF Coverage",
+    // Security Hub sub-categories
+    "sh:FSBP": "Security Best Practices",
+    "sh:Inspector": "Software Vulnerabilities",
+    "sh:GuardDuty": "Threat Detection",
+    "sh:Config": "Configuration Compliance",
+    "sh:Access Analyzer": "External Access",
+    "sh:Other": "Other Security Findings",
+  },
+
   // Security Hub sub-categories
   securityHubSubCategories: {
     FSBP: { icon: "\ud83d\udccb", label: "Security Best Practices" },

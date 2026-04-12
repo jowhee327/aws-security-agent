@@ -107,6 +107,9 @@ export interface I18n {
   installWindowsPatches: (n: number, kbs: string) => string;
   mlpsCategorySection: Record<string, string>;
 
+  // Module display names (unified across all report formats)
+  moduleNames: Record<string, string>;
+
   // Security Hub sub-categories
   securityHubSubCategories: Record<string, { icon: string; label: string }>;
 

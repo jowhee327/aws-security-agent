@@ -155,6 +155,36 @@ export const zhI18n: I18n = {
     "\u5b89\u5168\u7ba1\u7406\u4e2d\u5fc3": "\u4e94\u3001\u5b89\u5168\u7ba1\u7406\u4e2d\u5fc3",
   },
 
+  // Module display names
+  moduleNames: {
+    service_detection: "安全服务检测",
+    secret_exposure: "密钥暴露",
+    ssl_certificate: "SSL 证书",
+    dns_dangling: "悬挂 DNS",
+    network_reachability: "网络可达性",
+    iam_privilege_escalation: "IAM 提权分析",
+    public_access_verify: "公网访问验证",
+    tag_compliance: "标签合规",
+    idle_resources: "闲置资源",
+    disaster_recovery: "灾备评估",
+    security_hub_findings: "Security Hub",
+    guardduty_findings: "GuardDuty",
+    inspector_findings: "Inspector",
+    trusted_advisor_findings: "Trusted Advisor",
+    config_rules_findings: "Config Rules",
+    access_analyzer_findings: "Access Analyzer",
+    patch_compliance_findings: "补丁合规",
+    imdsv2_enforcement: "IMDSv2 强制",
+    waf_coverage: "WAF 覆盖",
+    // Security Hub sub-categories
+    "sh:FSBP": "安全最佳实践",
+    "sh:Inspector": "软件漏洞",
+    "sh:GuardDuty": "威胁检测",
+    "sh:Config": "配置合规",
+    "sh:Access Analyzer": "外部访问",
+    "sh:Other": "其他安全发现",
+  },
+
   // Security Hub sub-categories
   securityHubSubCategories: {
     FSBP: { icon: "\ud83d\udccb", label: "安全最佳实践" },

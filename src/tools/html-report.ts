@@ -566,9 +566,10 @@ export function generateHtmlReport(
       const catFindings = catMap[cat];
       if (catFindings && catFindings.length > 0) {
         const meta = t.securityHubSubCategories[cat];
+        const shLabel = t.moduleNames[`sh:${cat}`] ?? meta?.label ?? cat;
         shSubCats.push({
           key: cat,
-          label: meta ? `${meta.icon} ${meta.label}` : cat,
+          label: meta ? `${meta.icon} ${shLabel}` : shLabel,
           count: catFindings.length,
           findings: catFindings,
         });
@@ -590,12 +591,12 @@ export function generateHtmlReport(
     if (m.module === "security_hub_findings" && shSubCats.length > 0) {
       return shSubCats.map(sc => ({
         ...m,
-        module: sc.key,
+        module: t.moduleNames[`sh:${sc.key}`] ?? sc.key,
         findingsCount: sc.count,
         findings: sc.findings,
       }));
     }
-    return [m];
+    return [{ ...m, module: t.moduleNames[m.module] ?? m.module }];
   });
 
   // --- Top 5 Findings ---
@@ -721,7 +722,7 @@ export function generateHtmlReport(
 
     findingsHtml = moduleEntries.map(([modName, modFindings, subCatLabel]) => {
       const badges = renderModuleBadges(modFindings);
-      const displayName = subCatLabel ?? modName;
+      const displayName = subCatLabel ?? (t.moduleNames[modName] ?? modName);
 
       return `<details class="module-fold">
         <summary>
@@ -777,9 +778,9 @@ export function generateHtmlReport(
         if (disabledWarning) {
           const rec = t.serviceRecommendations[m.module];
           const reason = rec ? rec.action : disabledWarning;
-          return [`<tr><td>${esc(m.module)}</td><td>-</td><td>-</td><td style="color:#eab308">&#9888; ${esc(reason)}</td></tr>`];
+          return [`<tr><td>${esc(t.moduleNames[m.module] ?? m.module)}</td><td>-</td><td>-</td><td style="color:#eab308">&#9888; ${esc(reason)}</td></tr>`];
         }
-        return [`<tr><td>${esc(m.module)}</td><td>${m.resourcesScanned}</td><td>${m.findingsCount}</td><td>${m.status === "success" ? "&#10003;" : "&#10007;"}</td></tr>`];
+        return [`<tr><td>${esc(t.moduleNames[m.module] ?? m.module)}</td><td>${m.resourcesScanned}</td><td>${m.findingsCount}</td><td>${m.status === "success" ? "&#10003;" : "&#10007;"}</td></tr>`];
       },
     )
     .join("\n");
