@@ -257,7 +257,7 @@ describe("generateHwDefenseHtmlReport", () => {
   });
 
   it("includes footer with version", () => {
-    const html = generateHwDefenseHtmlReport(makeScanResult());
+    const html = generateHwDefenseHtmlReport(makeScanResult(), "en");
     expect(html).toContain("AWS Security MCP Server v");
   });
 });

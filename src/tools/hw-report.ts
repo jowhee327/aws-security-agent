@@ -146,7 +146,7 @@ function hwCss(): string {
     .hw-clean{color:#22c55e;font-size:14px;padding:8px 12px;background:rgba(34,197,94,0.1);border-radius:6px}
     .hw-no-auto{color:#94a3b8;font-size:14px;padding:8px 12px;background:rgba(148,163,184,0.08);border-radius:6px}
     .hw-manual-item{display:flex;align-items:flex-start;gap:8px;padding:6px 12px;margin-bottom:4px;font-size:14px;color:#cbd5e1;border-radius:4px;background:rgba(148,163,184,0.06)}
-    .hw-manual-item::before{content:"\\25A1";color:#fbbf24;font-size:16px;flex-shrink:0}
+    .hw-manual-checkbox{color:#fbbf24;font-size:16px;flex-shrink:0}
     .finding-card{display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:4px;border-radius:6px;border-left:4px solid #334155;background:rgba(30,41,59,0.5);flex-wrap:wrap}
     .sev-critical{border-left-color:#ef4444}
     .sev-high{border-left-color:#f97316}
@@ -295,7 +295,7 @@ export function generateHwDefenseHtmlReport(
       const meta = t.hwSectionNames[section.id];
       if (!meta) return "";
       const sectionName = meta.name;
-      const sectionIcon = meta.icon;
+      const sectionIcon = meta.icon ?? "";
 
       // Stats badges for summary line
       const statBadges: string[] = [];
@@ -341,7 +341,7 @@ export function generateHwDefenseHtmlReport(
       let manualHtml = "";
       if (section.manualItems.length > 0) {
         const items = section.manualItems
-          .map((item) => `<div class="hw-manual-item">${esc(item)}</div>`)
+          .map((item) => `<div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>${esc(item)}</div>`)
           .join("\n");
         manualHtml = `
         <div class="hw-manual-section">
@@ -355,7 +355,7 @@ export function generateHwDefenseHtmlReport(
 
       return `<details class="hw-section"${openAttr}>
   <summary>
-    <span class="hw-section-icon">${sectionIcon}</span>
+    
     <span class="hw-section-title">${esc(sectionName)}</span>
     <span class="hw-section-stats">${statBadges.join(" ")}</span>
   </summary>
