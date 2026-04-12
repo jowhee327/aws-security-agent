@@ -145,7 +145,6 @@ export interface I18n {
   hwManualCount: (n: number) => string;
   hwAffectedResources: (n: number) => string;
   hwRemediation: string;
-  hwReportDisclaimer: string;
 }
 
 import { zhI18n } from "./zh.js";

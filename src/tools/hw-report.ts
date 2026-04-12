@@ -108,7 +108,6 @@ function hwCss(): string {
     header{text-align:center;margin-bottom:40px;border-bottom:1px solid #334155;padding-bottom:24px}
     header h1{font-size:28px;font-weight:700;margin-bottom:8px;letter-spacing:-0.5px}
     .meta{color:#94a3b8;font-size:13px}
-    .disclaimer{color:#94a3b8;font-size:12px;font-style:italic;margin-top:8px;max-width:640px;margin-left:auto;margin-right:auto}
     h2{font-size:20px;font-weight:600;margin:32px 0 16px;padding-bottom:8px;border-bottom:1px solid #334155}
     h3{font-size:16px;font-weight:600;margin:16px 0 8px}
     h4{font-size:14px;font-weight:600;margin:12px 0 4px}
@@ -171,7 +170,6 @@ function hwCss(): string {
       header{border-bottom-color:#e2e8f0}
       h2{border-bottom-color:#e2e8f0}
       footer{border-top-color:#e2e8f0}
-      .meta,.disclaimer{color:#64748b}
       .summary-card .stat-label{color:#64748b}
       .finding-title-text{color:#1e293b}
       .finding-resource{color:#64748b}

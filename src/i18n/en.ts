@@ -278,7 +278,6 @@ export const enI18n: I18n = {
   hwManualCount: (n: number) => `${n} manual item${n === 1 ? "" : "s"}`,
   hwAffectedResources: (n: number) => `View affected resources (${n})`,
   hwRemediation: "Remediation",
-  hwReportDisclaimer: "This report is organized by HW Defense SOP checklist categories, for reference only.",
   hwSectionNames: {
     attack_surface: { name: "Attack Surface Reduction", icon: "🎯" },
     vulnerability_patch: { name: "Vulnerability & Patch Management", icon: "🩹" },
