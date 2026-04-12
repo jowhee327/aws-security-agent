@@ -87,38 +87,45 @@ export default function ModuleBar({ modules, findings }: ModuleBarProps) {
     });
   }
 
-  // Sort by count descending for visual clarity
-  data.sort((a, b) => b.count - a.count);
+  // Filter out modules with 0 findings, then sort descending
+  const filtered = data.filter(d => d.count > 0);
+  filtered.sort((a, b) => b.count - a.count);
 
-  const chartHeight = Math.max(250, data.length * 36 + 40);
+  if (filtered.length === 0) {
+    return <div className="text-slate-500 text-sm py-4">No findings to display</div>;
+  }
+
+  const chartHeight = Math.max(200, filtered.length * 40 + 40);
 
   return (
-    <ResponsiveContainer width="100%" height={chartHeight}>
-      <BarChart data={data} layout="vertical" margin={{ left: 20, right: 30, top: 10, bottom: 10 }}>
-        <XAxis type="number" stroke="#94a3b8" fontSize={12} allowDecimals={false} />
-        <YAxis
-          type="category"
-          dataKey="name"
-          stroke="#94a3b8"
-          fontSize={11}
-          width={140}
-          tick={{ fill: '#94a3b8' }}
-        />
-        <Tooltip
-          contentStyle={{
-            backgroundColor: '#1e293b',
-            border: '1px solid #334155',
-            borderRadius: '8px',
-            color: '#f8fafc',
-          }}
-          formatter={(value) => [String(value), 'Findings']}
-        />
-        <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={24}>
-          {data.map((entry, index) => (
-            <Cell key={index} fill={entry.color} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <div style={{ width: '100%', height: chartHeight }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={filtered} layout="vertical" margin={{ left: 20, right: 40, top: 10, bottom: 10 }}>
+          <XAxis type="number" stroke="#94a3b8" fontSize={12} allowDecimals={false} domain={[0, 'dataMax']} />
+          <YAxis
+            type="category"
+            dataKey="name"
+            stroke="#94a3b8"
+            fontSize={12}
+            width={160}
+            tick={{ fill: '#cbd5e1' }}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: '#1e293b',
+              border: '1px solid #334155',
+              borderRadius: '8px',
+              color: '#f8fafc',
+            }}
+            formatter={(value) => [String(value), 'Findings']}
+          />
+          <Bar dataKey="count" fill="#94a3b8" radius={[0, 4, 4, 0]} maxBarSize={22} minPointSize={8} label={{ position: 'right', fill: '#94a3b8', fontSize: 12 }}>
+            {filtered.map((entry, index) => (
+              <Cell key={index} fill={entry.color} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 }

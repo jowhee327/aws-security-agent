@@ -1,4 +1,4 @@
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useData } from './hooks/useData';
 import { I18nProvider } from './i18n';
 import Layout from './components/Layout';
@@ -27,7 +27,7 @@ export default function App() {
 
   return (
     <I18nProvider>
-      <HashRouter>
+      <BrowserRouter>
         <Routes>
           <Route element={<Layout data={data} />}>
             <Route path="/" element={<Overview data={data!} />} />
@@ -35,7 +35,7 @@ export default function App() {
             <Route path="/findings" element={<Findings data={data!} />} />
           </Route>
         </Routes>
-      </HashRouter>
+      </BrowserRouter>
     </I18nProvider>
   );
 }
