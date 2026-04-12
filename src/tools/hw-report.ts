@@ -355,7 +355,7 @@ export function generateHwDefenseHtmlReport(
 
       return `<details class="hw-section"${openAttr}>
   <summary>
-    
+    <span class="hw-section-icon">${esc(sectionIcon)}</span>
     <span class="hw-section-title">${esc(sectionName)}</span>
     <span class="hw-section-stats">${statBadges.join(" ")}</span>
   </summary>
