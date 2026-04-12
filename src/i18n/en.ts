@@ -275,7 +275,6 @@ export const enI18n: I18n = {
   hwSectionsChecked: "Sections Checked",
   hwAutoVerified: "Auto-Verified",
   hwManualPending: "Manual Pending",
-  hwFindingsCount: (n: number) => `${n} finding${n === 1 ? "" : "s"}`,
   hwManualCount: (n: number) => `${n} manual item${n === 1 ? "" : "s"}`,
   hwReportDisclaimer: "This report is organized by HW Defense SOP checklist categories, for reference only.",
   hwSectionNames: {
@@ -292,6 +291,8 @@ export const enI18n: I18n = {
     attack_surface: ["Draw ingress/egress path architecture diagram, mark all Internet/DX dedicated line paths"],
     vulnerability_patch: ["Contact security vendors for simulated attack drills (penetration testing)", "Monitor AWS security advisories (known vulnerabilities and patches)"],
     identity_credential: ["All IAM users must have MFA enabled", "Access key rotation cycle ≤ 90 days", "Avoid shared account usage", "No plaintext passwords in S3/Lambda/application code"],
+    transport_security: ["Verify all external-facing services use TLS 1.2+", "Check internal service-to-service communication encryption"],
+    security_services: ["Verify Security Hub is enabled with standards configured", "Verify GuardDuty is enabled in all regions", "Verify CloudTrail multi-region logging is enabled", "Verify Config Rules are configured"],
     emergency_response: ["Prepare dedicated isolation security groups (no Inbound/Outbound rules)", "Establish instance isolation SOP: Alert → Investigate → Block attacker IP → Network isolation → Security response → Log attack details", "Form 7×24 monitoring rapid response team", "Create dedicated communication channels for the drill period (Teams/Slack/Chime)", "Establish WAR-ROOM connection with AWS TAM (Enterprise Support customers)"],
     environment_control: ["Shut down non-critical systems during the drill period", "Shut down test/dev environments or maintain same security baseline as production", "Confirm which environments can be emergency-stopped to prevent attack propagation"],
     post_review: ["Address and remediate each item from the attack report", "Establish periodic security maintenance processes with the security team", "Continuously fill security risk gaps"],

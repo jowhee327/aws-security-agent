@@ -273,7 +273,6 @@ export const zhI18n: I18n = {
   hwSectionsChecked: "检查分类",
   hwAutoVerified: "自动验证",
   hwManualPending: "人工待确认",
-  hwFindingsCount: (n: number) => `${n} 个发现`,
   hwManualCount: (n: number) => `${n} 项人工确认`,
   hwReportDisclaimer: "本报告按护网行动 SOP 检查清单组织，仅供参考。",
   hwSectionNames: {
@@ -290,6 +289,8 @@ export const zhI18n: I18n = {
     attack_surface: ["绘制出入站路径架构图，标注所有互联网/DX专线出入站路径"],
     vulnerability_patch: ["联系安全厂商进行模拟攻击演练（渗透测试）", "关注 AWS 安全公告（已知漏洞与补丁）"],
     identity_credential: ["所有 IAM 用户绑定 MFA", "AKSK 轮转周期 ≤ 90 天", "避免共享账户使用", "S3/Lambda/应用代码中无明文密码"],
+    transport_security: ["确认所有对外服务使用 TLS 1.2+", "检查内部服务间通信是否加密"],
+    security_services: ["确认 Security Hub 已开启并配置标准", "确认 GuardDuty 已在所有区域开启", "确认 CloudTrail 多区域日志记录已开启", "确认 Config Rules 已配置"],
     emergency_response: ["准备专用隔离安全组（无 Inbound/Outbound 规则）", "制定实例隔离 SOP：告警 → 排查 → 封锁攻击IP → 网络隔离 → 安全处置 → 记录攻击项", "组建 7×24 监控快速响应团队", "创建护网期间专用沟通渠道（企微/钉钉/飞书/Chime）", "与 AWS TAM 建立 WAR-ROOM 联系（企业级支持客户）"],
     environment_control: ["非核心系统在护网期间关闭", "测试/开发环境关闭或与生产保持同等安全基线", "确认哪些环境可以紧急关停，避免攻击扩散"],
     post_review: ["针对攻击报告逐项应答与修复", "与安全团队建立周期性安全维护流程", "持续补全安全风险"],

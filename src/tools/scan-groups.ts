@@ -79,7 +79,7 @@ export const SCAN_GROUPS: Record<string, {
     description: "护网前安全自查 — 攻击者视角的攻击面+弱点评估",
     modules: ["service_detection", "network_reachability", "dns_dangling", "public_access_verify", "ssl_certificate", "waf_coverage", "imdsv2_enforcement", "secret_exposure", "iam_privilege_escalation", "patch_compliance_findings", "security_hub_findings"],
     findingsFilter: {
-      securityHubCategories: ["network", "public", "exposure", "port", "WAF", "vulnerability", "patch", "IAM", "iam", "access", "privilege", "secret", "credential", "password", "IMDS"],
+      securityHubCategories: ["network", "public", "exposure", "port", "WAF", "vulnerability", "patch", "IAM", "iam", "access", "privilege", "secret", "credential", "password", "IMDS", "firewall", "VPC", "vpc", "SecurityGroup", "securitygroup", "CVE", "cve", "Inspector", "inspector", "software", "MFA", "mfa", "key rotation", "SSL", "ssl", "TLS", "tls", "certificate", "metadata", "CloudTrail", "cloudtrail", "logging", "audit", "encryption"],
       minSeverity: "MEDIUM",
     },
   },

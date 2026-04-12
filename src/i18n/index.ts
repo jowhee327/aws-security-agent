@@ -142,7 +142,6 @@ export interface I18n {
   hwManualPending: string;
   hwSectionNames: Record<string, { name: string; icon: string }>;
   hwManualItems: Record<string, string[]>;
-  hwFindingsCount: (n: number) => string;
   hwManualCount: (n: number) => string;
   hwReportDisclaimer: string;
 }

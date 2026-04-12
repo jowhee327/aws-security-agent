@@ -41,13 +41,6 @@ function escWithLinks(s: string): string {
     .join("");
 }
 
-const SEV_COLOR: Record<Severity, string> = {
-  CRITICAL: "#ef4444",
-  HIGH: "#f97316",
-  MEDIUM: "#eab308",
-  LOW: "#22c55e",
-};
-
 const SEVERITY_ORDER: Severity[] = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 
 // ---------------------------------------------------------------------------
