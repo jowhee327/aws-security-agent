@@ -69,17 +69,29 @@ export class InspectorFindingsScanner implements Scanner {
             : `arn:${partition}:inspector2:${region}:${accountId}:finding/${f.findingArn ?? "unknown"}`;
 
           const remediationSteps: string[] = [];
-          if (f.remediation?.recommendation?.text) {
+
+          // Build specific package update guidance from vulnerable packages
+          const vulnPkgs = f.packageVulnerabilityDetails?.vulnerablePackages;
+          if (vulnPkgs?.length) {
+            for (const pkg of vulnPkgs.slice(0, 3)) {
+              const name = pkg.name ?? "unknown-package";
+              const installed = pkg.version ?? "unknown";
+              const fixed = pkg.fixedInVersion ?? "latest";
+              const cveRef = cveId ? ` to fix ${cveId}` : "";
+              remediationSteps.push(`Update ${name} from ${installed} to ${fixed}${cveRef}`);
+            }
+          } else if (f.remediation?.recommendation?.text) {
             remediationSteps.push(f.remediation.recommendation.text);
           }
+
           if (f.remediation?.recommendation?.Url) {
-            remediationSteps.push(`Reference: ${f.remediation.recommendation.Url}`);
+            remediationSteps.push(`Documentation: ${f.remediation.recommendation.Url}`);
           }
           if (f.packageVulnerabilityDetails?.referenceUrls?.length) {
             remediationSteps.push(`CVE references: ${f.packageVulnerabilityDetails.referenceUrls.slice(0, 3).join(", ")}`);
           }
           if (remediationSteps.length === 0) {
-            remediationSteps.push("Review the finding in the Amazon Inspector console and apply the recommended patch or update.");
+            remediationSteps.push(title);
           }
 
           const description = f.description ?? titleBase;

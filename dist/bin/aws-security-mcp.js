@@ -2963,14 +2963,10 @@ var SecurityHubFindingsScanner = class {
           const resourceType = f.Resources?.[0]?.Type ?? "AWS::Unknown";
           const resourceArn = resourceId.startsWith("arn:") ? resourceId : `arn:${partition}:securityhub:${region}:${accountId}:finding/${f.Id ?? "unknown"}`;
           const remediationSteps = [];
-          if (f.Remediation?.Recommendation?.Text) {
-            remediationSteps.push(f.Remediation.Recommendation.Text);
-          }
+          const actionFromTitle = f.Title ?? "Review this finding";
+          remediationSteps.push(actionFromTitle);
           if (f.Remediation?.Recommendation?.Url) {
-            remediationSteps.push(`Reference: ${f.Remediation.Recommendation.Url}`);
-          }
-          if (remediationSteps.length === 0) {
-            remediationSteps.push("Review the finding in the AWS Security Hub console and follow the recommended remediation.");
+            remediationSteps.push(`Documentation: ${f.Remediation.Recommendation.Url}`);
           }
           findings.push({
             severity,
@@ -3123,10 +3119,11 @@ var GuardDutyFindingsScanner = class {
             impact: `GuardDuty threat type: ${gdf.Type ?? "unknown"} (severity ${gdSeverity})`,
             riskScore: score,
             remediationSteps: [
-              "Review the finding in the Amazon GuardDuty console.",
-              `Finding type: ${gdf.Type ?? "unknown"}`,
-              "Follow the recommended remediation in the GuardDuty documentation."
-            ],
+              `Investigate ${gdf.Type ?? "unknown threat"}: ${gdf.Title ?? "threat detected"}`,
+              gdf.Description ? `Details: ${gdf.Description.substring(0, 200)}` : "",
+              "Isolate affected resources if compromise is confirmed.",
+              "Review CloudTrail logs for related suspicious activity."
+            ].filter(Boolean),
             priority: priorityFromSeverity(severity),
             module: this.moduleName,
             accountId: gdf.AccountId ?? accountId
@@ -3217,17 +3214,26 @@ var InspectorFindingsScanner = class {
           const resourceType = f.resources?.[0]?.type ?? "AWS::Unknown";
           const resourceArn = resourceId.startsWith("arn:") ? resourceId : `arn:${partition}:inspector2:${region}:${accountId}:finding/${f.findingArn ?? "unknown"}`;
           const remediationSteps = [];
-          if (f.remediation?.recommendation?.text) {
+          const vulnPkgs = f.packageVulnerabilityDetails?.vulnerablePackages;
+          if (vulnPkgs?.length) {
+            for (const pkg of vulnPkgs.slice(0, 3)) {
+              const name = pkg.name ?? "unknown-package";
+              const installed = pkg.version ?? "unknown";
+              const fixed = pkg.fixedInVersion ?? "latest";
+              const cveRef = cveId ? ` to fix ${cveId}` : "";
+              remediationSteps.push(`Update ${name} from ${installed} to ${fixed}${cveRef}`);
+            }
+          } else if (f.remediation?.recommendation?.text) {
             remediationSteps.push(f.remediation.recommendation.text);
           }
           if (f.remediation?.recommendation?.Url) {
-            remediationSteps.push(`Reference: ${f.remediation.recommendation.Url}`);
+            remediationSteps.push(`Documentation: ${f.remediation.recommendation.Url}`);
           }
           if (f.packageVulnerabilityDetails?.referenceUrls?.length) {
             remediationSteps.push(`CVE references: ${f.packageVulnerabilityDetails.referenceUrls.slice(0, 3).join(", ")}`);
           }
           if (remediationSteps.length === 0) {
-            remediationSteps.push("Review the finding in the Amazon Inspector console and apply the recommended patch or update.");
+            remediationSteps.push(title);
           }
           const description = f.description ?? titleBase;
           const impact = cveId ? `Vulnerability ${cveId} \u2014 CVSS: ${f.packageVulnerabilityDetails?.cvss?.[0]?.baseScore ?? "N/A"}` : `Inspector finding type: ${f.type ?? "unknown"}`;
@@ -3563,10 +3569,10 @@ var ConfigRulesFindingsScanner = class {
                 impact: `Resource is non-compliant with Config Rule: ${ruleName}`,
                 riskScore,
                 remediationSteps: [
-                  `Review the Config Rule "${ruleName}" in the AWS Config console.`,
-                  `Check resource ${resourceId} for compliance violations.`,
-                  "Follow the rule's remediation guidance to bring the resource into compliance."
-                ],
+                  `Fix Config Rule violation: ${ruleName}`,
+                  annotation ? `Details: ${annotation}` : "",
+                  `Resource: ${resourceType}/${resourceId}`
+                ].filter(Boolean),
                 priority: priorityFromSeverity(severity),
                 module: this.moduleName,
                 accountId
@@ -3715,13 +3721,13 @@ var AccessAnalyzerFindingsScanner = class {
             const title = buildFindingTitle(aaf);
             const impact = external ? `Resource is accessible from outside the account. Type: ${aaf.findingType ?? "unknown"}` : `Unused access detected \u2014 review and remove to follow least-privilege. Type: ${aaf.findingType ?? "unknown"}`;
             const remediationSteps = external ? [
-              "Review the finding in the IAM Access Analyzer console.",
-              `Check resource ${resourceId} for unintended external access.`,
-              "Remove or restrict the resource policy to eliminate external access."
+              `Restrict external access on ${resourceType} ${resourceId}`,
+              "Remove or narrow the resource policy to eliminate unintended external access.",
+              `Resource ARN: ${resourceArn}`
             ] : [
-              "Review the finding in the IAM Access Analyzer console.",
-              `Check resource ${resourceId} for unused access permissions.`,
-              "Remove unused permissions, roles, or credentials to follow least-privilege."
+              `Remove unused access on ${resourceType} ${resourceId}`,
+              "Remove unused permissions, roles, or credentials to follow least-privilege.",
+              `Resource ARN: ${resourceArn}`
             ];
             findings.push({
               severity,
@@ -7555,6 +7561,15 @@ function generateMlps3Report(scanResults, lang) {
 function esc(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
+function escWithLinks(s) {
+  const parts = s.split(/(https?:\/\/\S+)/);
+  return parts.map((part, i) => {
+    if (i % 2 === 1) {
+      return `<a href="${esc(part)}" style="color:#60a5fa" target="_blank" rel="noopener">${esc(part)}</a>`;
+    }
+    return esc(part);
+  }).join("");
+}
 function calcScore(summary) {
   const raw = 100 - summary.critical * 15 - summary.high * 5 - summary.medium * 2 - summary.low * 0.5;
   return Math.max(0, Math.min(100, Math.round(raw)));
@@ -7964,7 +7979,7 @@ function generateHtmlReport(scanResults, history, lang) {
           <div class="top5-detail"><strong>${t.impact}:</strong> ${esc(f.impact)}</div>
           <div class="top5-detail"><strong>${t.riskScore}:</strong> ${f.riskScore}/10</div>
           <h4>${t.remediation}</h4>
-          <ol class="top5-remediation">${f.remediationSteps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
+          <ol class="top5-remediation">${f.remediationSteps.map((s) => `<li>${escWithLinks(s)}</li>`).join("")}</ol>
         </div>
       </div>`
     ).join("\n");
@@ -7988,7 +8003,7 @@ function generateHtmlReport(scanResults, history, lang) {
         <details><summary>${t.details}</summary><div class="finding-card-body">
           <p>${esc(f.description)}</p>
           <p><strong>${t.remediation}:</strong></p>
-          <ol>${f.remediationSteps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
+          <ol>${f.remediationSteps.map((s) => `<li>${escWithLinks(s)}</li>`).join("")}</ol>
         </div></details>
       </div>`;
     };
@@ -8070,14 +8085,16 @@ ${rest}
     const recMap = /* @__PURE__ */ new Map();
     for (const f of allFindings) {
       const rem = f.remediationSteps[0] ?? "Review and remediate.";
+      const url = f.remediationSteps.find((s) => s.startsWith("Documentation:"))?.replace("Documentation: ", "");
       const existing = recMap.get(rem);
       if (existing) {
         existing.count++;
+        if (!existing.url && url) existing.url = url;
         if (SEVERITY_ORDER2.indexOf(f.severity) < SEVERITY_ORDER2.indexOf(existing.severity)) {
           existing.severity = f.severity;
         }
       } else {
-        recMap.set(rem, { text: rem, severity: f.severity, count: 1 });
+        recMap.set(rem, { text: rem, severity: f.severity, count: 1, url });
       }
     }
     const uniqueRecs = [...recMap.values()].sort((a, b) => {
@@ -8088,7 +8105,8 @@ ${rest}
     const renderRec = (r) => {
       const sev = r.severity.toLowerCase();
       const countLabel = r.count > 1 ? ` (&times; ${r.count})` : "";
-      return `<li><span class="badge badge-${esc(sev)}">${esc(r.severity)}</span> ${esc(r.text)}${countLabel}</li>`;
+      const linkHtml = r.url ? ` <a href="${esc(r.url)}" style="color:#60a5fa" target="_blank" rel="noopener">&#128214;</a>` : "";
+      return `<li><span class="badge badge-${esc(sev)}">${esc(r.severity)}</span> ${esc(r.text)}${countLabel}${linkHtml}</li>`;
     };
     const TOP_N = 10;
     const topItems = uniqueRecs.slice(0, TOP_N).map(renderRec).join("\n");
@@ -8268,7 +8286,7 @@ function generateMlps3HtmlReport(scanResults, history, lang) {
           if (r.relatedFindings.length > 5) {
             fItems.push(`<li>${esc(t.andMore(r.relatedFindings.length - 5))}</li>`);
           }
-          const remediationHint = r.relatedFindings[0]?.remediationSteps?.[0] ? `<p style="color:#fbbf24;font-size:12px;margin-top:4px">${esc(t.remediation)}\uFF1A${esc(r.relatedFindings[0].remediationSteps[0])}</p>` : "";
+          const remediationHint = r.relatedFindings[0]?.remediationSteps?.[0] ? `<p style="color:#fbbf24;font-size:12px;margin-top:4px">${esc(t.remediation)}\uFF1A${escWithLinks(r.relatedFindings[0].remediationSteps[0])}</p>` : "";
           findingsDetail = `<div class="check-findings-wrap"><details><summary>${esc(t.issuesFoundCount(r.relatedFindings.length))}</summary><ul class="check-findings">${fItems.join("")}</ul>${remediationHint}</details></div>`;
         }
         const reqText = itemReq(r);
@@ -8314,14 +8332,16 @@ ${itemsHtml}
     for (const r of failedResults) {
       for (const f of r.relatedFindings) {
         const rem = f.remediationSteps[0] ?? "Review and remediate.";
+        const url = f.remediationSteps.find((s) => s.startsWith("Documentation:"))?.replace("Documentation: ", "");
         const existing = mlpsRecMap.get(rem);
         if (existing) {
           existing.count++;
+          if (!existing.url && url) existing.url = url;
           if (SEVERITY_ORDER2.indexOf(f.severity) < SEVERITY_ORDER2.indexOf(existing.severity)) {
             existing.severity = f.severity;
           }
         } else {
-          mlpsRecMap.set(rem, { text: rem, severity: f.severity, count: 1 });
+          mlpsRecMap.set(rem, { text: rem, severity: f.severity, count: 1, url });
         }
       }
     }
@@ -8334,7 +8354,8 @@ ${itemsHtml}
       const renderMlpsRec = (r) => {
         const sev = r.severity.toLowerCase();
         const countLabel = r.count > 1 ? ` (&times; ${r.count})` : "";
-        return `<li><span class="badge badge-${esc(sev)}">${esc(r.severity)}</span> ${esc(r.text)}${countLabel}</li>`;
+        const linkHtml = r.url ? ` <a href="${esc(r.url)}" style="color:#60a5fa" target="_blank" rel="noopener">&#128214;</a>` : "";
+        return `<li><span class="badge badge-${esc(sev)}">${esc(r.severity)}</span> ${esc(r.text)}${countLabel}${linkHtml}</li>`;
       };
       const MLPS_TOP_N = 10;
       const mlpsTopItems = mlpsUniqueRecs.slice(0, MLPS_TOP_N).map(renderMlpsRec).join("\n");

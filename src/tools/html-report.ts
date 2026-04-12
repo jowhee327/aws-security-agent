@@ -20,6 +20,17 @@ function esc(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
+/** Escape HTML but render URLs as clickable links */
+function escWithLinks(s: string): string {
+  const parts = s.split(/(https?:\/\/\S+)/);
+  return parts.map((part, i) => {
+    if (i % 2 === 1) {
+      return `<a href="${esc(part)}" style="color:#60a5fa" target="_blank" rel="noopener">${esc(part)}</a>`;
+    }
+    return esc(part);
+  }).join("");
+}
+
 function calcScore(summary: FullScanResult["summary"]): number {
   const raw =
     100 -
@@ -528,7 +539,7 @@ export function generateHtmlReport(
           <div class="top5-detail"><strong>${t.impact}:</strong> ${esc(f.impact)}</div>
           <div class="top5-detail"><strong>${t.riskScore}:</strong> ${f.riskScore}/10</div>
           <h4>${t.remediation}</h4>
-          <ol class="top5-remediation">${f.remediationSteps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
+          <ol class="top5-remediation">${f.remediationSteps.map((s) => `<li>${escWithLinks(s)}</li>`).join("")}</ol>
         </div>
       </div>`,
       )
@@ -556,7 +567,7 @@ export function generateHtmlReport(
         <details><summary>${t.details}</summary><div class="finding-card-body">
           <p>${esc(f.description)}</p>
           <p><strong>${t.remediation}:</strong></p>
-          <ol>${f.remediationSteps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
+          <ol>${f.remediationSteps.map((s) => `<li>${escWithLinks(s)}</li>`).join("")}</ol>
         </div></details>
       </div>`;
     };
@@ -656,17 +667,19 @@ export function generateHtmlReport(
   // --- Recommendations (deduplicated) ---
   let recsHtml = "";
   if (summary.totalFindings > 0) {
-    const recMap = new Map<string, { text: string; severity: Severity; count: number }>();
+    const recMap = new Map<string, { text: string; severity: Severity; count: number; url?: string }>();
     for (const f of allFindings) {
       const rem = f.remediationSteps[0] ?? "Review and remediate.";
+      const url = f.remediationSteps.find((s) => s.startsWith("Documentation:"))?.replace("Documentation: ", "");
       const existing = recMap.get(rem);
       if (existing) {
         existing.count++;
+        if (!existing.url && url) existing.url = url;
         if (SEVERITY_ORDER.indexOf(f.severity) < SEVERITY_ORDER.indexOf(existing.severity)) {
           existing.severity = f.severity;
         }
       } else {
-        recMap.set(rem, { text: rem, severity: f.severity, count: 1 });
+        recMap.set(rem, { text: rem, severity: f.severity, count: 1, url });
       }
     }
     const uniqueRecs = [...recMap.values()].sort((a, b) => {
@@ -675,10 +688,11 @@ export function generateHtmlReport(
       return b.count - a.count;
     });
 
-    const renderRec = (r: { text: string; severity: Severity; count: number }): string => {
+    const renderRec = (r: { text: string; severity: Severity; count: number; url?: string }): string => {
       const sev = r.severity.toLowerCase();
       const countLabel = r.count > 1 ? ` (&times; ${r.count})` : "";
-      return `<li><span class="badge badge-${esc(sev)}">${esc(r.severity)}</span> ${esc(r.text)}${countLabel}</li>`;
+      const linkHtml = r.url ? ` <a href="${esc(r.url)}" style="color:#60a5fa" target="_blank" rel="noopener">&#128214;</a>` : "";
+      return `<li><span class="badge badge-${esc(sev)}">${esc(r.severity)}</span> ${esc(r.text)}${countLabel}${linkHtml}</li>`;
     };
 
     const TOP_N = 10;
@@ -905,7 +919,7 @@ export function generateMlps3HtmlReport(
                 fItems.push(`<li>${esc(t.andMore(r.relatedFindings.length - 5))}</li>`);
               }
               const remediationHint = r.relatedFindings[0]?.remediationSteps?.[0]
-                ? `<p style="color:#fbbf24;font-size:12px;margin-top:4px">${esc(t.remediation)}\uff1a${esc(r.relatedFindings[0].remediationSteps[0])}</p>`
+                ? `<p style="color:#fbbf24;font-size:12px;margin-top:4px">${esc(t.remediation)}\uff1a${escWithLinks(r.relatedFindings[0].remediationSteps[0])}</p>`
                 : "";
               findingsDetail = `<div class="check-findings-wrap"><details><summary>${esc(t.issuesFoundCount(r.relatedFindings.length))}</summary><ul class="check-findings">${fItems.join("")}</ul>${remediationHint}</details></div>`;
             }
@@ -957,18 +971,20 @@ export function generateMlps3HtmlReport(
   const failedResults = results.filter((r) => r.status === "issues");
   let remediationHtml = "";
   if (failedResults.length > 0) {
-    const mlpsRecMap = new Map<string, { text: string; severity: Severity; count: number }>();
+    const mlpsRecMap = new Map<string, { text: string; severity: Severity; count: number; url?: string }>();
     for (const r of failedResults) {
       for (const f of r.relatedFindings) {
         const rem = f.remediationSteps[0] ?? "Review and remediate.";
+        const url = f.remediationSteps.find((s) => s.startsWith("Documentation:"))?.replace("Documentation: ", "");
         const existing = mlpsRecMap.get(rem);
         if (existing) {
           existing.count++;
+          if (!existing.url && url) existing.url = url;
           if (SEVERITY_ORDER.indexOf(f.severity) < SEVERITY_ORDER.indexOf(existing.severity)) {
             existing.severity = f.severity;
           }
         } else {
-          mlpsRecMap.set(rem, { text: rem, severity: f.severity, count: 1 });
+          mlpsRecMap.set(rem, { text: rem, severity: f.severity, count: 1, url });
         }
       }
     }
@@ -979,10 +995,11 @@ export function generateMlps3HtmlReport(
     });
 
     if (mlpsUniqueRecs.length > 0) {
-      const renderMlpsRec = (r: { text: string; severity: Severity; count: number }): string => {
+      const renderMlpsRec = (r: { text: string; severity: Severity; count: number; url?: string }): string => {
         const sev = r.severity.toLowerCase();
         const countLabel = r.count > 1 ? ` (&times; ${r.count})` : "";
-        return `<li><span class="badge badge-${esc(sev)}">${esc(r.severity)}</span> ${esc(r.text)}${countLabel}</li>`;
+        const linkHtml = r.url ? ` <a href="${esc(r.url)}" style="color:#60a5fa" target="_blank" rel="noopener">&#128214;</a>` : "";
+        return `<li><span class="badge badge-${esc(sev)}">${esc(r.severity)}</span> ${esc(r.text)}${countLabel}${linkHtml}</li>`;
       };
 
       const MLPS_TOP_N = 10;

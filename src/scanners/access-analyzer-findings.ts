@@ -124,14 +124,14 @@ export class AccessAnalyzerFindingsScanner implements Scanner {
 
             const remediationSteps = external
               ? [
-                  "Review the finding in the IAM Access Analyzer console.",
-                  `Check resource ${resourceId} for unintended external access.`,
-                  "Remove or restrict the resource policy to eliminate external access.",
+                  `Restrict external access on ${resourceType} ${resourceId}`,
+                  "Remove or narrow the resource policy to eliminate unintended external access.",
+                  `Resource ARN: ${resourceArn}`,
                 ]
               : [
-                  "Review the finding in the IAM Access Analyzer console.",
-                  `Check resource ${resourceId} for unused access permissions.`,
+                  `Remove unused access on ${resourceType} ${resourceId}`,
                   "Remove unused permissions, roles, or credentials to follow least-privilege.",
+                  `Resource ARN: ${resourceArn}`,
                 ];
 
             findings.push({

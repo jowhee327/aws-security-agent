@@ -63,14 +63,15 @@ export class SecurityHubFindingsScanner implements Scanner {
             : `arn:${partition}:securityhub:${region}:${accountId}:finding/${f.Id ?? "unknown"}`;
 
           const remediationSteps: string[] = [];
-          if (f.Remediation?.Recommendation?.Text) {
-            remediationSteps.push(f.Remediation.Recommendation.Text);
-          }
+
+          // Use Title as primary action item — it describes what SHOULD be done
+          // e.g. "S3.4 S3 buckets should have server-side encryption enabled"
+          const actionFromTitle = f.Title ?? "Review this finding";
+          remediationSteps.push(actionFromTitle);
+
+          // Add documentation URL if available (actually useful)
           if (f.Remediation?.Recommendation?.Url) {
-            remediationSteps.push(`Reference: ${f.Remediation.Recommendation.Url}`);
-          }
-          if (remediationSteps.length === 0) {
-            remediationSteps.push("Review the finding in the AWS Security Hub console and follow the recommended remediation.");
+            remediationSteps.push(`Documentation: ${f.Remediation.Recommendation.Url}`);
           }
 
           findings.push({

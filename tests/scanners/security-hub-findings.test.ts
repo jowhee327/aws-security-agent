@@ -76,7 +76,8 @@ describe("SecurityHubFindingsScanner", () => {
     expect(critical!.severity).toBe("CRITICAL");
     expect(critical!.riskScore).toBe(9.5);
     expect(critical!.resourceArn).toBe("arn:aws:s3:::my-bucket");
-    expect(critical!.remediationSteps).toContain("Enable S3 Block Public Access");
+    expect(critical!.remediationSteps).toContain("S3.1 S3 Block Public Access setting should be enabled");
+    expect(critical!.remediationSteps).toContain("Documentation: https://docs.aws.example");
 
     const medium = result.findings.find((f) => f.title.includes("IAM.3"));
     expect(medium).toBeDefined();
