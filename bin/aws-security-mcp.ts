@@ -11,7 +11,7 @@ const HELP = `Usage: aws-security-mcp [command] [options]
 Commands:
   (default)            Start MCP server (stdio, for Kiro/Claude Code)
   dashboard            Start local HTTP server serving the security dashboard
-  deploy-dashboard     Deploy dashboard to an S3 bucket as a static website
+  deploy-dashboard     Upload dashboard files to a private S3 bucket
 
 Options:
   --region <region>    AWS region (default: AWS_REGION env or us-east-1)

@@ -245,7 +245,8 @@ export class DisasterRecoveryScanner implements Scanner {
         try {
           const locResp = await s3Client.send(new GetBucketLocationCommand({ Bucket: name }));
           // LocationConstraint is null/undefined for us-east-1
-          const bucketRegion = locResp.LocationConstraint || "us-east-1";
+          const rawLoc = locResp.LocationConstraint || "us-east-1";
+          const bucketRegion = rawLoc === "EU" ? "eu-west-1" : rawLoc;
           bucketClient = bucketRegion === region
             ? s3Client
             : createClient(S3Client, bucketRegion, ctx.credentials);

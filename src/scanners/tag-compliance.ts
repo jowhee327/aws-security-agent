@@ -172,7 +172,8 @@ export class TagComplianceScanner implements Scanner {
           let bucketClient: S3Client;
           try {
             const locResp = await s3Client.send(new GetBucketLocationCommand({ Bucket: name }));
-            const bucketRegion = locResp.LocationConstraint || "us-east-1";
+            const rawLoc = locResp.LocationConstraint || "us-east-1";
+            const bucketRegion = rawLoc === "EU" ? "eu-west-1" : rawLoc;
             bucketClient = bucketRegion === region
               ? s3Client
               : createClient(S3Client, bucketRegion, ctx.credentials);
