@@ -24,7 +24,6 @@ Dashboard options:
 Deploy options:
   --bucket <name>      S3 bucket name (required)
   --region <region>    AWS region for the S3 bucket
-  --public             Confirm public access for S3-hosted dashboard
 
 Environment variables:
   AWS_REGION           Default AWS region
@@ -69,9 +68,8 @@ if (subcommand === "dashboard") {
     process.exit(1);
   }
   const region = getRegion();
-  const isPublic = args.includes("--public");
   import("../src/commands/deploy-dashboard.js").then(({ deployDashboard }) => {
-    deployDashboard(bucket, region, { public: isPublic }).catch((err) => {
+    deployDashboard(bucket, region).catch((err) => {
       console.error("Deploy failed:", err.message || err);
       process.exit(1);
     });

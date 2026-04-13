@@ -4,8 +4,6 @@ import { fileURLToPath } from "node:url";
 import {
   S3Client,
   PutObjectCommand,
-  PutBucketWebsiteCommand,
-  PutBucketPolicyCommand,
 } from "@aws-sdk/client-s3";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -39,18 +37,7 @@ function collectFiles(dir: string): string[] {
 export async function deployDashboard(
   bucket: string,
   region: string,
-  opts: { public?: boolean } = {},
 ): Promise<void> {
-  if (!opts.public) {
-    console.error("Error: S3 deployment makes scan data publicly accessible.");
-    console.error("Pass --public to confirm, or use CloudFront + OAI for private access.");
-    process.exit(1);
-  }
-
-  console.warn("⚠️  WARNING: This will make scan results publicly accessible on the internet.");
-  console.warn("   The dashboard will contain sensitive information including AWS account IDs,");
-  console.warn("   resource ARNs, and security findings.");
-  console.warn("   Consider using CloudFront + OAI for private access instead.\n");
   const dashboardDir = join(__dirname, "../../dashboard/dist");
 
   if (!existsSync(dashboardDir)) {
@@ -78,42 +65,9 @@ export async function deployDashboard(
 
   const s3 = new S3Client({ region });
 
-  // Configure static website hosting
-  console.log(`Configuring s3://${bucket} for static website hosting...`);
-  await s3.send(
-    new PutBucketWebsiteCommand({
-      Bucket: bucket,
-      WebsiteConfiguration: {
-        IndexDocument: { Suffix: "index.html" },
-        ErrorDocument: { Key: "index.html" }, // SPA fallback
-      },
-    }),
-  );
-
-  // Set bucket policy for public read access
-  const partition = region.startsWith("cn-") ? "aws-cn" : "aws";
-  console.log(`Setting public read bucket policy on s3://${bucket}...`);
-  await s3.send(
-    new PutBucketPolicyCommand({
-      Bucket: bucket,
-      Policy: JSON.stringify({
-        Version: "2012-10-17",
-        Statement: [
-          {
-            Sid: "PublicReadGetObject",
-            Effect: "Allow",
-            Principal: "*",
-            Action: "s3:GetObject",
-            Resource: `arn:${partition}:s3:::${bucket}/*`,
-          },
-        ],
-      }),
-    }),
-  );
-
-  // Upload all files
+  // Upload all files (private — no public policy, no website hosting)
   const files = collectFiles(dashboardDir);
-  console.log(`Uploading ${files.length} files to s3://${bucket}...`);
+  console.log(`Uploading ${files.length} files to s3://${bucket}/ ...`);
 
   for (const filePath of files) {
     const key = relative(dashboardDir, filePath);
@@ -132,11 +86,9 @@ export async function deployDashboard(
     console.log(`  ${key}`);
   }
 
-  const domain = region.startsWith("cn-") ? "amazonaws.com.cn" : "amazonaws.com";
-  const websiteUrl = `http://${bucket}.s3-website.${region}.${domain}`;
-  console.log(`\nDashboard deployed successfully!`);
-  console.log(`Website URL: ${websiteUrl}`);
-  console.log(
-    "\nNote: Ensure S3 Block Public Access is disabled on this bucket for the website to be accessible.\n",
-  );
+  console.log(`\n✅ Dashboard uploaded to s3://${bucket}/`);
+  console.log(`\nS3 bucket remains private (Block Public Access enabled).`);
+  console.log(`Access control is managed via IAM permissions.`);
+  console.log(`\nTo view the dashboard locally:`);
+  console.log(`  aws-security-mcp dashboard --port 3000`);
 }
