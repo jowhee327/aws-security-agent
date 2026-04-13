@@ -49,7 +49,8 @@ async function getBucketRegion(
     const resp = await client.send(
       new GetBucketLocationCommand({ Bucket: bucketName }),
     );
-    const loc = String(resp.LocationConstraint ?? "") || "us-east-1";
+    const rawLoc = String(resp.LocationConstraint ?? "") || "us-east-1";
+    const loc = rawLoc === "EU" ? "eu-west-1" : rawLoc;
     return loc;
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);

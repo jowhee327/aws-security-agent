@@ -3,25 +3,9 @@ import { Scanner } from "./base.js";
 import { getAccountId, getPartition } from "../utils/aws-client.js";
 import { assumeRole, buildRoleArn } from "../utils/assume-role.js";
 import { listOrgAccounts, type OrgAccount } from "../utils/org-accounts.js";
+import { runWithConcurrency } from "../utils/concurrency.js";
 
 const DEFAULT_CONCURRENCY = 5;
-
-async function runWithConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): Promise<PromiseSettledResult<T>[]> {
-  const results: PromiseSettledResult<T>[] = [];
-  const executing: Set<Promise<void>> = new Set();
-
-  for (let i = 0; i < tasks.length; i++) {
-    const idx = i;
-    const p = tasks[idx]()
-      .then((value) => { results[idx] = { status: "fulfilled", value }; })
-      .catch((reason) => { results[idx] = { status: "rejected", reason }; })
-      .finally(() => { executing.delete(p); });
-    executing.add(p);
-    if (executing.size >= limit) await Promise.race(executing);
-  }
-  await Promise.all(executing);
-  return results;
-}
 
 /** Aggregation scanners that already pull cross-account data — run once from admin account */
 const AGGREGATION_MODULES = new Set([

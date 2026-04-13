@@ -13,25 +13,9 @@ import { Scanner } from "./base.js";
 import { ScanResult, ScanContext, Finding } from "../types.js";
 import { createClient } from "../utils/aws-client.js";
 import { severityFromScore, priorityFromSeverity } from "../utils/risk-scoring.js";
+import { runWithConcurrency } from "../utils/concurrency.js";
 
 const USERDATA_CONCURRENCY = 5;
-
-async function runWithConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): Promise<PromiseSettledResult<T>[]> {
-  const results: PromiseSettledResult<T>[] = [];
-  const executing: Set<Promise<void>> = new Set();
-
-  for (let i = 0; i < tasks.length; i++) {
-    const idx = i;
-    const p = tasks[idx]()
-      .then((value) => { results[idx] = { status: "fulfilled", value }; })
-      .catch((reason) => { results[idx] = { status: "rejected", reason }; })
-      .finally(() => { executing.delete(p); });
-    executing.add(p);
-    if (executing.size >= limit) await Promise.race(executing);
-  }
-  await Promise.all(executing);
-  return results;
-}
 
 const SECRET_PATTERNS: Array<{ name: string; pattern: RegExp; matchType: "value" | "name" }> = [
   { name: "AWS Access Key", pattern: /AKIA[0-9A-Z]{16}/, matchType: "value" },
