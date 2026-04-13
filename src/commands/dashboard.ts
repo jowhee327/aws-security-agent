@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
-import { join, extname, resolve } from "node:path";
+import { join, extname, resolve, sep } from "node:path";
 import { existsSync, copyFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { exec } from "node:child_process";
@@ -55,8 +55,8 @@ export function startDashboard(port = 3000): void {
       join(dashboardDir, url === "/" ? "index.html" : url),
     );
 
-    // Ensure the resolved path is within dashboardDir
-    if (!filePath.startsWith(resolvedBase + "/") && filePath !== resolvedBase) {
+    // Ensure the resolved path is within dashboardDir (handle both / and \ separators)
+    if (!filePath.startsWith(resolvedBase + sep) && filePath !== resolvedBase) {
       res.writeHead(403);
       res.end("Forbidden");
       return;
