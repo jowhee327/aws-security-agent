@@ -6,7 +6,7 @@ description: >
   HTML reports, React dashboard, multi-account org scanning, bilingual (zh/en),
   and full China region (aws-cn) support.
 
-version: "0.7.2"
+version: "0.7.5"
 license: MIT
 
 architecture:
@@ -15,6 +15,8 @@ architecture:
   language: typescript
   runtime: node >= 18
   module_system: esm
+  utils:
+    - src/utils/concurrency.ts  # shared concurrency limiter for scanner modules
 
 entry_points:
   mcp_server: dist/src/index.js
@@ -130,6 +132,7 @@ mcp_interface:
     - generate_mlps3_html_report
     - generate_hw_defense_report
     - generate_maturity_report
+    - scan_and_report
     - save_results
   prompts:
     - security-scan

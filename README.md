@@ -99,11 +99,15 @@ Add in Cursor MCP settings:
 
 ### 4. Use
 
-Ask your AI tool to run a security scan:
+Ask your AI tool to run a security scan. The recommended approach is `scan_and_report`, which runs all scanners and generates every report type in a single call — no large data transfer back to the AI tool:
+
+> "Use scan_and_report to run a full AWS security scan"
+
+Or run individual steps for more control:
 
 > "Run a full AWS security scan and generate a report"
 
-Or use the built-in `security-scan` prompt for a guided workflow.
+You can also use the built-in `security-scan` prompt for a guided workflow.
 
 For multi-account scanning across an AWS Organization:
 
@@ -143,6 +147,7 @@ For multi-account scanning across an AWS Organization:
 | `generate_mlps3_html_report` | Generate a MLPS Level 3 HTML compliance report |
 | `generate_hw_defense_report` | Generate an HW Defense HTML report (SOP-organized, findings grouped by CVE/control-ID) |
 | `generate_maturity_report` | Generate a security maturity assessment |
+| `scan_and_report` | Run full scan + generate all reports in one step. Saves HTML/MLPS/HW/MD reports to `~/.aws-security/reports/`. Avoids large data transfer |
 | `save_results` | Save scan results for the dashboard |
 | `get_setup_template` | Get CloudFormation StackSet template for cross-account audit role |
 
