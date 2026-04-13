@@ -559,6 +559,9 @@ export function createServer(defaultRegion: string): McpServer {
     },
   );
 
+  // TODO: add generate_maturity_html_report tool — wrap Markdown output in dark-theme HTML
+  // (reuse CSS from hw-report.ts) to produce a standalone HTML maturity report.
+
   // 10. generate_maturity_report
   server.tool(
     "generate_maturity_report",

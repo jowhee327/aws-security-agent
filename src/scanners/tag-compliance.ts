@@ -11,6 +11,7 @@ import {
 import {
   S3Client,
   ListBucketsCommand,
+  GetBucketLocationCommand,
   GetBucketTaggingCommand,
 } from "@aws-sdk/client-s3";
 import { Scanner } from "./base.js";
@@ -167,8 +168,22 @@ export class TagComplianceScanner implements Scanner {
           const name = bucket.Name ?? "unknown";
           const arn = `arn:${partition}:s3:::${name}`;
 
+          // Resolve the bucket's actual region and create a region-specific client
+          let bucketClient: S3Client;
           try {
-            const taggingResp = await s3Client.send(
+            const locResp = await s3Client.send(new GetBucketLocationCommand({ Bucket: name }));
+            const bucketRegion = locResp.LocationConstraint || "us-east-1";
+            bucketClient = bucketRegion === region
+              ? s3Client
+              : createClient(S3Client, bucketRegion, ctx.credentials);
+          } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(e);
+            warnings.push(`Bucket ${name}: could not determine region, skipping: ${msg}`);
+            continue;
+          }
+
+          try {
+            const taggingResp = await bucketClient.send(
               new GetBucketTaggingCommand({ Bucket: name }),
             );
             const tags = (taggingResp.TagSet ?? []).map((t) => ({

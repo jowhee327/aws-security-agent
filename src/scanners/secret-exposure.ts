@@ -14,6 +14,25 @@ import { ScanResult, ScanContext, Finding } from "../types.js";
 import { createClient } from "../utils/aws-client.js";
 import { severityFromScore, priorityFromSeverity } from "../utils/risk-scoring.js";
 
+const USERDATA_CONCURRENCY = 5;
+
+async function runWithConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): Promise<PromiseSettledResult<T>[]> {
+  const results: PromiseSettledResult<T>[] = [];
+  const executing: Set<Promise<void>> = new Set();
+
+  for (let i = 0; i < tasks.length; i++) {
+    const idx = i;
+    const p = tasks[idx]()
+      .then((value) => { results[idx] = { status: "fulfilled", value }; })
+      .catch((reason) => { results[idx] = { status: "rejected", reason }; })
+      .finally(() => { executing.delete(p); });
+    executing.add(p);
+    if (executing.size >= limit) await Promise.race(executing);
+  }
+  await Promise.all(executing);
+  return results;
+}
+
 const SECRET_PATTERNS: Array<{ name: string; pattern: RegExp; matchType: "value" | "name" }> = [
   { name: "AWS Access Key", pattern: /AKIA[0-9A-Z]{16}/, matchType: "value" },
   { name: "Private Key", pattern: /-----BEGIN.*PRIVATE KEY-----/, matchType: "value" },
@@ -140,27 +159,33 @@ export class SecretExposureScanner implements Scanner {
 
         resourcesScanned += instances.length;
 
-        for (const inst of instances) {
+        // Fetch userData with bounded parallelism to avoid N+1 API throttling
+        const userDataTasks = instances.map((inst) => async () => {
+          const instId = inst.InstanceId ?? "unknown";
+          const attrResp = await ec2.send(
+            new DescribeInstanceAttributeCommand({
+              InstanceId: instId,
+              Attribute: "userData",
+            }),
+          );
+          const raw = attrResp.UserData?.Value;
+          return { instId, userData: raw ? Buffer.from(raw, "base64").toString("utf-8") : undefined };
+        });
+
+        const settled = await runWithConcurrency(userDataTasks, USERDATA_CONCURRENCY);
+
+        for (let i = 0; i < instances.length; i++) {
+          const result = settled[i];
+          const inst = instances[i];
           const instId = inst.InstanceId ?? "unknown";
           const instArn = `arn:${partition}:ec2:${region}:${accountId}:instance/${instId}`;
 
-          let userData: string | undefined;
-          try {
-            const attrResp = await ec2.send(
-              new DescribeInstanceAttributeCommand({
-                InstanceId: instId,
-                Attribute: "userData",
-              }),
-            );
-            const raw = attrResp.UserData?.Value;
-            if (raw) {
-              userData = Buffer.from(raw, "base64").toString("utf-8");
-            }
-          } catch (e: unknown) {
-            warnings.push(`Could not read userData for ${instId}: ${e instanceof Error ? e.message : String(e)}`);
+          if (result.status === "rejected") {
+            warnings.push(`Could not read userData for ${instId}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
             continue;
           }
 
+          const userData = result.value.userData;
           if (!userData) continue;
 
           for (const sp of SECRET_PATTERNS) {

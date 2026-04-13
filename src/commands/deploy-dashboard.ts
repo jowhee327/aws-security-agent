@@ -39,7 +39,18 @@ function collectFiles(dir: string): string[] {
 export async function deployDashboard(
   bucket: string,
   region: string,
+  opts: { public?: boolean } = {},
 ): Promise<void> {
+  if (!opts.public) {
+    console.error("Error: S3 deployment makes scan data publicly accessible.");
+    console.error("Pass --public to confirm, or use CloudFront + OAI for private access.");
+    process.exit(1);
+  }
+
+  console.warn("⚠️  WARNING: This will make scan results publicly accessible on the internet.");
+  console.warn("   The dashboard will contain sensitive information including AWS account IDs,");
+  console.warn("   resource ARNs, and security findings.");
+  console.warn("   Consider using CloudFront + OAI for private access instead.\n");
   const dashboardDir = join(__dirname, "../../dashboard/dist");
 
   if (!existsSync(dashboardDir)) {

@@ -13,6 +13,7 @@ import {
 import {
   S3Client,
   ListBucketsCommand,
+  GetBucketLocationCommand,
   GetBucketVersioningCommand,
   GetBucketReplicationCommand,
 } from "@aws-sdk/client-s3";
@@ -239,9 +240,24 @@ export class DisasterRecoveryScanner implements Scanner {
       for (const name of bucketNames) {
         const arn = `arn:${partition}:s3:::${name}`;
 
+        // Resolve the bucket's actual region and create a region-specific client
+        let bucketClient: S3Client;
+        try {
+          const locResp = await s3Client.send(new GetBucketLocationCommand({ Bucket: name }));
+          // LocationConstraint is null/undefined for us-east-1
+          const bucketRegion = locResp.LocationConstraint || "us-east-1";
+          bucketClient = bucketRegion === region
+            ? s3Client
+            : createClient(S3Client, bucketRegion, ctx.credentials);
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          warnings.push(`Bucket ${name}: could not determine region, skipping: ${msg}`);
+          continue;
+        }
+
         // Versioning check
         try {
-          const ver = await s3Client.send(
+          const ver = await bucketClient.send(
             new GetBucketVersioningCommand({ Bucket: name }),
           );
           if (ver.Status !== "Enabled") {
@@ -270,7 +286,7 @@ export class DisasterRecoveryScanner implements Scanner {
 
         // Cross-region replication check
         try {
-          await s3Client.send(
+          await bucketClient.send(
             new GetBucketReplicationCommand({ Bucket: name }),
           );
           // If the call succeeds, replication is configured — no finding needed
