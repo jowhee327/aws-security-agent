@@ -39,8 +39,9 @@ import { getPartition, getAccountId } from "./utils/aws-client.js";
 import { listOrgAccounts } from "./utils/org-accounts.js";
 import type { FullScanResult, ScanResult, ScanContext } from "./types.js";
 import { getI18n, type Lang } from "./i18n/index.js";
-import { readFileSync } from "fs";
+import { readFileSync, mkdirSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
+import { homedir } from "os";
 import { fileURLToPath } from "url";
 
 export { type Lang } from "./i18n/index.js";
@@ -801,6 +802,91 @@ export function createServer(defaultRegion: string): McpServer {
         };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    },
+  );
+
+  // scan_and_report — one-step scan + report generation
+  server.tool(
+    "scan_and_report",
+    "Run a full security scan AND generate reports in one step. Avoids large data transfer between tools. Reports are saved to ~/.aws-security/reports/",
+    {
+      region: z.string().optional().describe("AWS region (default: server region)"),
+      org_mode: z.boolean().optional().describe("Enable multi-account org scanning"),
+      role_name: z.string().optional().describe("IAM role name for cross-account scanning"),
+      account_ids: z.array(z.string()).optional().describe("Filter to specific account IDs"),
+      reports: z.array(z.enum(["html", "hw_defense", "mlps3", "markdown", "all"])).optional().describe("Report types to generate (default: all)"),
+      lang: z.enum(["zh", "en"]).optional().describe("Language: zh or en (default: zh)"),
+    },
+    async ({ region, org_mode, role_name, account_ids, reports, lang }) => {
+      try {
+        const r = region ?? defaultRegion;
+        const l = (lang ?? "zh") as Lang;
+        const reportTypes = reports ?? ["all"];
+        const wantAll = reportTypes.includes("all");
+
+        // 1. Run scan
+        let result: FullScanResult;
+        if (org_mode) {
+          result = await runMultiAccountScanners(allScanners, r, {
+            orgMode: true,
+            roleName: role_name ?? "AWSSecurityMCPAudit",
+            accountIds: account_ids,
+          });
+        } else {
+          result = await runAllScanners(allScanners, r);
+        }
+
+        // 2. Create output directory
+        const baseDir = join(homedir(), ".aws-security", "reports", new Date().toISOString().slice(0, 10));
+        mkdirSync(baseDir, { recursive: true });
+
+        // 3. Generate & save reports
+        const savedFiles: string[] = [];
+
+        if (wantAll || reportTypes.includes("html")) {
+          const html = generateHtmlReport(result, undefined, l);
+          const p = join(baseDir, "security-report.html");
+          writeFileSync(p, html);
+          savedFiles.push(p);
+        }
+
+        if (wantAll || reportTypes.includes("hw_defense")) {
+          const html = generateHwDefenseHtmlReport(result, l);
+          const p = join(baseDir, "hw-defense-report.html");
+          writeFileSync(p, html);
+          savedFiles.push(p);
+        }
+
+        if (wantAll || reportTypes.includes("mlps3")) {
+          const html = generateMlps3HtmlReport(result, undefined, l);
+          const p = join(baseDir, "mlps3-report.html");
+          writeFileSync(p, html);
+          savedFiles.push(p);
+        }
+
+        if (wantAll || reportTypes.includes("markdown")) {
+          const md = generateMarkdownReport(result, l);
+          const p = join(baseDir, "security-report.md");
+          writeFileSync(p, md);
+          savedFiles.push(p);
+        }
+
+        // 4. Also save to dashboard
+        saveResults(result);
+
+        // 5. Return summary (small text, not full reports)
+        const summary = summarizeResult(result, l);
+        const fileList = savedFiles.map(f => `  ${f}`).join("\n");
+
+        return {
+          content: [{
+            type: "text" as const,
+            text: `${summary}\n\nReports saved:\n${fileList}\n\nDashboard data updated.`,
+          }],
+        };
+      } catch (err) {
+        return { content: [{ type: "text" as const, text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
       }
     },
   );
