@@ -423,36 +423,6 @@ The `generate_hw_defense_report` tool produces a dedicated HTML report for 护�
 - **Attacker-focused perspective** — the `hw_defense` scan group (11 modules) prioritizes checks that mirror real-world red-team attack chains: privilege escalation, network exposure, secret leakage, missing detection services, and patch gaps
 - **Collapsible sections** — categories default to collapsed for quick executive overview, expandable for detailed review
 
-## What Does AI Do in This Solution?
-
-This solution is a deliberate split between **deterministic scanning engineered in code** and **AI-powered interpretation and workflow**. Understanding the boundary matters for security review:
-
-### What AI does ✅
-
-1. **Intent → tool routing.** The operator says *"run a 护网 hardening scan on cn-north-1 and give me a Chinese report"* in plain language; the MCP client (Kiro / Claude Code / Cursor) resolves this to the correct tool call (`scan_group` with `group: "hw_defense"`, `region: "cn-north-1"`, `lang: "zh"`) and fills in parameters. No bespoke CLI flags to memorize.
-
-2. **Finding triage and narrative.** Raw scan output can be hundreds of JSON findings. The AI groups duplicates (e.g., *"12 security groups expose port 22 to 0.0.0.0/0"* → one rolled-up insight), cross-correlates signals (*"IAM user with `AdministratorAccess` + key unrotated 180d + MFA off"* → one high-risk identity), and prioritises against the operator's context.
-
-3. **Remediation code generation.** For each finding, the AI can turn a generic remediation hint into concrete IaC: a Terraform diff, a CloudFormation patch, or an AWS CLI one-liner — targeted at the specific resource ARN in the finding. The operator reviews and applies; the scanner itself never writes.
-
-4. **Compliance mapping explanation (MLPS 3 / HW Defense).** The `mlps3` and `hw_defense` groups produce findings mapped to GB/T 22239-2019 control IDs. The AI translates the regulatory language (*"应对重要节点进行入侵行为检测"*) into technical evidence the auditor can verify, and flags control items where AWS-native signal is thin and manual attestation is needed.
-
-5. **Trend and diff summarisation.** Given two scan snapshots from the Dashboard, the AI produces *"what got better, what got worse, what is new"* in narrative form — far cheaper than an operator diffing JSON.
-
-### What AI does NOT do ⛔
-
-1. **The scanning itself is 100% deterministic code.** Every check — reachability graphs, IAM privilege-escalation paths, IMDSv2 enforcement, dangling DNS, secret patterns — is implemented in TypeScript. There is no LLM in the detection path. The same inputs always produce the same findings.
-
-2. **No AI-driven API calls.** The AWS actions the scanner is allowed to invoke are a **static allowlist** at the SDK wrapper layer (`Describe*`, `Get*`, `List*`, `Head*` only). An LLM cannot request an out-of-list API, cannot escalate to a mutating call, and cannot invoke a different region or account than the operator specified.
-
-3. **No AI-assigned severity.** Severity, risk score, and priority (P0–P3) are assigned by rule tables in code. The AI can explain them; it cannot change them.
-
-4. **No customer data leaves the scanner boundary.** Raw AWS API responses and findings go only to the MCP client the operator chose. There is no telemetry, no training-data collection, and no third-party routing inside the scanner. What the AI sees is exactly what the operator sees in their terminal.
-
-5. **No autonomous remediation.** The scanner never writes to AWS. Any fix is performed by the operator after reviewing AI-suggested code.
-
-**Design philosophy:** *Deterministic facts, intelligent interpretation.* The ground truth layer is pure engineering so it can be audited, reproduced, and trusted. The interpretation layer is where AI adds leverage — turning a wall of JSON into a prioritised, explained, remediation-ready story in the operator's language.
-
 ## License
 
 MIT
