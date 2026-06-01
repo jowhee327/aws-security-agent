@@ -66,6 +66,16 @@ export function generateMarkdownReport(scanResults: FullScanResult, lang?: Lang)
   );
   lines.push("");
 
+  // Optional AI summary (client AI supplies; rendered only if present)
+  if (scanResults.aiSummary && scanResults.aiSummary.trim()) {
+    lines.push(`> \u2728 **${t.aiSummaryTitle}**`);
+    lines.push(">");
+    for (const ln of scanResults.aiSummary.trim().split(/\r?\n/)) {
+      lines.push(`> ${ln}`);
+    }
+    lines.push("");
+  }
+
   // Edge case: no findings
   if (summary.totalFindings === 0) {
     lines.push(`## ${t.findingsBySeverity}`);

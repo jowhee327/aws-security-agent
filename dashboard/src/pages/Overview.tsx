@@ -24,6 +24,16 @@ export default function Overview({ data }: OverviewProps) {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-slate-50">{t('overview.title')}</h2>
 
+      {/* AI Summary — shown only when present, at the very top of the Overview */}
+      {data.lastScan.aiSummary && data.lastScan.aiSummary.trim() && (
+        <div className="bg-gradient-to-br from-slate-800 to-indigo-950 border border-indigo-700/50 rounded-lg p-5">
+          <h3 className="text-sm font-bold text-indigo-300 mb-2">✨ {t('overview.aiSummary')}</h3>
+          <div className="text-sm leading-relaxed text-slate-300 whitespace-pre-wrap">
+            {data.lastScan.aiSummary}
+          </div>
+        </div>
+      )}
+
       {/* Quick Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">

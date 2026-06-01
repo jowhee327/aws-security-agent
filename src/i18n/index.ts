@@ -90,6 +90,7 @@ export interface I18n {
 
   // Markdown report
   executiveSummary: string;
+  aiSummaryTitle: string;
   totalFindingsLabel: string;
   description: string;
   priority: string;

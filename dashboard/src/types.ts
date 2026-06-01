@@ -47,6 +47,7 @@ export interface DashboardData {
     };
     modules: Array<{ module: string; findingsCount: number; status: string }>;
     findings: Finding[];
+    aiSummary?: string;
   };
   history: DashboardHistoryEntry[];
   meta: {

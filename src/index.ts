@@ -29,6 +29,7 @@ import { generateMarkdownReport } from "./tools/report-tool.js";
 import { generateMlps3Report } from "./tools/mlps-report.js";
 import { generateHtmlReport, generateMlps3HtmlReport } from "./tools/html-report.js";
 import { generateHwDefenseHtmlReport } from "./tools/hw-report.js";
+import { buildAiSummaryPrompt } from "./tools/ai-summary-prompt.js";
 import { saveResults } from "./tools/save-results.js";
 import { SCAN_GROUPS, applyFindingsFilter } from "./tools/scan-groups.js";
 import {
@@ -50,8 +51,10 @@ export { runAllScanners, runMultiAccountScanners } from "./scanners/runner.js";
 export { assumeRole, buildRoleArn, getCurrentAccountId } from "./utils/assume-role.js";
 export { listOrgAccounts, type OrgAccount } from "./utils/org-accounts.js";
 export { generateMarkdownReport } from "./tools/report-tool.js";
+export { generateMlps3Report } from "./tools/mlps-report.js";
 export { generateHtmlReport, generateMlps3HtmlReport } from "./tools/html-report.js";
 export { generateHwDefenseHtmlReport } from "./tools/hw-report.js";
+export { buildAiSummaryPrompt, type ReportType } from "./tools/ai-summary-prompt.js";
 export { saveResults, calculateScore } from "./tools/save-results.js";
 export type {
   Finding,
@@ -468,10 +471,12 @@ export function createServer(defaultRegion: string): McpServer {
     {
       scan_results: z.string().describe("JSON string of FullScanResult from scan_all"),
       lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)"),
+      ai_summary: z.string().optional().describe("Optional pre-generated AI executive summary (Markdown/plain text). Rendered if present; omit to hide."),
     },
-    async ({ scan_results, lang }) => {
+    async ({ scan_results, lang, ai_summary }) => {
       try {
         const parsed: FullScanResult = JSON.parse(scan_results);
+        if (ai_summary) parsed.aiSummary = ai_summary;
         const report = generateMarkdownReport(parsed, lang ?? "zh");
         return { content: [{ type: "text", text: report }] };
       } catch (err) {
@@ -487,10 +492,12 @@ export function createServer(defaultRegion: string): McpServer {
     {
       scan_results: z.string().describe("JSON string of FullScanResult from scan_group mlps3_precheck or scan_all"),
       lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)"),
+      ai_summary: z.string().optional().describe("Optional pre-generated AI executive summary (Markdown/plain text). Rendered if present; omit to hide."),
     },
-    async ({ scan_results, lang }) => {
+    async ({ scan_results, lang, ai_summary }) => {
       try {
         const parsed: FullScanResult = JSON.parse(scan_results);
+        if (ai_summary) parsed.aiSummary = ai_summary;
         const report = generateMlps3Report(parsed, lang ?? "zh");
         return { content: [{ type: "text", text: report }] };
       } catch (err) {
@@ -507,10 +514,12 @@ export function createServer(defaultRegion: string): McpServer {
       scan_results: z.string().describe("JSON string of FullScanResult from scan_all"),
       history: z.string().optional().describe("JSON string of DashboardHistoryEntry[] from dashboard data.json for 30-day trend charts"),
       lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)"),
+      ai_summary: z.string().optional().describe("Optional pre-generated AI executive summary (Markdown/plain text). Rendered if present; omit to hide."),
     },
-    async ({ scan_results, history, lang }) => {
+    async ({ scan_results, history, lang, ai_summary }) => {
       try {
         const parsed: FullScanResult = JSON.parse(scan_results);
+        if (ai_summary) parsed.aiSummary = ai_summary;
         const historyData = history ? JSON.parse(history) : undefined;
         const report = generateHtmlReport(parsed, historyData, lang ?? "zh");
         return { content: [{ type: "text", text: report }] };
@@ -528,13 +537,36 @@ export function createServer(defaultRegion: string): McpServer {
       scan_results: z.string().describe("JSON string of FullScanResult from scan_group mlps3_precheck or scan_all"),
       history: z.string().optional().describe("JSON string of DashboardHistoryEntry[] from dashboard data.json for 30-day trend charts"),
       lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)"),
+      ai_summary: z.string().optional().describe("Optional pre-generated AI executive summary (Markdown/plain text). Rendered if present; omit to hide."),
     },
-    async ({ scan_results, history, lang }) => {
+    async ({ scan_results, history, lang, ai_summary }) => {
       try {
         const parsed: FullScanResult = JSON.parse(scan_results);
+        if (ai_summary) parsed.aiSummary = ai_summary;
         const historyData = history ? JSON.parse(history) : undefined;
         const report = generateMlps3HtmlReport(parsed, historyData, lang ?? "zh");
         return { content: [{ type: "text", text: report }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    },
+  );
+
+  // get_ai_summary_prompt — returns a report-type-tailored prompt for the
+  // CLIENT AI to generate the AI summary. Server never calls an LLM itself.
+  server.tool(
+    "get_ai_summary_prompt",
+    "Return a report-type-tailored prompt (with a grounded findings digest) that the CALLING AI should run to produce an AI security summary. Then pass the generated text back via the `ai_summary` parameter of the matching report tool (or scan_and_report). The server performs no LLM calls. Use this to make each summary specific to the report type (dashboard / security scan / HW Defense 护网 / MLPS3 等保).",
+    {
+      report_type: z.enum(["dashboard", "html", "hw_defense", "mlps3"]).describe("Target report type the summary is for: dashboard (overview), html (AWS security scan report), hw_defense (护网 attack-defense drill), mlps3 (等保三级 compliance)"),
+      scan_results: z.string().describe("JSON string of FullScanResult from scan_all / scan_group"),
+      lang: z.enum(["zh", "en"]).optional().describe("Summary language (default: zh)"),
+    },
+    async ({ report_type, scan_results, lang }) => {
+      try {
+        const parsed: FullScanResult = JSON.parse(scan_results);
+        const prompt = buildAiSummaryPrompt(report_type, parsed, lang ?? "zh");
+        return { content: [{ type: "text", text: prompt }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
       }
@@ -548,10 +580,12 @@ export function createServer(defaultRegion: string): McpServer {
     {
       scan_results: z.string().describe("JSON string of FullScanResult from scan_group hw_defense or scan_all"),
       lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)"),
+      ai_summary: z.string().optional().describe("Optional pre-generated AI executive summary (Markdown/plain text). Rendered if present; omit to hide."),
     },
-    async ({ scan_results, lang }) => {
+    async ({ scan_results, lang, ai_summary }) => {
       try {
         const parsed: FullScanResult = JSON.parse(scan_results);
+        if (ai_summary) parsed.aiSummary = ai_summary;
         const report = generateHwDefenseHtmlReport(parsed, lang ?? "zh");
         return { content: [{ type: "text", text: report }] };
       } catch (err) {
@@ -706,10 +740,12 @@ export function createServer(defaultRegion: string): McpServer {
     {
       scan_results: z.string().describe("JSON string of FullScanResult from scan_all"),
       output_dir: z.string().optional().describe("Output directory (default: ~/.aws-security)"),
+      ai_summary: z.string().optional().describe("Optional pre-generated AI executive summary (from get_ai_summary_prompt with report_type=dashboard). Persisted into dashboard data and rendered on the Overview; omit to hide."),
     },
-    async ({ scan_results, output_dir }) => {
+    async ({ scan_results, output_dir, ai_summary }) => {
       try {
         const parsed: FullScanResult = JSON.parse(scan_results);
+        if (ai_summary) parsed.aiSummary = ai_summary;
         const dataPath = saveResults(parsed, output_dir);
         return {
           content: [
@@ -817,8 +853,9 @@ export function createServer(defaultRegion: string): McpServer {
       account_ids: z.array(z.string()).optional().describe("Filter to specific account IDs"),
       reports: z.array(z.enum(["html", "hw_defense", "mlps3", "markdown", "all"])).optional().describe("Report types to generate (default: all)"),
       lang: z.enum(["zh", "en"]).optional().describe("Language: zh or en (default: zh)"),
+      ai_summary: z.string().optional().describe("Optional pre-generated AI executive summary (Markdown/plain text). Rendered in reports + dashboard if present; omit to hide."),
     },
-    async ({ region, org_mode, role_name, account_ids, reports, lang }) => {
+    async ({ region, org_mode, role_name, account_ids, reports, lang, ai_summary }) => {
       try {
         const r = region ?? defaultRegion;
         const l = (lang ?? "zh") as Lang;
@@ -836,6 +873,9 @@ export function createServer(defaultRegion: string): McpServer {
         } else {
           result = await runAllScanners(allScanners, r);
         }
+
+        // Attach optional pre-generated AI summary (client AI supplies it).
+        if (ai_summary) result.aiSummary = ai_summary;
 
         // 2. Create output directory
         const baseDir = join(homedir(), ".aws-security", "reports", new Date().toISOString().slice(0, 10));
