@@ -47,6 +47,20 @@ function escWithLinks(s: string): string {
   }).join("");
 }
 
+/**
+ * Renders the optional AI summary block. Returns "" when no summary is present
+ * so the report degrades gracefully with no empty box. Text is escaped;
+ * line breaks preserved via white-space:pre-wrap (no raw HTML injection).
+ */
+function aiSummaryBlock(summary: string | undefined, title: string): string {
+  const text = (summary ?? "").trim();
+  if (!text) return "";
+  return `<div class="ai-summary">
+  <div class="ai-summary-title">\u2728 ${esc(title)}</div>
+  <div class="ai-summary-body">${esc(text)}</div>
+</div>`;
+}
+
 function calcScore(summary: FullScanResult["summary"]): number {
   const raw =
     100 -
@@ -329,7 +343,13 @@ function sharedCss(): string {
       details{display:block}
       details>summary{display:block}
       details>:not(summary){display:block !important}
+      .ai-summary{background:#f5f3ff !important;border-color:#c7d2fe !important}
+      .ai-summary-title{color:#4338ca !important}
+      .ai-summary-body{color:#1e293b !important}
     }
+    .ai-summary{background:linear-gradient(135deg,#1e293b,#1e1b4b);border:1px solid #4338ca;border-radius:10px;padding:16px 20px;margin:0 0 28px}
+    .ai-summary-title{font-size:14px;font-weight:700;color:#a5b4fc;margin-bottom:8px}
+    .ai-summary-body{font-size:14px;line-height:1.7;color:#cbd5e1;white-space:pre-wrap}
   `;
 }
 
@@ -1021,6 +1041,8 @@ export function generateHtmlReport(
   <div class="meta">${esc(t.account)}: ${esc(accountId)} | ${esc(t.region)}: ${esc(region)} | ${esc(date)} | ${esc(t.duration)}: ${esc(duration)}</div>
 </header>
 
+${aiSummaryBlock(scanResults.aiSummary, t.aiSummaryTitle)}
+
 <section class="summary">
   <div class="score-card">
     <div class="score-value" style="color:${scoreColor(score)}">${score}</div>
@@ -1454,6 +1476,8 @@ export function generateMlps3HtmlReport(
   <div class="disclaimer">${esc(t.mlpsDisclaimer)}</div>
   <div class="meta">${esc(t.account)}: ${esc(accountId)} | ${esc(t.region)}: ${esc(region)} | ${esc(t.scanTime)}: ${esc(scanTime)}</div>
 </header>
+
+${aiSummaryBlock(scanResults.aiSummary, t.aiSummaryTitle)}
 
 <section class="summary" style="display:block;text-align:center">
   <div style="font-size:36px;font-weight:700;margin-bottom:12px">

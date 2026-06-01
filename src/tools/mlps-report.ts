@@ -351,6 +351,16 @@ export function generateMlps3Report(scanResults: FullScanResult, lang?: Lang): s
   lines.push(`- ${t.account}: ${accountId} | ${t.region}: ${region} | ${t.scanTime}: ${scanTime}`);
   lines.push("");
 
+  // Optional AI summary (client AI supplies; rendered only if present)
+  if (scanResults.aiSummary && scanResults.aiSummary.trim()) {
+    lines.push(`> \u2728 **${t.aiSummaryTitle}**`);
+    lines.push(">");
+    for (const ln of scanResults.aiSummary.trim().split(/\r?\n/)) {
+      lines.push(`> ${ln}`);
+    }
+    lines.push("");
+  }
+
   // Summary
   lines.push(`## ${t.preCheckOverview}`);
   lines.push(`- ${t.checkedCount(checkedTotal, autoClean, autoIssues)}`);

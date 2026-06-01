@@ -125,6 +125,7 @@ export const zhI18n: I18n = {
   // Extended — MLPS extras
   // Markdown report
   executiveSummary: "\u6267\u884c\u6458\u8981",
+  aiSummaryTitle: "AI \u5b89\u5168\u6001\u52bf\u603b\u7ed3",
   totalFindingsLabel: "\u53d1\u73b0\u603b\u6570",
   description: "\u63cf\u8ff0",
   priority: "\u4f18\u5148\u7ea7",

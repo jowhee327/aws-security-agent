@@ -126,6 +126,7 @@ export const enI18n: I18n = {
   // Extended \u2014 MLPS extras
   // Markdown report
   executiveSummary: "Executive Summary",
+  aiSummaryTitle: "AI Security Summary",
   totalFindingsLabel: "Total Findings",
   description: "Description",
   priority: "Priority",

@@ -50,6 +50,8 @@ export interface FullScanResult {
   region: string;
   accountId: string;
   modules: ScanResult[];
+  /** Optional pre-generated AI executive summary (client AI supplies; server never calls an LLM). */
+  aiSummary?: string;
   summary: {
     totalFindings: number;
     critical: number;
@@ -80,6 +82,8 @@ export interface DashboardData {
     summary: FullScanResult["summary"];
     modules: Array<{ module: string; findingsCount: number; status: string }>;
     findings: Finding[];
+    /** Optional pre-generated AI executive summary. */
+    aiSummary?: string;
   };
   history: DashboardHistoryEntry[];
   meta: {

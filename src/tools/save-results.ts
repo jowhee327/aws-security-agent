@@ -84,6 +84,7 @@ export function saveResults(
       findings: scanResults.modules.flatMap((m) =>
         m.findings.map((f) => ({ ...f, module: m.module })),
       ),
+      aiSummary: scanResults.aiSummary,
     },
     history,
     meta: {

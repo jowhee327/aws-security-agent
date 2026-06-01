@@ -25,6 +25,19 @@ function safeUrl(url: string): string | null {
   }
 }
 
+/**
+ * Optional AI summary block; returns "" when absent so the report degrades
+ * gracefully. Text escaped; line breaks preserved via white-space:pre-wrap.
+ */
+function aiSummaryBlock(summary: string | undefined, title: string): string {
+  const text = (summary ?? "").trim();
+  if (!text) return "";
+  return `<div class="ai-summary">
+  <div class="ai-summary-title">\u2728 ${esc(title)}</div>
+  <div class="ai-summary-body">${esc(text)}</div>
+</div>`;
+}
+
 function escWithLinks(s: string): string {
   const parts = s.split(/(https?:\/\/\S+)/);
   return parts
@@ -179,7 +192,13 @@ function hwCss(): string {
       details{display:block}
       details>summary{display:block}
       details>:not(summary){display:block !important}
+      .ai-summary{background:#f5f3ff !important;border-color:#c7d2fe !important}
+      .ai-summary-title{color:#4338ca !important}
+      .ai-summary-body{color:#1e293b !important}
     }
+    .ai-summary{background:linear-gradient(135deg,#1e293b,#1e1b4b);border:1px solid #4338ca;border-radius:10px;padding:16px 20px;margin:0 0 28px}
+    .ai-summary-title{font-size:14px;font-weight:700;color:#a5b4fc;margin-bottom:8px}
+    .ai-summary-body{font-size:14px;line-height:1.7;color:#cbd5e1;white-space:pre-wrap}
   `;
 }
 
@@ -454,6 +473,8 @@ export function generateHwDefenseHtmlReport(
   <h1>&#128737;&#65039; ${esc(t.hwReportTitle)}</h1>
   <div class="meta">${esc(t.account)}: ${esc(accountId)} | ${esc(t.region)}: ${esc(region)} | ${esc(t.scanTime)}: ${esc(scanTime)}</div>
 </header>
+
+${aiSummaryBlock(scanResults.aiSummary, t.aiSummaryTitle)}
 
 <section class="summary-cards">
   <div class="summary-card"><div class="stat-count" style="color:${findingsColor}">${totalFindings}</div><div class="stat-label">${esc(t.hwTotalFindings)}</div></div>
