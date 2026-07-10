@@ -1,0 +1,38 @@
+Package: curl
+Status: install ok installed
+Priority: optional
+Section: web
+Installed-Size: 517
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Architecture: amd64
+Version: 7.81.0-1ubuntu1.16
+Description: command line tool for transferring data with URL syntax
+
+Package: libssl3
+Status: install ok installed
+Priority: important
+Section: libs
+Installed-Size: 5904
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Architecture: amd64
+Source: openssl
+Version: 3.0.2-0ubuntu1.18
+Description: Secure Sockets Layer toolkit - shared libraries
+
+Package: removed-package
+Status: deinstall ok config-files
+Priority: optional
+Section: misc
+Version: 1.0.0-1
+Description: a package that was removed and must not be reported
+
+Package: nginx-core
+Status: install ok installed
+Priority: optional
+Section: httpd
+Installed-Size: 1258
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Architecture: amd64
+Source: nginx
+Version: 1.18.0-6ubuntu14.4
+Description: nginx web/proxy server (standard core version)
