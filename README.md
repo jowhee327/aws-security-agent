@@ -202,6 +202,43 @@ For multi-account scanning across an AWS Organization:
 
 > "Run a full scan across all org accounts using org_mode"
 
+### 5. Enable the Dashboard (optional)
+
+The React dashboard visualizes scan history with severity filters, module breakdown, and 30-day trend charts. It reads data that the scan tools persist locally — no extra infrastructure needed.
+
+**How dashboard data is produced**
+
+Every time you run `scan_and_report` (or call `save_results` explicitly), the server writes:
+
+```
+~/.aws-security/
+├── scans/YYYY-MM-DD/scan.json        # raw scan result archive (per day)
+├── dashboard/data.json               # dashboard data: latest scan + rolling 30-entry history
+└── reports/                          # HTML / MLPS3 / HW Defense / Markdown reports
+```
+
+`dashboard/data.json` keeps a rolling history (last 30 scan dates) with an overall security score per scan — this is what powers the trend charts. Same-day re-scans replace that day's entry instead of appending. An optional AI executive summary (via `get_ai_summary_prompt` → `ai_summary`) is persisted here too and rendered on the Overview page.
+
+**Option A — local dashboard (recommended)**
+
+```bash
+aws-security-mcp dashboard --port 3000
+```
+
+This starts a local HTTP server, copies your `~/.aws-security/dashboard/data.json` into the dashboard bundle (falls back to bundled sample data if you haven't scanned yet), and opens `http://localhost:3000` in your browser. The npm package ships with the dashboard pre-built, so no build step is required.
+
+**Option B — deploy to a private S3 bucket**
+
+For a team-shared, long-lived dashboard inside your own AWS account:
+
+```bash
+aws-security-mcp deploy-dashboard --bucket <your-bucket> --region <region>
+```
+
+This uploads the dashboard files (including your latest `data.json`) to the bucket. The bucket **stays private** — no public bucket policy, no static website hosting is enabled. Access is controlled purely via IAM (e.g. S3 presigned URLs, CloudFront + OAC, or an internal proxy of your choice). Data never leaves your account.
+
+**Installing from source?** Run `npm run build:dashboard` once before using either option (the npm-published package already includes `dashboard/dist`).
+
 ## Available Tools
 
 | Tool | Description |
@@ -379,6 +416,32 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
 | 7.0 - 8.9 | HIGH | P1 |
 | 4.0 - 6.9 | MEDIUM | P2 |
 | 0.0 - 3.9 | LOW | P3 |
+
+## How the ECR Image CVE Scanner Works (Scanner #20)
+
+The newest module, `ecr-image-cve`, exists because of a real customer case: an ECR image (`Alpine 3.21 + nginx 1.27`) contained a HIGH-severity nginx CVE, yet **both ECR Basic Scanning and Inspector Enhanced Scanning reported nothing**. Distro-feed-based scanners can only alert on what the distro security database lists, and package-metadata matching misses any binary that didn't come from the distro's package manager (edge/community packages, vendor repos, source-compiled binaries). This scanner is built to catch exactly those structural blind spots — and to report the **difference (gap)** against the official scan results rather than duplicating them.
+
+**Pipeline (no Docker daemon, all read-only, fully streaming):**
+
+1. **Image enumeration** — `DescribeRepositories` / `DescribeImages`, taking the latest-pushed 3 tags per repo plus any `latest` tag (configurable). Image **digest** is the identity key everywhere, since tags drift.
+2. **Layer acquisition over the ECR registry HTTP API** — authenticate with `GetAuthorizationToken`, fetch the manifest via `BatchGetImage`, and download layer blobs via `GetDownloadUrlForLayer`. Multi-arch manifest lists are handled (linux/amd64 preferred, then linux/arm64). Layers are stream-decompressed (gzip + tar) entry-by-entry — no full-layer buffering, no image is ever run. Size guards: 512 MB per layer / 2 GB per image / 50 repos / 20 GB per scan (all configurable); anything over-limit is recorded as `skipped` with the reason, never silently dropped.
+3. **Dual-channel component inventory** — the core idea:
+   - **Channel A (package level):** parse package-manager databases found inside layers — Alpine `/lib/apk/db/installed` and Debian/Ubuntu `/var/lib/dpkg/status` — plus `/etc/os-release` for the distro branch. This mirrors what official scanners see.
+   - **Channel B (binary level, what ECR cannot do):** detect well-known server binaries (nginx, openssl, curl, redis, node, httpd, haproxy, php, python3, java, envoy) via ELF-magic + path heuristics, then extract embedded version strings from the raw bytes with signature regexes (e.g. `nginx version: nginx/1.27.4`). Each hit is tagged with provenance: `package-managed` (explainable by Channel A) or **`unmanaged-binary`** (present in the image but not owned by any installed package — the blind-spot case, prominently flagged).
+4. **CVE matching (CRITICAL/HIGH only)** — two tiers:
+   - **Tier 1 (offline, default):** a curated, unit-tested advisory table bundled with the package, covering the Channel-B component list. Works fully air-gapped — important for China-region deployments.
+   - **Tier 2 (online, opt-in):** NVD API 2.0 lookups with 24h on-disk caching, gated by `onlineCveLookup` (default off).
+   - Version comparison normalizes non-semver forms (Alpine `-r0` package revisions, OpenSSL letter suffixes like `1.0.2k`) while preserving the original string in output.
+5. **Official-result diff (gap analysis)** — for every scanned image the scanner pulls official findings from `ecr:DescribeImageScanFindings` (Basic) and `inspector2:ListFindings` (Enhanced), then classifies each of its own findings as:
+   - **`gap`** — we found it, official scanning did not → the headline section, each with a machine-classified reason: `unmanaged-binary` | `distro-secdb-no-entry` | `eol-os` | `unsupported-os` | `unknown`;
+   - **`confirmed`** — both found it (collapsed to counts);
+   - **`reverse-gap`** — official found it, we did not (self-audit).
+   The report also records which official baseline was available per image (basic / enhanced / none).
+6. **False-positive control** — a `suppressions` parameter (`cveId` + optional digest prefix / component + reason) moves findings to a `suppressed[]` section instead of silently dropping them.
+
+Additional IAM permissions used (read-only): `ecr:GetAuthorizationToken`, `ecr:DescribeRepositories`, `ecr:DescribeImages`, `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer`, `ecr:DescribeImageScanFindings`, `inspector2:ListFindings`, `inspector2:ListCoverage` — already included in the [Recommended IAM Policy](#recommended-iam-policy).
+
+Invoke it directly via `scan_ecr_image_cve`, as part of the `container_security` group, or within `scan_all` / `scan_and_report`. Full design notes: [`docs/specs/ecr-image-cve-scanner-spec.md`](docs/specs/ecr-image-cve-scanner-spec.md).
 
 ## Scan Groups
 

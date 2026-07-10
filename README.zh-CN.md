@@ -250,14 +250,34 @@ export AWS_PROFILE=my-sso
 
 #### Step 5. （可选）启动本地 Dashboard
 
+Dashboard 的数据来自每次扫描自动落盘的本地文件（`scan_and_report` 或 `save_results` 写入）：
+
+```
+~/.aws-security/
+├── scans/YYYY-MM-DD/scan.json   # 每天的原始扫描结果存档
+├── dashboard/data.json          # Dashboard 数据：最近一次扫描 + 滚动 30 天历史（趋势图数据源）
+└── reports/                     # HTML / 等保 / 护网 / Markdown 报告
+```
+
+启动本地 Dashboard 只要一条命令（npm 包里已带构建好的前端，无需 build）：
+
 ```bash
-aws-security-mcp dashboard
+aws-security-mcp dashboard --port 3000
+# 自动加载 ~/.aws-security/dashboard/data.json（没扫过就用内置示例数据）
 # 浏览器打开 http://localhost:3000，聚合查看历史扫描趋势
 ```
 
-#### Step 6. （可选）把报告归档到自己账号的 S3
+支持严重度过滤、模块分布、30 天趋势图；同一天重复扫描会覆盖当天记录而不是重复累加。
 
-配置一个 S3 bucket 作为长期留档，Dashboard 支持自动上传 —— 数据依然**不离开客户账号**。
+#### Step 6. （可选）把 Dashboard 部署到自己账号的 S3
+
+团队共享 / 长期留档场景，可以把 Dashboard（含最新 data.json）上传到自己账号的私有 bucket —— 数据依然**不离开客户账号**：
+
+```bash
+aws-security-mcp deploy-dashboard --bucket <你的bucket> --region cn-north-1
+```
+
+bucket **保持私有**（不加公开策略、不开静态网站托管），访问控制走 IAM（预签名 URL / CloudFront + OAC / 内部代理均可）。
 
 ---
 
@@ -310,3 +330,31 @@ aws-security-mcp dashboard
 
 **当前版本**：v0.8.0（2026 Q3）
 **下一里程碑**：Dashboard PDF 导出 + 更多扫描器
+
+---
+
+## 附：第 20 个扫描器 `ecr-image-cve` 是怎么实现的？
+
+**背景**：真实客户案例 —— 一个 `Alpine 3.21 + nginx 1.27` 的 ECR 镜像里有 HIGH 级 nginx CVE，但 **ECR Basic Scanning 和 Inspector Enhanced Scanning 都报不出来**。原因是结构性的：官方扫描器基于发行版安全数据库（secdb）+ 包管理器元数据，一旦二进制不是发行版官方仓库装的（edge/community 包、厂商仓库、源码编译），或者 secdb 没收录该分支的修复条目，就完全失明。这个扫描器就是为了补这个盲区，并且**只汇报和官方结果的差集（gap）**，不做重复劳动。
+
+**实现流水线**（无需 Docker daemon，全程只读、流式处理）：
+
+1. **枚举镜像** — `DescribeRepositories` / `DescribeImages`，每个 repo 取最近推送的 3 个 tag + `latest`（可配置），全程以镜像 **digest** 为唯一标识（tag 会漂移）。
+2. **直接走 ECR Registry HTTP API 拉层** — `GetAuthorizationToken` 认证，`BatchGetImage` 取 manifest，`GetDownloadUrlForLayer` 下载层 blob；支持多架构 manifest list（优先 amd64，其次 arm64）。层数据 gzip+tar 流式解压逐条处理，不整层缓冲、不运行镜像。体积护栏：单层 512MB / 单镜像 2GB / 50 个 repo / 单次扫描 20GB（都可配），超限记为 `skipped` 并注明原因。
+3. **双通道组件清单（核心设计）**：
+   - **通道 A（包级）**：解析层内的包管理器数据库 — Alpine `/lib/apk/db/installed`、Debian/Ubuntu `/var/lib/dpkg/status`，加 `/etc/os-release` 识别发行版分支。这一路和官方扫描器看到的一样。
+   - **通道 B（二进制级，ECR 做不到的）**：用 ELF 魔数 + 路径启发式定位常见服务端二进制（nginx / openssl / curl / redis / node / httpd / haproxy / php / python3 / java / envoy），直接在二进制字节里用签名正则抠出内嵌版本串（如 `nginx version: nginx/1.27.4`）。每个命中标注来源：`package-managed`（通道 A 能解释）或 **`unmanaged-binary`**（镜像里有但不属于任何已装的包 —— 就是那个客户案例，会重点标红）。
+4. **CVE 匹配（只报 CRITICAL/HIGH）**，双层数据源：
+   - **Tier 1（离线，默认）**：随包内置的人工维护 + 单测覆盖的 advisory 表，完全离线可用 —— 中国区 / 隔离网络环境友好。
+   - **Tier 2（在线，可选）**：NVD API 2.0 查询 + 24 小时磁盘缓存，由 `onlineCveLookup` 开关控制（默认关）。
+   - 版本比较会归一化非 semver 形态（Alpine 的 `-r0` 包修订号、OpenSSL 的 `1.0.2k` 字母后缀），输出保留原始字符串。
+5. **官方结果差集分析（gap analysis）** — 对每个镜像拉官方结果（`ecr:DescribeImageScanFindings` + `inspector2:ListFindings`），把自己的发现分成三类：
+   - **`gap`** — 我们发现、官方没报 → 报告头条，每条附机器判定的原因：`unmanaged-binary` / `distro-secdb-no-entry`（发行版 secdb 无条目）/ `eol-os` / `unsupported-os` / `unknown`；
+   - **`confirmed`** — 双方都发现（折叠成计数）；
+   - **`reverse-gap`** — 官方报了我们没报（自审清单）。
+   报告同时注明每个镜像当时可用的官方基线（basic / enhanced / none）。
+6. **误报控制** — 支持 `suppressions` 抑制清单（CVE ID + 可选 digest 前缀/组件 + 理由），被抑制的发现进 `suppressed[]` 段落，绝不静默丢弃。
+
+**新增 IAM 权限（全部只读）**：`ecr:GetAuthorizationToken / DescribeRepositories / DescribeImages / BatchGetImage / GetDownloadUrlForLayer / DescribeImageScanFindings`、`inspector2:ListFindings / ListCoverage`。
+
+**调用方式**：单独调 `scan_ecr_image_cve`，或走 `container_security` 扫描组，或包含在 `scan_all` / `scan_and_report` 全量扫描里。完整设计文档见 `docs/specs/ecr-image-cve-scanner-spec.md`。
