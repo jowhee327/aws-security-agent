@@ -25,6 +25,7 @@ import { AccessAnalyzerFindingsScanner } from "./scanners/access-analyzer-findin
 import { PatchComplianceFindingsScanner } from "./scanners/patch-compliance-findings.js";
 import { Imdsv2EnforcementScanner } from "./scanners/imdsv2-enforcement.js";
 import { WafCoverageScanner } from "./scanners/waf-coverage.js";
+import { EcrImageCveScanner, SCAN_ALL_MAX_REPOSITORIES } from "./scanners/ecr-image-cve/index.js";
 import { generateMarkdownReport } from "./tools/report-tool.js";
 import { generateMlps3Report } from "./tools/mlps-report.js";
 import { generateHtmlReport, generateMlps3HtmlReport } from "./tools/html-report.js";
@@ -106,6 +107,8 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
     "Checks if EC2 instances enforce IMDSv2 (HttpTokens: required) — IMDSv1 allows credential theft via SSRF.",
   waf_coverage:
     "Checks if internet-facing ALBs have WAF Web ACL associated for protection against common web exploits.",
+  ecr_image_cve:
+    "Deep-scans ECR image layers for critical/high CVEs that ECR Basic/Inspector Enhanced scanning structurally miss (unmanaged binaries, distro secdb gaps) and reports the gap against official scan results.",
 };
 
 function getHwDefenseChecklist(lang?: Lang): string {
@@ -224,6 +227,11 @@ export function createServer(defaultRegion: string): McpServer {
     new PatchComplianceFindingsScanner(),
     new Imdsv2EnforcementScanner(),
     new WafCoverageScanner(),
+    // In scan_all / scan_group the ECR CVE scanner runs with a conservative
+    // repository cap so a large account cannot turn a full scan into an
+    // unbounded multi-gigabyte layer download. The dedicated scan_ecr_image_cve
+    // tool constructs its own instance with the full default cap.
+    new EcrImageCveScanner({ maxRepositories: SCAN_ALL_MAX_REPOSITORIES }),
   ];
 
   const scannerMap = new Map<string, Scanner>();
@@ -318,12 +326,67 @@ export function createServer(defaultRegion: string): McpServer {
     );
   }
 
+  // scan_ecr_image_cve — dedicated tool: needs scanner-specific parameters
+  server.tool(
+    "scan_ecr_image_cve",
+    "Deep-scan ECR image layers for critical/high CVEs missed by ECR Basic/Inspector Enhanced scanning (unmanaged binaries, distro secdb gaps). Reports gap/confirmed/reverse-gap classification against official scan results. Read-only.",
+    {
+      region: z.string().optional().describe("AWS region to scan (default: server region)"),
+      repository_filter: z.string().optional().describe("Glob filter on ECR repository names (e.g. prod-*)"),
+      max_images_per_repo: z.number().int().positive().optional().describe("Latest-pushed N images per repo, plus any tag named 'latest' (default: 3)"),
+      min_severity: z.enum(["critical", "high", "medium", "low"]).optional().describe("Minimum CVE severity to report (default: high)"),
+      online_cve_lookup: z.boolean().optional().describe("Enable NVD API 2.0 online lookup, cached 24h (default: false)"),
+      include_confirmed: z.boolean().optional().describe("Include confirmed finding detail rows in the report (default: false)"),
+      suppressions: z.array(z.object({
+        cveId: z.string(),
+        imageDigestPrefix: z.string().optional(),
+        component: z.string().optional(),
+        reason: z.string(),
+      })).optional().describe("False-positive suppression list; suppressed findings go to a suppressed[] section"),
+      max_layer_bytes: z.number().int().positive().optional().describe("Skip images containing a layer larger than this many compressed bytes (default: 512 MB)"),
+      max_image_bytes: z.number().int().positive().optional().describe("Skip images whose compressed layers total more than this many bytes (default: 2 GB)"),
+      max_binary_scan_bytes: z.number().int().positive().optional().describe("Cap on decompressed bytes stream-scanned per candidate binary (default: 64 MB)"),
+      max_repositories: z.number().int().positive().optional().describe("Maximum number of repositories to scan; the rest are recorded in warnings (default: 50)"),
+      max_total_bytes: z.number().int().positive().optional().describe("Cumulative cap on compressed layer bytes downloaded across the whole scan (default: 20 GB)"),
+      platform_preference: z.array(z.string()).optional().describe("Platform preference order for multi-arch manifest lists, e.g. ['linux/amd64', 'linux/arm64'] (default)"),
+    },
+    async ({ region, repository_filter, max_images_per_repo, min_severity, online_cve_lookup, include_confirmed, suppressions, max_layer_bytes, max_image_bytes, max_binary_scan_bytes, max_repositories, max_total_bytes, platform_preference }) => {
+      try {
+        const r = region ?? defaultRegion;
+        const ctx = await buildScanContext(r);
+        const scanner = new EcrImageCveScanner({
+          repositoryFilter: repository_filter,
+          maxImagesPerRepo: max_images_per_repo,
+          minSeverity: min_severity,
+          onlineCveLookup: online_cve_lookup,
+          includeConfirmed: include_confirmed,
+          suppressions,
+          maxLayerBytes: max_layer_bytes,
+          maxImageBytes: max_image_bytes,
+          maxBinaryScanBytes: max_binary_scan_bytes,
+          maxRepositories: max_repositories,
+          maxTotalBytes: max_total_bytes,
+          platformPreference: platform_preference,
+        });
+        const result: ScanResult = await scanner.scan(ctx);
+        return {
+          content: [
+            { type: "text", text: summarizeScanResult(result) },
+            { type: "text", text: JSON.stringify(result, null, 2) },
+          ],
+        };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    },
+  );
+
   // scan_group
   server.tool(
     "scan_group",
     "Run a predefined group of security scanners for a specific scenario (e.g., MLPS compliance, network defense). Read-only. Supports multi-account org scanning.",
     {
-      group: z.string().describe("Scan group ID: mlps3_precheck, hw_defense, exposure, data_encryption, least_privilege, log_integrity, disaster_recovery, idle_resources, tag_compliance, new_account_baseline, aggregation"),
+      group: z.string().describe("Scan group ID: mlps3_precheck, hw_defense, exposure, data_encryption, least_privilege, log_integrity, disaster_recovery, idle_resources, tag_compliance, new_account_baseline, container_security, aggregation"),
       region: z.string().optional().describe("AWS region to scan (default: server region)"),
       org_mode: z.boolean().optional().describe("Enable multi-account scanning via AWS Organizations"),
       role_name: z.string().optional().describe("IAM role name to assume in child accounts (default: AWSSecurityMCPAudit)"),
@@ -936,7 +999,7 @@ export function createServer(defaultRegion: string): McpServer {
   server.resource(
     "security-rules",
     "security://rules",
-    { description: "Describes all 19 scan modules and their check rules", mimeType: "text/markdown" },
+    { description: "Describes all 20 scan modules and their check rules", mimeType: "text/markdown" },
     async () => ({
       contents: [{ uri: "security://rules", text: SECURITY_RULES_CONTENT, mimeType: "text/markdown" }],
     }),

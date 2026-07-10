@@ -1,0 +1,53 @@
+C:Q1pP2n8DGKOsr8VvUxWJcJJvzGGYc=
+P:musl
+V:1.2.5-r8
+A:x86_64
+S:407624
+I:663552
+T:the musl c library (libc) implementation
+U:https://musl.libc.org/
+L:MIT
+o:musl
+m:Timo Teräs <timo.teras@iki.fi>
+t:1730387312
+
+C:Q1yGkxhWCHrLdX0iOOfaWJdqAdWCo=
+P:nginx
+V:1.26.3-r0
+A:x86_64
+S:562176
+I:1224704
+T:HTTP and reverse proxy server
+U:https://www.nginx.org/
+L:BSD-2-Clause
+o:nginx
+m:Jakub Jirutka <jakub@jirutka.cz>
+t:1730387312
+D:musl
+
+C:Q1abcDEFghiJKLmnoPQRstuVWXyz0=
+P:libssl3
+V:3.3.2-r4
+A:x86_64
+S:284531
+I:667648
+T:SSL shared libraries
+U:https://www.openssl.org/
+L:Apache-2.0
+o:openssl
+m:Ariadne Conill <ariadne@dereferenced.org>
+t:1730387312
+D:musl
+
+C:Q1qrsTUVwxyZABcdEFGhijKLMnop1=
+P:busybox
+V:1.37.0-r12
+A:x86_64
+S:509246
+I:958464
+T:Size optimized toolbox of many common UNIX utilities
+U:https://busybox.net/
+L:GPL-2.0-only
+o:busybox
+m:Sören Tempel <soeren+alpine@soeren-tempel.net>
+t:1730387312

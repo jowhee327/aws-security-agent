@@ -135,6 +135,11 @@ export const SCAN_GROUPS: Record<string, {
     description: "新 AWS 账户安全基线",
     modules: ["service_detection", "secret_exposure", "iam_privilege_escalation", "security_hub_findings", "guardduty_findings", "access_analyzer_findings", "imdsv2_enforcement"],
   },
+  container_security: {
+    name: "容器/工作负载安全",
+    description: "容器镜像深度 CVE 扫描 + 官方扫描差距分析（ECR Basic / Inspector Enhanced 漏报检测）",
+    modules: ["service_detection", "inspector_findings", "ecr_image_cve"],
+  },
   aggregation: {
     name: "安全服务聚合",
     description: "从 Security Hub / GuardDuty / Inspector / Trusted Advisor / Config Rules / Access Analyzer / Patch Compliance 聚合所有安全发现",

@@ -1,4 +1,4 @@
-export const SECURITY_RULES_CONTENT = `# AWS Security Scan Modules & Rules (19 modules)
+export const SECURITY_RULES_CONTENT = `# AWS Security Scan Modules & Rules (20 modules)
 
 ## 1. Service Detection (service_detection)
 Detects which AWS security services are enabled and assesses overall security maturity.
@@ -100,6 +100,17 @@ Checks if internet-facing ALBs have WAF Web ACL associated for protection.
 - **No WAF Web ACL** — Risk 7.5: ALB exposed to SQL injection, XSS, and OWASP Top 10 attacks.
 - NLBs (L4) are skipped as WAF does not apply — noted in warnings.
 - Gracefully handles WAFv2 access denied or unavailable regions.
+
+## 20. ECR Image CVE (ecr_image_cve)
+Deep-scans ECR image layers for critical/high CVEs that ECR Basic / Inspector Enhanced scanning structurally miss.
+- Pulls manifests and layers via the ECR API (no Docker daemon); streams tar+gzip layers.
+- Dual-channel inventory: package metadata (apk/dpkg) + binary version signatures (nginx, openssl, curl, redis, node, httpd, haproxy, php, python3, java, envoy).
+- Flags unmanaged binaries (present with no matching installed package) — the class official scanners cannot see.
+- Matches against a curated offline advisory table (optional NVD API 2.0 online lookup, cached 24h).
+- Diffs our findings vs official scan results: **gap** (we found, official missed), confirmed, reverse-gap.
+- Gap reasons: unmanaged-binary | distro-secdb-no-entry | eol-os | unsupported-os | unknown.
+- rpm-based images: rpm parsing unsupported in v1 (noted as warning); whiteout semantics not applied (last-writer-wins).
+- Suppression list supported; suppressed findings reported in a dedicated section, never dropped.
 `;
 
 export const RISK_SCORING_CONTENT = `# Risk Scoring Model

@@ -1,6 +1,6 @@
 # aws-security-mcp
 
-MCP server for automated AWS security scanning — 19 modules, risk scoring, zero write operations.
+MCP server for automated AWS security scanning — 20 modules, risk scoring, zero write operations.
 
 <!-- badges -->
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
@@ -9,7 +9,7 @@ MCP server for automated AWS security scanning — 19 modules, risk scoring, zer
 
 ## Features
 
-- **19 Security Scan Modules** — Security Hub, GuardDuty, Inspector, Trusted Advisor, Config Rules, Access Analyzer, Patch Compliance, and more
+- **20 Security Scan Modules** — Security Hub, GuardDuty, Inspector, Trusted Advisor, Config Rules, Access Analyzer, Patch Compliance, ECR image CVE gap analysis, and more
 - **Risk Scoring** — every finding scored 0-10 with severity (CRITICAL/HIGH/MEDIUM/LOW) and priority (P0-P3)
 - **100% Read-Only** — uses only Describe/Get/List API calls; never modifies your AWS resources
 - **Multi-Account Support** — scan all accounts in an AWS Organization via `org_mode` with cross-account role assumption
@@ -20,6 +20,34 @@ MCP server for automated AWS security scanning — 19 modules, risk scoring, zer
 - **MCP Prompts** — pre-built workflows for full scans and finding analysis
 - **China Region Support** — full support for aws-cn partition
 - **CloudFormation StackSet Template** — one-click deployment of cross-account audit roles
+
+## Screenshots
+
+All screenshots below are from a **real scan of an AWS China (cn-north-1) account** — 20 modules, 1,284 findings.
+
+### Interactive Dashboard
+
+React dashboard with severity filters, sortable columns, module breakdown, and 30-day trend charts. Findings view shown below (real CRITICAL CVEs detected across ECR repositories):
+
+![Dashboard — Findings view](docs/images/dashboard.png)
+
+### Security Scan Report (with AI Executive Summary)
+
+Professional HTML report. The server performs **zero LLM calls** — the calling AI supplies the executive summary via `get_ai_summary_prompt` → `ai_summary`, so the summary is tailored per report type:
+
+![Security scan report with AI summary](docs/images/security-report.png)
+
+### HW Defense (护网) Readiness Report
+
+Attacker-perspective, SOP-organized report for blue-team hardening drills — findings grouped into kill-chain categories (attack-surface reduction, vuln/patch, identity, transport, detection readiness):
+
+![HW Defense 护网 report](docs/images/hw-defense-report.png)
+
+### MLPS Level 3 (等保三级) Compliance Pre-check
+
+GB/T 22239-2019 conformance pre-check — technical findings mapped to compliance control domains, with service-not-enabled gaps and prioritized remediation:
+
+![MLPS3 等保三级 report](docs/images/mlps3-report.png)
 
 ## Deployment Prerequisites
 
@@ -75,7 +103,7 @@ Verify the binary is on your `PATH`:
 
 ```bash
 aws-security-mcp --version
-# 0.7.5
+# 0.8.0
 ```
 
 <details>
@@ -178,7 +206,7 @@ For multi-account scanning across an AWS Organization:
 
 | Tool | Description |
 |------|-------------|
-| `scan_all` | Run all 19 security scanners in parallel (supports org_mode) |
+| `scan_all` | Run all 20 security scanners in parallel (supports org_mode) |
 | `detect_services` | Detect enabled AWS security services and assess maturity |
 | `scan_secret_exposure` | Check Lambda env vars and EC2 userData for exposed secrets |
 | `scan_ssl_certificate` | Check ACM certificates for expiry and failed status |
@@ -198,6 +226,7 @@ For multi-account scanning across an AWS Organization:
 | `scan_patch_compliance_findings` | Aggregate findings from SSM Patch Compliance |
 | `scan_imdsv2_enforcement` | Check EC2 instances for IMDSv2 enforcement |
 | `scan_waf_coverage` | Check internet-facing ALBs for WAF Web ACL protection |
+| `scan_ecr_image_cve` | Deep-scan ECR image layers for critical/high CVEs missed by ECR Basic/Inspector Enhanced scanning; reports gap/confirmed/reverse-gap vs official results |
 | `scan_group` | Run a predefined group of scanners for a specific scenario |
 | `list_groups` | List available scan groups |
 | `list_modules` | List available scan modules with descriptions |
@@ -249,6 +278,13 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
         "ec2:DescribeVolumes",
         "ec2:GetEbsEncryptionByDefault",
 
+        "ecr:GetAuthorizationToken",
+        "ecr:DescribeRepositories",
+        "ecr:DescribeImages",
+        "ecr:BatchGetImage",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:DescribeImageScanFindings",
+
         "guardduty:GetDetector",
         "guardduty:ListDetectors",
         "guardduty:ListFindings",
@@ -269,6 +305,7 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
         "iam:GetPolicyVersion",
 
         "inspector2:ListFindings",
+        "inspector2:ListCoverage",
 
         "lambda:ListFunctions",
         "lambda:GetFunction",
@@ -328,6 +365,7 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
 | **Patch Compliance** | SSM Patch Manager compliance status for managed instances | 3.0 - 9.5 |
 | **IMDSv2 Enforcement** | EC2 instances not enforcing IMDSv2 (HttpTokens != required) | 7.5 |
 | **WAF Coverage** | Internet-facing ALBs without WAF Web ACL protection | 7.5 |
+| **ECR Image CVE** | Deep layer scan of ECR images for critical/high CVEs that ECR Basic/Inspector Enhanced scanning structurally miss (unmanaged binaries, distro secdb gaps, EOL OS); diffs against official scan results | 7.0 - 10.0 |
 | **Security Hub Findings** | AWS Security Hub (FSBP, CIS, PCI DSS) | 3.0 - 9.5 |
 | **GuardDuty Findings** | Amazon GuardDuty threat detection | 3.0 - 9.5 |
 | **Inspector Findings** | Amazon Inspector vulnerability scanning | 3.0 - 9.5 |
@@ -358,6 +396,7 @@ Pre-defined scanner groupings for common scenarios:
 | `idle_resources` | 闲置资源清理 | 2 modules |
 | `tag_compliance` | 资源标签合规 | 1 module |
 | `new_account_baseline` | 新账户基线检查 | 7 modules |
+| `container_security` | 容器/工作负载安全 — ECR image deep CVE scan + official-scan gap analysis | 3 modules |
 | `aggregation` | 安全服务聚合 | 7 modules |
 
 Use `list_groups` to see all available groups with their module lists.
@@ -422,6 +461,26 @@ The `generate_hw_defense_report` tool produces a dedicated HTML report for 护�
 - **Grouped findings** — duplicate and related findings are collapsed by CVE ID, control ID, or title, reducing noise
 - **Attacker-focused perspective** — the `hw_defense` scan group (11 modules) prioritizes checks that mirror real-world red-team attack chains: privilege escalation, network exposure, secret leakage, missing detection services, and patch gaps
 - **Collapsible sections** — categories default to collapsed for quick executive overview, expandable for detailed review
+
+## Local Model Benchmark (Tool-Use)
+
+The server is **model-agnostic** — it works with any MCP 1.12 client. For China / air-gapped / data-sovereignty deployments where a cloud frontier model may not be an option, we benchmarked a **fully local** model (`Qwen3-30B-A3B`, Q4_K_M, served via Ollama on a single NVIDIA L4 GPU / `g6.4xlarge`) against Claude Opus 4.7 (Bedrock) on the tool-use skills that matter for driving this server.
+
+**Test suite:** 15 cases across 4 categories — tool selection (7), argument quality (3), multi-step reasoning (3), refusal/clarify (2).
+
+| Model | Overall (raw) | Overall (LLM-judge) | Tool Selection | Avg Latency | Output TPS |
+|-------|:---:|:---:|:---:|:---:|:---:|
+| **Qwen3-30B-A3B** (local, think) | 86.7% | **93.3%** | **100%** | 11.8s | 37.7 |
+| **Qwen3-30B-A3B** (local, no-think) | 86.7% | 86.7% | **100%** | 10.6s | 43.2 |
+| **Claude Opus 4.7** (Bedrock) | **100%** | **100%** | **100%** | 3.3s | 56.6 |
+
+**Takeaway:** a local 30B MoE model hits **100% tool-selection accuracy** and ~90% overall — more than enough to drive the scanner in an isolated environment with no data leaving the account. The frontier model is faster and stronger on argument precision, but the server does not depend on it.
+
+![Qwen3 vs Claude Opus 4.7 tool-use benchmark](docs/images/qwen3-benchmark.png)
+
+Live tool-calling trace (local Qwen3 selecting a scanner from a natural-language request):
+
+![Qwen3 live tool-calling demo](docs/images/qwen3-live-demo.png)
 
 ## License
 
