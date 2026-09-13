@@ -15,6 +15,9 @@ import { toResourceUrn as toHwsUrn } from "./urn.js";
 import { RmsTrackerScanner } from "./scanners/rms-tracker.js";
 import { ObsPublicAccessScanner } from "./scanners/obs-public-access.js";
 import { HuaweiSecretExposureScanner } from "./scanners/secret-exposure.js";
+import { HuaweiSslCertificateScanner } from "./scanners/ssl-certificate.js";
+import { HuaweiIdleResourcesScanner } from "./scanners/idle-resources.js";
+import { HuaweiTagComplianceScanner } from "./scanners/tag-compliance.js";
 // Importing client.ts silences log4js at provider load (P0 mitigation, see client.ts).
 import "./client.js";
 
@@ -76,6 +79,9 @@ export const huaweiCloudProvider: CloudProvider = {
       new RmsTrackerScanner(), // config_rules_findings (T2)
       new ObsPublicAccessScanner(), // public_access_verify (T3)
       new HuaweiSecretExposureScanner(), // secret_exposure (T4)
+      new HuaweiSslCertificateScanner(), // ssl_certificate (T5)
+      new HuaweiIdleResourcesScanner(), // idle_resources (T5)
+      new HuaweiTagComplianceScanner(), // tag_compliance (T5)
     ];
   },
 
@@ -102,3 +108,6 @@ export { hwClient, hwObsClient, hwEndpoint, isGlobalService, silenceSdkLogging, 
 export { RmsTrackerScanner, RMS_TRACKER_NOT_ENABLED_WARNING, rmsTrackerUrn } from "./scanners/rms-tracker.js";
 export { ObsPublicAccessScanner, evaluateObsAcl, evaluateObsPolicy, pabBlocksAll, obsCall, ObsHttpError } from "./scanners/obs-public-access.js";
 export { HuaweiSecretExposureScanner, HUAWEI_SECRET_PATTERNS, HUAWEI_EXTRA_SECRET_PATTERNS } from "./scanners/secret-exposure.js";
+export { HuaweiSslCertificateScanner, evaluateCertificate } from "./scanners/ssl-certificate.js";
+export { HuaweiIdleResourcesScanner, stoppedDays } from "./scanners/idle-resources.js";
+export { HuaweiTagComplianceScanner, HW_TAG_RESOURCE_TYPES, getMissingRmsTags } from "./scanners/tag-compliance.js";

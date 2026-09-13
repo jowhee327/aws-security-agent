@@ -71,3 +71,36 @@ export async function hwRegionScopeFromContext(
   }
   return { region: ctx.region, projectId: resolvedProject, domainId: domainId ?? scope.domainId ?? ctx.accountId ?? "" };
 }
+
+/**
+ * Parse a Huawei Cloud timestamp into epoch milliseconds. Accepts:
+ *  - `"YYYY-MM-DD HH:mm:ss"` / `"YYYY-MM-DD HH:mm:ss.S"` (SCM `expire_time`; no zone → UTC)
+ *  - ISO-8601 with or without zone (ELB `expire_time`, ECS `updated`)
+ *  - epoch seconds / milliseconds (number or digit string)
+ * Returns undefined when the value cannot be parsed. Never throws.
+ */
+export function parseHwTimestamp(value: unknown): number | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || value <= 0) return undefined;
+    return value < 1e12 ? value * 1000 : value;
+  }
+  if (typeof value !== "string") return undefined;
+  const s = value.trim();
+  if (!s) return undefined;
+  if (/^\d+$/.test(s)) return parseHwTimestamp(Number(s));
+  // "2026-10-01 12:00:00.0" / "2026-10-01T12:00:00" → no zone designator: treat as UTC.
+  const m = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.(\d{1,3})\d*)?$/.exec(s);
+  if (m) {
+    const iso = `${m[1]}T${m[2]}${m[3] ? `.${m[3].padEnd(3, "0")}` : ""}Z`;
+    const t = Date.parse(iso);
+    return Number.isNaN(t) ? undefined : t;
+  }
+  const t = Date.parse(s);
+  return Number.isNaN(t) ? undefined : t;
+}
+
+/** Whole days from `nowMs` until `targetMs` (negative when in the past); mirrors the AWS scanners' Math.floor. */
+export function daysUntil(targetMs: number, nowMs: number = Date.now()): number {
+  return Math.floor((targetMs - nowMs) / (24 * 60 * 60 * 1000));
+}
