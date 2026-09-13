@@ -61,9 +61,11 @@ describe("provider registry", () => {
     await expect(aws.listRegions()).resolves.toEqual([{ region: "us-east-1", partition: "aws" }]);
   });
 
-  it("huaweicloud provider skeleton has no scanners yet and reserves multi-account", async () => {
+  it("huaweicloud provider exposes its Phase 1 scanners and reserves multi-account", async () => {
     const hw = getProvider("huaweicloud");
-    expect(hw.scanners()).toEqual([]);
+    const scanners = hw.scanners();
+    expect(scanners.map((s) => s.moduleName)).toEqual(["config_rules_findings"]);
+    expect(hw.scanners()[0]).not.toBe(scanners[0]); // fresh instances
     expect(hw.toResourceUrn("ecs:server", "srv-1", { region: "cn-north-4", domainId: "d0m41n" }, "ignored"))
       .toBe("hws:cn-north-4:d0m41n:ecs:server:srv-1");
     await expect(hw.listAccounts!({ region: "cn-north-4" })).rejects.toThrow(/not implemented in Phase 1/);

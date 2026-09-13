@@ -1,7 +1,8 @@
 /**
  * Huawei Cloud provider (Phase 1 skeleton).
  *
- * Scanners are added in tasks T2+ and registered in {@link huaweiCloudProvider.scanners}.
+ * Scanners live in ./scanners/* and are registered in {@link huaweiCloudProvider.scanners}.
+ * Each scanner imports its SDK package lazily so the default AWS path never loads Huawei SDKs.
  * Multi-account (Organizations listAccounts + STS assumeAgency) is reserved for
  * Phase 2: the interface methods exist but throw a clear "not implemented" error.
  */
@@ -11,6 +12,7 @@ import { isHuaweiCloudCredentials } from "../../types.js";
 import type { AccountRef, AssumeCrossAccountOptions, CloudCredentials, CloudProvider, RegionScope } from "../types.js";
 import { loadHuaweiCredentials, resolveProjects, resolveRegionScope } from "./credentials.js";
 import { toResourceUrn as toHwsUrn } from "./urn.js";
+import { RmsTrackerScanner } from "./scanners/rms-tracker.js";
 // Importing client.ts silences log4js at provider load (P0 mitigation, see client.ts).
 import "./client.js";
 
@@ -68,7 +70,9 @@ export const huaweiCloudProvider: CloudProvider = {
   },
 
   scanners(): Scanner[] {
-    return [];
+    return [
+      new RmsTrackerScanner(), // config_rules_findings (T2)
+    ];
   },
 
   toResourceUrn(resourceType: string, resourceId: string, scope: RegionScope, accountId: string): string {
@@ -91,3 +95,4 @@ export {
   type HuaweiCredentialSet,
 } from "./credentials.js";
 export { hwClient, hwObsClient, hwEndpoint, isGlobalService, silenceSdkLogging, type HwService } from "./client.js";
+export { RmsTrackerScanner, RMS_TRACKER_NOT_ENABLED_WARNING, rmsTrackerUrn } from "./scanners/rms-tracker.js";
