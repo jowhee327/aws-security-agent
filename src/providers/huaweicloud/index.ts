@@ -18,6 +18,8 @@ import { HuaweiSecretExposureScanner } from "./scanners/secret-exposure.js";
 import { HuaweiSslCertificateScanner } from "./scanners/ssl-certificate.js";
 import { HuaweiIdleResourcesScanner } from "./scanners/idle-resources.js";
 import { HuaweiTagComplianceScanner } from "./scanners/tag-compliance.js";
+import { HuaweiRmsComplianceScanner } from "./scanners/rms-compliance.js";
+import { HuaweiServiceDetectionScanner } from "./scanners/service-detection.js";
 // Importing client.ts silences log4js at provider load (P0 mitigation, see client.ts).
 import "./client.js";
 
@@ -82,6 +84,8 @@ export const huaweiCloudProvider: CloudProvider = {
       new HuaweiSslCertificateScanner(), // ssl_certificate (T5)
       new HuaweiIdleResourcesScanner(), // idle_resources (T5)
       new HuaweiTagComplianceScanner(), // tag_compliance (T5)
+      new HuaweiRmsComplianceScanner(), // rms_compliance_findings (T6)
+      new HuaweiServiceDetectionScanner(), // service_detection (T7)
     ];
   },
 
@@ -111,3 +115,11 @@ export { HuaweiSecretExposureScanner, HUAWEI_SECRET_PATTERNS, HUAWEI_EXTRA_SECRE
 export { HuaweiSslCertificateScanner, evaluateCertificate } from "./scanners/ssl-certificate.js";
 export { HuaweiIdleResourcesScanner, stoppedDays } from "./scanners/idle-resources.js";
 export { HuaweiTagComplianceScanner, HW_TAG_RESOURCE_TYPES, getMissingRmsTags } from "./scanners/tag-compliance.js";
+export {
+  HuaweiRmsComplianceScanner,
+  policyStateToFinding,
+  rmsPolicyRiskScore,
+  RMS_HIGH_SEVERITY_KEYWORDS,
+  RMS_COMPLIANCE_SOURCE,
+} from "./scanners/rms-compliance.js";
+export { HuaweiServiceDetectionScanner, HW_SERVICE_RECOMMENDATIONS } from "./scanners/service-detection.js";

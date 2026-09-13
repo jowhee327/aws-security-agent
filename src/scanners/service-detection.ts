@@ -79,13 +79,26 @@ function isNotEnabled(err: unknown): boolean {
   );
 }
 
-function computeMaturityLevel(
+export function computeMaturityLevel(
   enabledCount: number,
 ): "basic" | "intermediate" | "advanced" | "comprehensive" {
   if (enabledCount >= 5) return "comprehensive";
   if (enabledCount >= 4) return "advanced";
   if (enabledCount >= 2) return "intermediate";
   return "basic";
+}
+
+/**
+ * Coverage + maturity from a probed service list. Unknown services
+ * (`enabled === null`) are excluded from the coverage denominator.
+ * Shared by the AWS scanner and other cloud providers' service detection.
+ */
+export function buildServiceDetectionResult(services: ServiceStatus[]): ServiceDetectionResult {
+  const knownServices = services.filter((s) => s.enabled !== null);
+  const enabledCount = services.filter((s) => s.enabled === true).length;
+  const coveragePercent = knownServices.length > 0 ? Math.round((enabledCount / knownServices.length) * 100) : 0;
+  const maturityLevel = computeMaturityLevel(enabledCount);
+  return { services, coveragePercent, maturityLevel };
 }
 
 export class ServiceDetectionScanner implements Scanner {
@@ -417,16 +430,7 @@ export class ServiceDetectionScanner implements Scanner {
     }
 
     // Compute coverage and maturity (exclude unknown services from coverage denominator)
-    const knownServices = services.filter((s) => s.enabled !== null);
-    const enabledCount = services.filter((s) => s.enabled === true).length;
-    const coveragePercent = knownServices.length > 0 ? Math.round((enabledCount / knownServices.length) * 100) : 0;
-    const maturityLevel = computeMaturityLevel(enabledCount);
-
-    const detectionResult: ServiceDetectionResult = {
-      services,
-      coveragePercent,
-      maturityLevel,
-    };
+    const detectionResult = buildServiceDetectionResult(services);
 
     return {
       module: this.moduleName,

@@ -99,6 +99,8 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
     "Aggregates security checks from AWS Trusted Advisor — requires Business or Enterprise Support plan.",
   config_rules_findings:
     "Checks if AWS Config Rules are configured. Findings are aggregated via Security Hub.",
+  rms_compliance_findings:
+    "Huawei Cloud only: aggregates NonCompliant RMS (Config) policy states into findings — the Security Hub-like compliance aggregation for Huawei Cloud.",
   access_analyzer_findings:
     "Checks if IAM Access Analyzer is configured. Findings are aggregated via Security Hub.",
   patch_compliance_findings:
