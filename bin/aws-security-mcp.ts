@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { startServer } from "../src/index.js";
+import { startServer, isProviderId, listProviderIds } from "../src/index.js";
 import { VERSION } from "../src/version.js";
 
 const args = process.argv.slice(2);
@@ -15,6 +15,8 @@ Commands:
 
 Options:
   --region <region>    AWS region (default: AWS_REGION env or us-east-1)
+  --provider <id>      Default cloud provider for scan tools: aws | huaweicloud
+                       (default: CLOUD_PROVIDER / AWS_SECURITY_MCP_PROVIDER env, else aws)
   --version            Print version and exit
   --help, -h           Show this help message
 
@@ -28,6 +30,9 @@ Deploy options:
 Environment variables:
   AWS_REGION           Default AWS region
   AWS_DEFAULT_REGION   Fallback default region
+  CLOUD_PROVIDER       Default cloud provider (aws | huaweicloud)
+  HUAWEICLOUD_SDK_AK / HUAWEICLOUD_SDK_SK
+                       Huawei Cloud credentials (else ~/.huaweicloud/credentials [basic]/[global])
 
 The MCP server communicates over stdio using the MCP protocol.`;
 
@@ -81,7 +86,12 @@ if (subcommand === "dashboard") {
 } else {
   // Default: start MCP server
   const region = getRegion();
-  startServer(region).catch((err) => {
+  const providerArg = getArg("--provider");
+  if (providerArg !== undefined && !isProviderId(providerArg)) {
+    console.error(`Error: unknown provider "${providerArg}". Supported: ${listProviderIds().join(", ")}`);
+    process.exit(1);
+  }
+  startServer(region, providerArg && isProviderId(providerArg) ? { defaultProvider: providerArg } : {}).catch((err) => {
     console.error("Fatal:", err);
     process.exit(1);
   });

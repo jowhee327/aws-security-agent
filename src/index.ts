@@ -4,7 +4,9 @@ import { z } from "zod";
 
 import { VERSION } from "./version.js";
 import type { Scanner } from "./scanners/base.js";
-import { runAllScanners, runMultiAccountScanners } from "./scanners/runner.js";
+import { runAllScanners, runMultiAccountScanners, buildScanContext, HUAWEI_ALL_REGIONS } from "./scanners/runner.js";
+import { getProvider, isProviderId, listProviderIds, DEFAULT_PROVIDER_ID } from "./providers/registry.js";
+import { resolveModuleAlias } from "./providers/module-aliases.js";
 import { ServiceDetectionScanner } from "./scanners/service-detection.js";
 import type { ServiceDetectionResult } from "./scanners/service-detection.js";
 import { SecretExposureScanner } from "./scanners/secret-exposure.js";
@@ -37,10 +39,9 @@ import {
   SECURITY_RULES_CONTENT,
   RISK_SCORING_CONTENT,
 } from "./resources/index.js";
-import { getPartition, getAccountId } from "./utils/aws-client.js";
 import { listOrgAccounts } from "./utils/org-accounts.js";
-import type { FullScanResult, ScanResult, ScanContext } from "./types.js";
-import { getI18n, type Lang } from "./i18n/index.js";
+import type { FullScanResult, ScanResult, ProviderId } from "./types.js";
+import { getI18n, providerName, type Lang } from "./i18n/index.js";
 import { readFileSync, mkdirSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
 import { homedir } from "os";
@@ -48,7 +49,9 @@ import { fileURLToPath } from "url";
 
 export { type Lang } from "./i18n/index.js";
 export { type Scanner } from "./scanners/base.js";
-export { runAllScanners, runMultiAccountScanners } from "./scanners/runner.js";
+export { runAllScanners, runMultiAccountScanners, buildScanContext, type RunnerOptions, type MultiAccountOptions } from "./scanners/runner.js";
+export { getProvider, isProviderId, listProviderIds, DEFAULT_PROVIDER_ID } from "./providers/registry.js";
+export type { CloudProvider, RegionScope, AccountRef } from "./providers/types.js";
 export { assumeRole, buildRoleArn, getCurrentAccountId } from "./utils/assume-role.js";
 export { listOrgAccounts, type OrgAccount } from "./utils/org-accounts.js";
 export { generateMarkdownReport } from "./tools/report-tool.js";
@@ -66,7 +69,31 @@ export type {
   DashboardHistoryEntry,
   Severity,
   Priority,
+  ProviderId,
 } from "./types.js";
+
+/** Environment variables consulted for the default provider when `createServer` gets none. */
+export const PROVIDER_ENV_VARS = ["CLOUD_PROVIDER", "AWS_SECURITY_MCP_PROVIDER"] as const;
+
+/** Default provider from the environment (first valid value of {@link PROVIDER_ENV_VARS}); undefined if unset/invalid. */
+export function providerFromEnv(env: NodeJS.ProcessEnv = process.env): ProviderId | undefined {
+  for (const name of PROVIDER_ENV_VARS) {
+    const v = env[name]?.trim().toLowerCase();
+    if (v && isProviderId(v)) return v;
+  }
+  return undefined;
+}
+
+export interface CreateServerOptions {
+  /** Provider used when a tool call omits `provider` (default: env {@link PROVIDER_ENV_VARS}, else "aws"). */
+  defaultProvider?: ProviderId;
+}
+
+const PROVIDER_PARAM_DESCRIPTION =
+  "Cloud provider to scan (default: aws). With huaweicloud, `region` is a Huawei Cloud region ID (e.g. cn-north-4); omit it or pass \"all\" to scan every region project of the account. Huawei Cloud Phase 1 is single-account (org_mode falls back to the current account with a warning).";
+
+/** Zod schema shared by every scan tool; optional so existing (AWS) callers are unaffected. */
+const providerParam = () => z.enum(["aws", "huaweicloud"]).optional().describe(PROVIDER_PARAM_DESCRIPTION);
 
 const MODULE_DESCRIPTIONS: Record<string, string> = {
   service_detection:
@@ -129,8 +156,8 @@ const SERVICE_NOT_ENABLED_PATTERNS = [
   "is not enabled",
 ];
 
-function buildServiceReminder(modules: ScanResult[], lang?: Lang): string {
-  const t = getI18n(lang ?? "zh");
+function buildServiceReminder(modules: ScanResult[], lang?: Lang, provider?: ProviderId): string {
+  const t = getI18n(lang ?? "zh", provider);
   const disabledServices: Array<{ icon: string; service: string; impact: string; action: string }> = [];
 
   for (const mod of modules) {
@@ -174,7 +201,7 @@ function summarizeResult(result: FullScanResult, lang?: Lang): string {
     `Modules: ${summary.modulesSuccess} succeeded, ${summary.modulesError} errored`,
   ];
 
-  const reminder = buildServiceReminder(result.modules, lang);
+  const reminder = buildServiceReminder(result.modules, lang, result.provider);
   if (reminder) {
     lines.push(reminder);
   }
@@ -193,21 +220,13 @@ function summarizeScanResult(result: ScanResult): string {
   return lines.join("\n");
 }
 
-async function buildScanContext(region: string): Promise<ScanContext> {
-  let accountId: string;
-  try {
-    accountId = await getAccountId(region);
-  } catch {
-    accountId = "unknown";
-  }
-  return { region, partition: getPartition(region), accountId };
-}
-
-export function createServer(defaultRegion: string): McpServer {
+export function createServer(defaultRegion: string, opts: CreateServerOptions = {}): McpServer {
   const server = new McpServer(
     { name: "aws-security-mcp", version: VERSION },
     { capabilities: { resources: {}, tools: {}, prompts: {} } },
   );
+
+  const defaultProvider: ProviderId = opts.defaultProvider ?? providerFromEnv() ?? DEFAULT_PROVIDER_ID;
 
   const allScanners: Scanner[] = [
     new ServiceDetectionScanner(),
@@ -241,6 +260,41 @@ export function createServer(defaultRegion: string): McpServer {
     scannerMap.set(s.moduleName, s);
   }
 
+  // Non-AWS providers: scanner sets come from the provider registry (Huawei Cloud
+  // scanners import their SDKs lazily, so this costs nothing on the AWS path).
+  const providerScanners = new Map<ProviderId, Scanner[]>([["aws", allScanners]]);
+  const providerScannerMaps = new Map<ProviderId, Map<string, Scanner>>([["aws", scannerMap]]);
+  for (const id of listProviderIds()) {
+    if (id === "aws") continue;
+    const list = getProvider(id).scanners();
+    providerScanners.set(id, list);
+    providerScannerMaps.set(id, new Map(list.map((s) => [s.moduleName, s])));
+  }
+
+  const resolveProvider = (provider?: ProviderId): ProviderId => provider ?? defaultProvider;
+  const scannersFor = (provider: ProviderId): Scanner[] => providerScanners.get(provider) ?? [];
+  const scannerMapFor = (provider: ProviderId): Map<string, Scanner> => providerScannerMaps.get(provider) ?? new Map();
+  /** Region semantics per provider: AWS = server default; Huawei Cloud = every region project unless specified. */
+  const regionFor = (region: string | undefined, provider: ProviderId): string =>
+    provider === "aws" ? (region ?? defaultRegion) : (region ?? HUAWEI_ALL_REGIONS);
+  const moduleUnavailableError = (moduleName: string, provider: ProviderId) => ({
+    content: [{
+      type: "text" as const,
+      text: `Error: module "${moduleName}" is not available for provider "${provider}". Available modules for ${provider}: ${scannersFor(provider).map((s) => s.moduleName).join(", ")}`,
+    }],
+    isError: true as const,
+  });
+  /**
+   * Default provider for a module-specific tool: the server default when it has the
+   * module, otherwise the (single) provider that does — so Huawei-only tools such as
+   * scan_rms_compliance_findings work without an explicit `provider`.
+   */
+  const defaultProviderFor = (moduleName: string): ProviderId => {
+    if (scannerMapFor(defaultProvider).has(moduleName)) return defaultProvider;
+    const owners = listProviderIds().filter((id) => scannerMapFor(id).has(moduleName));
+    return owners.length === 1 ? owners[0] : defaultProvider;
+  };
+
   // --- Tools ---
 
   // 1. scan_all
@@ -253,20 +307,24 @@ export function createServer(defaultRegion: string): McpServer {
       role_name: z.string().optional().describe("IAM role name to assume in child accounts (default: AWSSecurityMCPAudit)"),
       account_ids: z.array(z.string()).optional().describe("Specific account IDs to scan (default: all org accounts)"),
       lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)"),
+      provider: providerParam(),
     },
-    async ({ region, org_mode, role_name, account_ids, lang }) => {
+    async ({ region, org_mode, role_name, account_ids, lang, provider }) => {
       try {
-        const r = region ?? defaultRegion;
+        const p = resolveProvider(provider);
+        const r = regionFor(region, p);
+        const scanners = scannersFor(p);
         let result: FullScanResult;
 
         if (org_mode) {
-          result = await runMultiAccountScanners(allScanners, r, {
+          result = await runMultiAccountScanners(scanners, r, {
             orgMode: true,
             roleName: role_name ?? "AWSSecurityMCPAudit",
             accountIds: account_ids,
+            provider: p,
           });
         } else {
-          result = await runAllScanners(allScanners, r);
+          result = await runAllScanners(scanners, r, { provider: p });
         }
 
         return {
@@ -302,18 +360,25 @@ export function createServer(defaultRegion: string): McpServer {
     { toolName: "scan_patch_compliance_findings", moduleName: "patch_compliance_findings", label: "Patch Compliance Findings" },
     { toolName: "scan_imdsv2_enforcement", moduleName: "imdsv2_enforcement", label: "IMDSv2 Enforcement" },
     { toolName: "scan_waf_coverage", moduleName: "waf_coverage", label: "WAF Coverage" },
+    // Huawei Cloud only (provider defaults to huaweicloud because no other provider has the module).
+    { toolName: "scan_rms_compliance_findings", moduleName: "rms_compliance_findings", label: "RMS Compliance Findings (Huawei Cloud)" },
   ];
 
   for (const { toolName, moduleName, label } of individualScanners) {
     server.tool(
       toolName,
       `Run ${label} security scanner only. Read-only. Does not modify any AWS resources.`,
-      { region: z.string().optional().describe("AWS region to scan (default: server region)") },
-      async ({ region }) => {
+      {
+        region: z.string().optional().describe("AWS region to scan (default: server region)"),
+        provider: providerParam(),
+      },
+      async ({ region, provider }) => {
         try {
-          const r = region ?? defaultRegion;
-          const ctx = await buildScanContext(r);
-          const scanner = scannerMap.get(moduleName)!;
+          const p = provider ?? defaultProviderFor(moduleName);
+          const scanner = scannerMapFor(p).get(moduleName);
+          if (!scanner) return moduleUnavailableError(moduleName, p);
+          const r = regionFor(region, p);
+          const ctx = await buildScanContext(r, p);
           const result: ScanResult = await scanner.scan(ctx);
           return {
             content: [
@@ -351,9 +416,17 @@ export function createServer(defaultRegion: string): McpServer {
       max_repositories: z.number().int().positive().optional().describe("Maximum number of repositories to scan; the rest are recorded in warnings (default: 50)"),
       max_total_bytes: z.number().int().positive().optional().describe("Cumulative cap on compressed layer bytes downloaded across the whole scan (default: 20 GB)"),
       platform_preference: z.array(z.string()).optional().describe("Platform preference order for multi-arch manifest lists, e.g. ['linux/amd64', 'linux/arm64'] (default)"),
+      provider: providerParam(),
     },
-    async ({ region, repository_filter, max_images_per_repo, min_severity, online_cve_lookup, include_confirmed, suppressions, max_layer_bytes, max_image_bytes, max_binary_scan_bytes, max_repositories, max_total_bytes, platform_preference }) => {
+    async ({ region, repository_filter, max_images_per_repo, min_severity, online_cve_lookup, include_confirmed, suppressions, max_layer_bytes, max_image_bytes, max_binary_scan_bytes, max_repositories, max_total_bytes, platform_preference, provider }) => {
       try {
+        const p = resolveProvider(provider);
+        if (p !== "aws") {
+          return {
+            content: [{ type: "text", text: `Error: scan_ecr_image_cve is AWS-only (ECR); provider "${p}" is not supported.` }],
+            isError: true,
+          };
+        }
         const r = region ?? defaultRegion;
         const ctx = await buildScanContext(r);
         const scanner = new EcrImageCveScanner({
@@ -394,9 +467,11 @@ export function createServer(defaultRegion: string): McpServer {
       role_name: z.string().optional().describe("IAM role name to assume in child accounts (default: AWSSecurityMCPAudit)"),
       account_ids: z.array(z.string()).optional().describe("Specific account IDs to scan (default: all org accounts)"),
       lang: z.enum(["zh", "en"]).optional().describe("Report language (default: zh)"),
+      provider: providerParam(),
     },
-    async ({ group, region, org_mode, role_name, account_ids, lang }) => {
+    async ({ group, region, org_mode, role_name, account_ids, lang, provider }) => {
       try {
+        const p = resolveProvider(provider);
         const groupDef = SCAN_GROUPS[group];
         if (!groupDef) {
           const available = Object.keys(SCAN_GROUPS).join(", ");
@@ -406,20 +481,24 @@ export function createServer(defaultRegion: string): McpServer {
           };
         }
 
-        const r = region ?? defaultRegion;
+        const r = regionFor(region, p);
+        const providerScannerMap = scannerMapFor(p);
 
-        // Resolve scanners: "ALL" means all registered scanners
+        // Resolve scanners: "ALL" means all registered scanners for the provider.
+        // Group definitions use AWS module names; other providers substitute their
+        // aggregation module (huaweicloud: security_hub_findings → rms_compliance_findings)
+        // and report modules they lack as a warning instead of failing.
         let selectedScanners: Scanner[];
         const missingModules: string[] = [];
 
         if (groupDef.modules.includes("ALL")) {
-          selectedScanners = allScanners;
+          selectedScanners = scannersFor(p);
         } else {
           selectedScanners = [];
           for (const mod of groupDef.modules) {
-            const scanner = scannerMap.get(mod);
+            const scanner = providerScannerMap.get(resolveModuleAlias(mod, p));
             if (scanner) {
-              selectedScanners.push(scanner);
+              if (!selectedScanners.includes(scanner)) selectedScanners.push(scanner);
             } else {
               missingModules.push(mod);
             }
@@ -428,7 +507,7 @@ export function createServer(defaultRegion: string): McpServer {
 
         if (selectedScanners.length === 0) {
           return {
-            content: [{ type: "text", text: `Error: No available scanners for group "${group}". Requested modules: ${groupDef.modules.join(", ")}` }],
+            content: [{ type: "text", text: `Error: No available scanners for group "${group}"${p === "aws" ? "" : ` with provider "${p}"`}. Requested modules: ${groupDef.modules.join(", ")}` }],
             isError: true,
           };
         }
@@ -440,9 +519,10 @@ export function createServer(defaultRegion: string): McpServer {
             orgMode: true,
             roleName: role_name ?? "AWSSecurityMCPAudit",
             accountIds: account_ids,
+            provider: p,
           });
         } else {
-          result = await runAllScanners(selectedScanners, r);
+          result = await runAllScanners(selectedScanners, r, { provider: p });
         }
 
         // Apply post-filter if the group defines one
@@ -714,7 +794,7 @@ export function createServer(defaultRegion: string): McpServer {
 
         // Build the report
         const lines: string[] = [];
-        lines.push("# AWS Security Maturity Assessment");
+        lines.push(`# ${providerName(parsed.provider, "en")} Security Maturity Assessment`);
         lines.push("");
         lines.push(`## Account: ${parsed.accountId} | Region: ${parsed.region}`);
         lines.push("");
@@ -830,9 +910,10 @@ export function createServer(defaultRegion: string): McpServer {
   server.tool(
     "list_modules",
     "List available security scan modules with descriptions. Read-only. Does not modify any AWS resources.",
-    async () => {
+    { provider: providerParam() },
+    async ({ provider }) => {
       try {
-        const modules = allScanners.map((s) => ({
+        const modules = scannersFor(resolveProvider(provider)).map((s) => ({
           name: s.moduleName,
           description: MODULE_DESCRIPTIONS[s.moduleName] ?? s.moduleName,
         }));
@@ -847,9 +928,19 @@ export function createServer(defaultRegion: string): McpServer {
   server.tool(
     "list_org_accounts",
     "List all accounts in the AWS Organization. Useful for discovering accounts before multi-account scanning. Read-only.",
-    { region: z.string().optional().describe("AWS region (default: server region)") },
-    async ({ region }) => {
+    {
+      region: z.string().optional().describe("AWS region (default: server region)"),
+      provider: providerParam(),
+    },
+    async ({ region, provider }) => {
       try {
+        const p = resolveProvider(provider);
+        if (p !== "aws") {
+          return {
+            content: [{ type: "text", text: `Error: list_org_accounts is not supported for provider "${p}" yet (Huawei Cloud multi-account via Organizations + STS assumeAgency is planned for Phase 2).` }],
+            isError: true,
+          };
+        }
         const r = region ?? defaultRegion;
         const accounts = await listOrgAccounts(r);
         return {
@@ -919,24 +1010,28 @@ export function createServer(defaultRegion: string): McpServer {
       reports: z.array(z.enum(["html", "hw_defense", "mlps3", "markdown", "all"])).optional().describe("Report types to generate (default: all)"),
       lang: z.enum(["zh", "en"]).optional().describe("Language: zh or en (default: zh)"),
       ai_summary: z.string().optional().describe("Optional pre-generated AI executive summary (Markdown/plain text). Rendered in reports + dashboard if present; omit to hide."),
+      provider: providerParam(),
     },
-    async ({ region, org_mode, role_name, account_ids, reports, lang, ai_summary }) => {
+    async ({ region, org_mode, role_name, account_ids, reports, lang, ai_summary, provider }) => {
       try {
-        const r = region ?? defaultRegion;
+        const p = resolveProvider(provider);
+        const r = regionFor(region, p);
         const l = (lang ?? "zh") as Lang;
         const reportTypes = reports ?? ["all"];
         const wantAll = reportTypes.includes("all");
+        const scanners = scannersFor(p);
 
         // 1. Run scan
         let result: FullScanResult;
         if (org_mode) {
-          result = await runMultiAccountScanners(allScanners, r, {
+          result = await runMultiAccountScanners(scanners, r, {
             orgMode: true,
             roleName: role_name ?? "AWSSecurityMCPAudit",
             accountIds: account_ids,
+            provider: p,
           });
         } else {
-          result = await runAllScanners(allScanners, r);
+          result = await runAllScanners(scanners, r, { provider: p });
         }
 
         // Attach optional pre-generated AI summary (client AI supplies it).
@@ -1070,8 +1165,8 @@ export function createServer(defaultRegion: string): McpServer {
   return server;
 }
 
-export async function startServer(defaultRegion: string): Promise<void> {
-  const server = createServer(defaultRegion);
+export async function startServer(defaultRegion: string, opts: CreateServerOptions = {}): Promise<void> {
+  const server = createServer(defaultRegion, opts);
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

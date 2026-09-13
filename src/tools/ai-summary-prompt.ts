@@ -1,5 +1,5 @@
-import type { FullScanResult, Finding } from "../types.js";
-import type { Lang } from "../i18n/index.js";
+import type { FullScanResult, Finding, ProviderId } from "../types.js";
+import { providerName, type Lang } from "../i18n/index.js";
 
 export type ReportType = "dashboard" | "html" | "hw_defense" | "mlps3";
 
@@ -47,8 +47,10 @@ interface Profile {
 }
 
 /** Report-type-specific instructions (bilingual). */
-function getProfile(type: ReportType, lang: Lang): Profile {
+function getProfile(type: ReportType, lang: Lang, provider?: ProviderId): Profile {
   const zh = lang === "zh";
+  // Cloud name used in the "html" (full security scan) profile; "AWS" unless the scan came from another provider.
+  const cloud = providerName(provider, lang);
   switch (type) {
     case "dashboard":
       return zh
@@ -65,12 +67,12 @@ function getProfile(type: ReportType, lang: Lang): Profile {
     case "html":
       return zh
         ? {
-            persona: "你在为一份完整的 AWS 安全扫描报告写执行摘要。读者既有管理层也有技术负责人。",
+            persona: `你在为一份完整的 ${cloud} 安全扫描报告写执行摘要。读者既有管理层也有技术负责人。`,
             focus: "整体风险全景 + Top 风险的共性根因（如公网暴露面、IAM 过权、加密/日志缺失等）+ 分优先级(P0→P2)的修复路线建议。点出系统性问题而非逐条复述。",
             format: "1 段概述 + 3-5 条要点。中文。可用要点列表。技术与管理双视角，给出可落地的下一步。",
           }
         : {
-            persona: "You are writing the executive summary for a full AWS security scan report. Readers include both management and technical leads.",
+            persona: `You are writing the executive summary for a full ${cloud} security scan report. Readers include both management and technical leads.`,
             focus: "Overall risk landscape + common root causes behind the top risks (public exposure, over-privileged IAM, missing encryption/logging, etc.) + a prioritized (P0→P2) remediation roadmap. Surface systemic issues rather than restating each finding.",
             format: "1 overview paragraph + 3-5 bullet points. English. Bullet list ok. Both technical and management lens, with concrete next steps.",
           };
@@ -119,8 +121,10 @@ export function buildAiSummaryPrompt(
   lang: Lang,
 ): string {
   const zh = lang === "zh";
-  const p = getProfile(type, lang);
-  const label = TYPE_LABEL[type][zh ? "zh" : "en"];
+  const p = getProfile(type, lang, scan.provider);
+  const label = type === "html" && scan.provider === "huaweicloud"
+    ? (zh ? `${providerName(scan.provider, lang)} 安全扫描报告` : `${providerName(scan.provider, lang)} Security Scan Report`)
+    : TYPE_LABEL[type][zh ? "zh" : "en"];
   const digest = buildFindingsDigest(scan, lang);
 
   if (zh) {

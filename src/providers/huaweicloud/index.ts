@@ -62,12 +62,21 @@ export const huaweiCloudProvider: CloudProvider = {
     return scopes;
   },
 
-  // TODO(Phase 2): Organizations `listAccounts` (global endpoint, GlobalCredentials).
+  // TODO(Phase 2 — multi-account): Organizations `listAccounts` (OrganizationsClient,
+  // global endpoint `organizations.myhuaweicloud.com`, GlobalCredentials, paginated via
+  // `marker`/`page_info.next_marker`). The runner deliberately does NOT call this yet
+  // (Phase 1 = single account; `org_mode` emits HUAWEI_MULTI_ACCOUNT_WARNING instead).
   async listAccounts(_scope: RegionScope, _creds?: CloudCredentials): Promise<AccountRef[]> {
     throw new Error("Huawei Cloud multi-account discovery (Organizations listAccounts) is not implemented in Phase 1");
   },
 
-  // TODO(Phase 2): STS `assumeAgency` via regional STS endpoint; `roleName` maps to the agency name.
+  // TODO(Phase 2 — multi-account): STS `assumeAgency` (StsClient, REGIONAL endpoint
+  // `sts.<region>.myhuaweicloud.com` — the global STS endpoint times out, plan §6.1) with
+  // AssumeAgencyReqBody { agency_urn: `iam::<target domainId>:agency:<opts.roleName>`,
+  // agency_session_name: opts.sessionName ?? "aws-security-mcp", duration_seconds: 3600,
+  // external_id?: opts.externalId }. The returned CredentialsDto (access/secret/security_token)
+  // becomes a HuaweiCloudCredentials via createHuaweiCredentials() and is placed on
+  // ScanContext.credentials, mirroring AWS assumeRole. `roleName` == agency name.
   async assumeCrossAccount(
     _target: AccountRef,
     _scope: RegionScope,

@@ -96,6 +96,8 @@ export interface FullScanResult {
   modules: ScanResult[];
   /** Optional pre-generated AI executive summary (client AI supplies; server never calls an LLM). */
   aiSummary?: string;
+  /** Cloud provider that produced this result; absent means "aws" (legacy serialization unchanged). */
+  provider?: ProviderId;
   summary: {
     totalFindings: number;
     critical: number;

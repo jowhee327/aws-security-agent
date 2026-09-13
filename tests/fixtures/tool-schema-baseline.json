@@ -1,0 +1,795 @@
+[
+  {
+    "name": "detect_services",
+    "description": "Run Security Service Detection security scanner only. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "generate_html_report",
+    "description": "Generate a professional HTML security report. Save the output as an .html file.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "scan_results": {
+          "type": "string",
+          "description": "JSON string of FullScanResult from scan_all"
+        },
+        "history": {
+          "description": "JSON string of DashboardHistoryEntry[] from dashboard data.json for 30-day trend charts",
+          "type": "string"
+        },
+        "lang": {
+          "description": "Report language (default: zh)",
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "ai_summary": {
+          "description": "Optional pre-generated AI executive summary (Markdown/plain text). Rendered if present; omit to hide.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scan_results"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "generate_hw_defense_report",
+    "description": "Generate an HTML report organized by HW Defense (护网) SOP checklist categories. Save as .html file.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "scan_results": {
+          "type": "string",
+          "description": "JSON string of FullScanResult from scan_group hw_defense or scan_all"
+        },
+        "lang": {
+          "description": "Report language (default: zh)",
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "ai_summary": {
+          "description": "Optional pre-generated AI executive summary (Markdown/plain text). Rendered if present; omit to hide.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scan_results"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "generate_maturity_report",
+    "description": "Generate a security maturity assessment report from scan_all results. Requires service_detection module output. Read-only.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "scan_results": {
+          "type": "string",
+          "description": "JSON string of FullScanResult from scan_all"
+        },
+        "lang": {
+          "description": "Report language (default: zh)",
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        }
+      },
+      "required": [
+        "scan_results"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "generate_mlps3_html_report",
+    "description": "Generate a professional HTML MLPS Level 3 compliance report (等保三级). Save as .html file.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "scan_results": {
+          "type": "string",
+          "description": "JSON string of FullScanResult from scan_group mlps3_precheck or scan_all"
+        },
+        "history": {
+          "description": "JSON string of DashboardHistoryEntry[] from dashboard data.json for 30-day trend charts",
+          "type": "string"
+        },
+        "lang": {
+          "description": "Report language (default: zh)",
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "ai_summary": {
+          "description": "Optional pre-generated AI executive summary (Markdown/plain text). Rendered if present; omit to hide.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scan_results"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "generate_mlps3_report",
+    "description": "Generate a GB/T 22239-2019 等保三级 compliance pre-check report from scan results. Best used with scan_group mlps3_precheck results. Read-only.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "scan_results": {
+          "type": "string",
+          "description": "JSON string of FullScanResult from scan_group mlps3_precheck or scan_all"
+        },
+        "lang": {
+          "description": "Report language (default: zh)",
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "ai_summary": {
+          "description": "Optional pre-generated AI executive summary (Markdown/plain text). Rendered if present; omit to hide.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scan_results"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "generate_report",
+    "description": "Generate a Markdown security report from scan results. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "scan_results": {
+          "type": "string",
+          "description": "JSON string of FullScanResult from scan_all"
+        },
+        "lang": {
+          "description": "Report language (default: zh)",
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "ai_summary": {
+          "description": "Optional pre-generated AI executive summary (Markdown/plain text). Rendered if present; omit to hide.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scan_results"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "get_ai_summary_prompt",
+    "description": "Return a report-type-tailored prompt (with a grounded findings digest) that the CALLING AI should run to produce an AI security summary. Then pass the generated text back via the `ai_summary` parameter of the matching report tool (or scan_and_report). The server performs no LLM calls. Use this to make each summary specific to the report type (dashboard / security scan / HW Defense 护网 / MLPS3 等保).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "report_type": {
+          "type": "string",
+          "enum": [
+            "dashboard",
+            "html",
+            "hw_defense",
+            "mlps3"
+          ],
+          "description": "Target report type the summary is for: dashboard (overview), html (AWS security scan report), hw_defense (护网 attack-defense drill), mlps3 (等保三级 compliance)"
+        },
+        "scan_results": {
+          "type": "string",
+          "description": "JSON string of FullScanResult from scan_all / scan_group"
+        },
+        "lang": {
+          "description": "Summary language (default: zh)",
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        }
+      },
+      "required": [
+        "report_type",
+        "scan_results"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "get_setup_template",
+    "description": "Returns the CloudFormation StackSet template for deploying the cross-account security audit IAM role. Read-only.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "description": "Template format: yaml or json (default: yaml)",
+          "type": "string",
+          "enum": [
+            "yaml",
+            "json"
+          ]
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "list_groups",
+    "description": "List available scan groups with descriptions. Read-only.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "name": "list_modules",
+    "description": "List available security scan modules with descriptions. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "name": "list_org_accounts",
+    "description": "List all accounts in the AWS Organization. Useful for discovering accounts before multi-account scanning. Read-only.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region (default: server region)",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "save_results",
+    "description": "Saves scan results to local disk or S3 for dashboard display. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "scan_results": {
+          "type": "string",
+          "description": "JSON string of FullScanResult from scan_all"
+        },
+        "output_dir": {
+          "description": "Output directory (default: ~/.aws-security)",
+          "type": "string"
+        },
+        "ai_summary": {
+          "description": "Optional pre-generated AI executive summary (from get_ai_summary_prompt with report_type=dashboard). Persisted into dashboard data and rendered on the Overview; omit to hide.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scan_results"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_access_analyzer_findings",
+    "description": "Run Access Analyzer Findings security scanner only. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_all",
+    "description": "Run all security scanners in parallel (including service detection). Read-only. Does not modify any AWS resources. Supports multi-account org scanning.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        },
+        "org_mode": {
+          "description": "Enable multi-account scanning via AWS Organizations",
+          "type": "boolean"
+        },
+        "role_name": {
+          "description": "IAM role name to assume in child accounts (default: AWSSecurityMCPAudit)",
+          "type": "string"
+        },
+        "account_ids": {
+          "description": "Specific account IDs to scan (default: all org accounts)",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lang": {
+          "description": "Report language (default: zh)",
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_and_report",
+    "description": "Run a full security scan AND generate reports in one step. Avoids large data transfer between tools. Reports are saved to ~/.aws-security/reports/",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region (default: server region)",
+          "type": "string"
+        },
+        "org_mode": {
+          "description": "Enable multi-account org scanning",
+          "type": "boolean"
+        },
+        "role_name": {
+          "description": "IAM role name for cross-account scanning",
+          "type": "string"
+        },
+        "account_ids": {
+          "description": "Filter to specific account IDs",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reports": {
+          "description": "Report types to generate (default: all)",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "html",
+              "hw_defense",
+              "mlps3",
+              "markdown",
+              "all"
+            ]
+          }
+        },
+        "lang": {
+          "description": "Language: zh or en (default: zh)",
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        },
+        "ai_summary": {
+          "description": "Optional pre-generated AI executive summary (Markdown/plain text). Rendered in reports + dashboard if present; omit to hide.",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_config_rules_findings",
+    "description": "Run Config Rules Findings security scanner only. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_disaster_recovery",
+    "description": "Run Disaster Recovery security scanner only. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_dns_dangling",
+    "description": "Run Dangling DNS security scanner only. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_ecr_image_cve",
+    "description": "Deep-scan ECR image layers for critical/high CVEs missed by ECR Basic/Inspector Enhanced scanning (unmanaged binaries, distro secdb gaps). Reports gap/confirmed/reverse-gap classification against official scan results. Read-only.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        },
+        "repository_filter": {
+          "description": "Glob filter on ECR repository names (e.g. prod-*)",
+          "type": "string"
+        },
+        "max_images_per_repo": {
+          "description": "Latest-pushed N images per repo, plus any tag named 'latest' (default: 3)",
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "min_severity": {
+          "description": "Minimum CVE severity to report (default: high)",
+          "type": "string",
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ]
+        },
+        "online_cve_lookup": {
+          "description": "Enable NVD API 2.0 online lookup, cached 24h (default: false)",
+          "type": "boolean"
+        },
+        "include_confirmed": {
+          "description": "Include confirmed finding detail rows in the report (default: false)",
+          "type": "boolean"
+        },
+        "suppressions": {
+          "description": "False-positive suppression list; suppressed findings go to a suppressed[] section",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "cveId": {
+                "type": "string"
+              },
+              "imageDigestPrefix": {
+                "type": "string"
+              },
+              "component": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "cveId",
+              "reason"
+            ]
+          }
+        },
+        "max_layer_bytes": {
+          "description": "Skip images containing a layer larger than this many compressed bytes (default: 512 MB)",
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "max_image_bytes": {
+          "description": "Skip images whose compressed layers total more than this many bytes (default: 2 GB)",
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "max_binary_scan_bytes": {
+          "description": "Cap on decompressed bytes stream-scanned per candidate binary (default: 64 MB)",
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "max_repositories": {
+          "description": "Maximum number of repositories to scan; the rest are recorded in warnings (default: 50)",
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "max_total_bytes": {
+          "description": "Cumulative cap on compressed layer bytes downloaded across the whole scan (default: 20 GB)",
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "platform_preference": {
+          "description": "Platform preference order for multi-arch manifest lists, e.g. ['linux/amd64', 'linux/arm64'] (default)",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_group",
+    "description": "Run a predefined group of security scanners for a specific scenario (e.g., MLPS compliance, network defense). Read-only. Supports multi-account org scanning.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "group": {
+          "type": "string",
+          "description": "Scan group ID: mlps3_precheck, hw_defense, exposure, data_encryption, least_privilege, log_integrity, disaster_recovery, idle_resources, tag_compliance, new_account_baseline, container_security, aggregation"
+        },
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        },
+        "org_mode": {
+          "description": "Enable multi-account scanning via AWS Organizations",
+          "type": "boolean"
+        },
+        "role_name": {
+          "description": "IAM role name to assume in child accounts (default: AWSSecurityMCPAudit)",
+          "type": "string"
+        },
+        "account_ids": {
+          "description": "Specific account IDs to scan (default: all org accounts)",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lang": {
+          "description": "Report language (default: zh)",
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ]
+        }
+      },
+      "required": [
+        "group"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_guardduty_findings",
+    "description": "Run GuardDuty Findings security scanner only. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_iam_privilege_escalation",
+    "description": "Run IAM Privilege Escalation security scanner only. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_idle_resources",
+    "description": "Run Idle Resources security scanner only. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_imdsv2_enforcement",
+    "description": "Run IMDSv2 Enforcement security scanner only. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_inspector_findings",
+    "description": "Run Inspector Findings security scanner only. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_network_reachability",
+    "description": "Run Network Reachability security scanner only. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_patch_compliance_findings",
+    "description": "Run Patch Compliance Findings security scanner only. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_public_access_verify",
+    "description": "Run Public Access Verify security scanner only. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_secret_exposure",
+    "description": "Run Secret Exposure security scanner only. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_security_hub_findings",
+    "description": "Run Security Hub Findings security scanner only. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_ssl_certificate",
+    "description": "Run SSL Certificate security scanner only. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_tag_compliance",
+    "description": "Run Tag Compliance security scanner only. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_trusted_advisor_findings",
+    "description": "Run Trusted Advisor Findings security scanner only. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "scan_waf_coverage",
+    "description": "Run WAF Coverage security scanner only. Read-only. Does not modify any AWS resources.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "description": "AWS region to scan (default: server region)",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  }
+]
