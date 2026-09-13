@@ -1,9 +1,10 @@
-import type { FullScanResult, Finding, Severity, DashboardHistoryEntry, ScanResult } from "../types.js";
+import type { FullScanResult, Finding, Severity, DashboardHistoryEntry, ScanResult, ProviderId } from "../types.js";
 import {
   evaluateAllFullChecks,
   MLPS3_CATEGORY_ORDER,
   type FullCheckResult,
 } from "./mlps-report.js";
+import { cloudProviderNote } from "../data/mlps3-check-mapping.js";
 import { VERSION } from "../version.js";
 import { getI18n, type Lang } from "../i18n/index.js";
 import { getSecurityHubSource } from "../utils/sh-source.js";
@@ -88,14 +89,18 @@ const SEV_COLOR: Record<Severity, string> = {
 
 const SEVERITY_ORDER: Severity[] = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 
-/** Normalize a recommendation by replacing resource-specific identifiers with placeholders. */
-function getRecommendationTemplate(rem: string): string {
+/**
+ * Normalize a recommendation by replacing resource-specific identifiers with placeholders.
+ * Resource identifiers: AWS ARNs (`arn:aws...`, `arn:aws-cn...`) and Huawei Cloud URNs
+ * (`hws:<region>:<domainId>:<svc>:<type>:<id>`) both collapse to `{arn}`.
+ */
+export function getRecommendationTemplate(rem: string): string {
   return rem
     .replace(/\b(i-[0-9a-f]+)\b/g, '{instance}')
     .replace(/\b(vol-[0-9a-f]+)\b/g, '{volume}')
     .replace(/\b(sg-[0-9a-f]+)\b/g, '{sg}')
     .replace(/\b(eipalloc-[0-9a-f]+)\b/g, '{eip}')
-    .replace(/\b(arn:aws[-\w]*:[^"\s]+)\b/g, '{arn}')
+    .replace(/\b((?:arn:aws[-\w]*|hws):[^"\s]+)\b/g, '{arn}')
     .replace(/"[^"]+"/g, '{name}')
     .replace(/bucket \S+/g, 'bucket {name}')
     .replace(/instance \S+/g, 'instance {id}')
@@ -127,8 +132,8 @@ const SERVICE_NOT_ENABLED_PATTERNS = [
   "is not enabled",
 ];
 
-function getDisabledServices(modules: ScanResult[], lang?: Lang): Array<{ icon: string; service: string; impact: string; action: string }> {
-  const t = getI18n(lang ?? "zh");
+function getDisabledServices(modules: ScanResult[], lang?: Lang, provider?: ProviderId): Array<{ icon: string; service: string; impact: string; action: string }> {
+  const t = getI18n(lang ?? "zh", provider);
   const disabled: Array<{ icon: string; service: string; impact: string; action: string }> = [];
   for (const mod of modules) {
     const rec = t.serviceRecommendations[mod.module];
@@ -144,9 +149,9 @@ function getDisabledServices(modules: ScanResult[], lang?: Lang): Array<{ icon: 
   return disabled;
 }
 
-function buildServiceReminderHtml(modules: ScanResult[], lang?: Lang): string {
-  const t = getI18n(lang ?? "zh");
-  const disabled = getDisabledServices(modules, lang);
+function buildServiceReminderHtml(modules: ScanResult[], lang?: Lang, provider?: ProviderId): string {
+  const t = getI18n(lang ?? "zh", provider);
+  const disabled = getDisabledServices(modules, lang, provider);
   if (disabled.length === 0) return "";
 
   const items = disabled.map((svc) => `
@@ -572,7 +577,7 @@ export function generateHtmlReport(
   history?: DashboardHistoryEntry[],
   lang?: Lang,
 ): string {
-  const t = getI18n(lang ?? "zh");
+  const t = getI18n(lang ?? "zh", scanResults.provider);
   const htmlLang = (lang ?? "zh") === "zh" ? "zh-CN" : "en";
   const { summary, modules, accountId, region, scanStart, scanEnd } =
     scanResults;
@@ -1071,7 +1076,7 @@ ${trendHtml}
 
 ${top5Html}
 
-${buildServiceReminderHtml(modules, lang)}
+${buildServiceReminderHtml(modules, lang, scanResults.provider)}
 
 <section>
   <h2>${esc(t.scanStatistics)}</h2>
@@ -1109,7 +1114,7 @@ export function generateMlps3HtmlReport(
   history?: DashboardHistoryEntry[],
   lang?: Lang,
 ): string {
-  const t = getI18n(lang ?? "zh");
+  const t = getI18n(lang ?? "zh", scanResults.provider);
   const htmlLang = (lang ?? "zh") === "zh" ? "zh-CN" : "en";
   const { accountId, region, scanStart } = scanResults;
   const date = scanStart.split("T")[0];
@@ -1176,7 +1181,7 @@ export function generateMlps3HtmlReport(
   </summary>
   <div class="category-body">
     <div class="mlps-cloud-note">${esc(t.cloudItemsNote(catResults.length))}</div>
-    ${catResults.map((r) => `<div class="check-item check-cloud"><span class="check-icon">\ud83c\udfe2</span><span class="check-name">${esc(r.item.id)} ${esc(itemControl(r))}</span><span class="check-note">${esc(r.mapping.note ?? "")}</span></div>`).join("\n")}
+    ${catResults.map((r) => `<div class="check-item check-cloud"><span class="check-icon">\ud83c\udfe2</span><span class="check-name">${esc(r.item.id)} ${esc(itemControl(r))}</span><span class="check-note">${esc(cloudProviderNote(r.mapping, scanResults.provider) ?? "")}</span></div>`).join("\n")}
   </div>
 </details>`;
       }
@@ -1496,7 +1501,7 @@ ${unknownNote}
 
 ${trendHtml}
 
-${buildServiceReminderHtml(scanResults.modules, lang)}
+${buildServiceReminderHtml(scanResults.modules, lang, scanResults.provider)}
 
 ${categorySections}
 

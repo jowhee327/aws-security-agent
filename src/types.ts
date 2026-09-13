@@ -17,6 +17,10 @@ export interface Finding {
   accountId?: string;
   accountAlias?: string;
   source?: string;
+  /** Cloud provider that produced this finding; absent means "aws". */
+  provider?: ProviderId;
+  /** Huawei Cloud enterprise project ID, when known. */
+  enterpriseProjectId?: string;
 }
 
 export interface ScanResult {
@@ -30,18 +34,58 @@ export interface ScanResult {
   findings: Finding[];
 }
 
+/** Cloud provider identifier. Default (and legacy) is "aws". */
+export type ProviderId = "aws" | "huaweicloud";
+
 export interface AwsCredentials {
   accessKeyId: string;
   secretAccessKey: string;
   sessionToken: string;
 }
 
+/**
+ * Huawei Cloud access key pair. `projectId` (regional services) and `domainId`
+ * (global services) are resolved per region via IAM and may be absent here.
+ *
+ * NEVER log or serialize instances of this type; use
+ * `createHuaweiCredentials()` which makes ak/sk non-enumerable and redacts
+ * them in `toJSON()` / `util.inspect`.
+ */
+export interface HuaweiCloudCredentials {
+  ak: string;
+  sk: string;
+  securityToken?: string;
+  projectId?: string;
+  domainId?: string;
+}
+
+/** Provider-agnostic credentials carried on a ScanContext. */
+export type CloudCredentials = AwsCredentials | HuaweiCloudCredentials;
+
+export function isAwsCredentials(c: CloudCredentials | undefined): c is AwsCredentials {
+  return !!c && typeof (c as AwsCredentials).accessKeyId === "string";
+}
+
+export function isHuaweiCloudCredentials(c: CloudCredentials | undefined): c is HuaweiCloudCredentials {
+  return !!c && typeof (c as HuaweiCloudCredentials).ak === "string";
+}
+
 export interface ScanContext {
   region: string;
+  /** AWS partition (aws / aws-cn / aws-us-gov). Huawei Cloud contexts use "huaweicloud". */
   partition: string;
+  /** AWS account ID; for Huawei Cloud this is the domain ID. */
   accountId: string;
   accountAlias?: string;
-  credentials?: AwsCredentials;
+  credentials?: CloudCredentials;
+  /** Cloud provider; absent means "aws" (legacy behaviour). */
+  provider?: ProviderId;
+  /** Huawei Cloud: region-scoped project ID. */
+  projectId?: string;
+  /** Huawei Cloud: account domain ID. */
+  domainId?: string;
+  /** Huawei Cloud: enterprise project ID ("0" = default/all). */
+  enterpriseProjectId?: string;
 }
 
 export interface FullScanResult {
@@ -52,6 +96,8 @@ export interface FullScanResult {
   modules: ScanResult[];
   /** Optional pre-generated AI executive summary (client AI supplies; server never calls an LLM). */
   aiSummary?: string;
+  /** Cloud provider that produced this result; absent means "aws" (legacy serialization unchanged). */
+  provider?: ProviderId;
   summary: {
     totalFindings: number;
     critical: number;

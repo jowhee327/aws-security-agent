@@ -306,6 +306,63 @@ bucket **保持私有**（不加公开策略、不开静态网站托管），访
 
 ---
 
+## 多云支持：华为云（Phase 1）
+
+同一套工具与报告也可以扫描 **华为云** 账号。默认仍是 AWS，不传 `provider` 时行为与以往完全一致。
+
+**选择云厂商**
+
+- 所有扫描工具（`scan_all`、`scan_group`、`scan_<module>`、`scan_and_report`、`detect_services`、`list_modules`、`list_org_accounts`）新增可选参数 `provider: "aws" | "huaweicloud"`（默认 `aws`）。
+- 服务级默认值：启动参数 `--provider huaweicloud`，或环境变量 `CLOUD_PROVIDER=huaweicloud`（别名 `AWS_SECURITY_MCP_PROVIDER`）。
+- `provider: "huaweicloud"` 时 `region` 为华为云 region ID（如 `cn-north-4`）；不传或传 `"all"` 则扫描账号下全部 region 项目（通过 IAM `keystoneListProjects` 发现）。账号级模块（RMS）只跑一次，区域级模块逐 region 执行。
+
+**凭据**（只读 AK/SK；华为 SDK 不会自动读取凭据文件，由本服务解析）
+
+1. 环境变量：`HUAWEICLOUD_SDK_AK` / `HUAWEICLOUD_SDK_SK`（可选 `HUAWEICLOUD_SDK_SECURITY_TOKEN`、`HUAWEICLOUD_SDK_PROJECT_ID`、`HUAWEICLOUD_SDK_DOMAIN_ID`）。
+2. 文件：`~/.huaweicloud/credentials`（可用 `HUAWEICLOUD_CREDENTIALS_FILE` 覆盖路径），INI 格式：
+
+```ini
+[basic]
+ak = <区域服务使用的 AK>
+sk = <SK>
+
+[global]
+ak = <全局服务（IAM / RMS / Organizations）使用的 AK>
+sk = <SK>
+```
+
+各 region 的 project ID 与账号 domain ID 通过 IAM 解析一次并缓存。凭据值绝不写日志；华为 SDK 自带的 log4js 输出已被关闭（否则会把含签名 `Authorization` 头的错误日志打到 stdout，即 MCP 通道）。
+
+**支持的模块（11 个）**
+
+| 模块 | 华为云服务 | 说明 |
+|------|-----------|------|
+| `service_detection` | CTS、RMS (Config)、HSS、SecMaster | 安全服务成熟度矩阵 |
+| `config_rules_findings` | RMS 资源记录器 | 探测型（是否开启） |
+| `rms_compliance_findings` | RMS 合规策略状态 | 华为云专有聚合模块；在扫描分组与报告中替代 `security_hub_findings`（工具 `scan_rms_compliance_findings`） |
+| `public_access_verify` | OBS（ACL / 桶策略 / 公共访问阻止）、RDS 公网 IP | |
+| `secret_exposure` | FunctionGraph 环境变量、ECS user data | |
+| `ssl_certificate` | SCM、ELB 证书 | |
+| `idle_resources` | EVS、EIP、ECS、VPC 安全组 | |
+| `tag_compliance` | RMS 资源清单 | 必需标签 Environment / Project / Owner |
+| `inspector_findings` | HSS 主机漏洞 | 探测 + 汇总：无防护主机 → “HSS 未启用” finding；否则未处理的 Critical/High 漏洞逐条输出（最多 50 条），Medium/Low 以 warning 汇总 |
+| `patch_compliance_findings` | HSS 逐主机系统漏洞（`linux_vul` / `windows_vul`） | 华为云无 Patch Manager；每台存在未处理系统漏洞的防护主机一条 finding（含 Critical/High → 7.5，否则 5.5） |
+| `imdsv2_enforcement` | ECS 元数据选项（`http_tokens`） | 逐台 `showMetadataOptions`（仅运行中实例，并发 5，上限 500）；`http_tokens != required` → 7.5 |
+
+Finding 的 `resourceArn` 使用 URN `hws:<region>:<domainId>:<service>:<type>:<id>`，`accountId` 为 IAM domain ID。Markdown / HTML / 等保三级 / 护网 报告均接受华为云结果；等保“云平台负责”项按华为云措辞，Security Hub 控制号在已映射处替换为 RMS 内置策略名（如 `iam-user-mfa-enabled`、`volumes-encrypted-check`、`vpc-sg-ports-check`）。
+
+**建议的只读 IAM 系统策略**（授予审计用户 / 委托）
+
+`IAM ReadOnlyAccess`、`RMS ReadOnlyAccess`、`CTS ReadOnlyAccess`、`OBS ReadOnlyAccess`（或 `Tenant Guest`）、`ECS ReadOnlyAccess`、`EVS ReadOnlyAccess`、`VPC ReadOnlyAccess`（含 EIP）、`RDS ReadOnlyAccess`、`ELB ReadOnlyAccess`、`SCM Administrator`（无独立只读策略）、`FunctionGraph ReadOnlyAccess`、`HSS ReadOnlyAccess`、`SecMaster ReadOnlyAccess`；后续阶段还需 `WAF ReadOnlyAccess`、`DNS ReadOnlyAccess`、`CBR ReadOnlyAccess`、`CES ReadOnlyAccess`、`Organizations ReadOnlyAccess`。`Tenant Guest` 可覆盖多数读操作，但**不含 IAM 安全策略读取**。权限不足时优雅降级：模块给出 warning 并保持 `success`。
+
+**已知限制（Phase 1）**
+
+- 仅单账号。`org_mode` / `role_name` 会给出 warning 并只扫当前账号；基于 Organizations + STS `assumeAgency` 的多账号留待 Phase 2（`list_org_accounts` 对 `huaweicloud` 返回错误）。
+- 暂无 IAM 提权检测（依赖 `IAM ReadOnlyAccess`，测试账号当前无此权限）；`dns_dangling`、`network_reachability`、`disaster_recovery`、`waf_coverage`、`guardduty_findings`、`trusted_advisor_findings`、`access_analyzer_findings` 与 `scan_ecr_image_cve` 目前仍为 AWS 专属（以 `provider: "huaweicloud"` 调用会返回明确错误；扫描分组会将其列为不可用）。
+- 不按企业项目（EPS）拆分，结果覆盖整个账号。
+
+---
+
 ## 常见问题快查
 
 | 问题 | 答案 |

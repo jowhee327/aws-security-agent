@@ -1,4 +1,5 @@
-import type { FullScanResult, Finding } from "../types.js";
+import type { FullScanResult, Finding, ProviderId } from "../types.js";
+import { resolveModuleAlias } from "../providers/module-aliases.js";
 import {
   MLPS3_FULL_CHECKLIST,
   MLPS3_CATEGORY_ORDER,
@@ -15,6 +16,7 @@ export {
   MLPS3_CATEGORY_ORDER,
   MLPS3_CATEGORY_SECTION,
   getMappingById,
+  cloudProviderNote,
   type MlpsChecklistItem,
   type MlpsCheckMapping,
 } from "../data/mlps3-check-mapping.js";
@@ -40,6 +42,7 @@ export function evaluateFullCheck(
   mapping: MlpsCheckMapping,
   allFindings: Finding[],
   scanModules: Array<{ module: string; status: string }>,
+  provider?: ProviderId,
 ): FullCheckResult {
   if (mapping.type === "cloud_provider") {
     return { item, mapping, status: "cloud_provider", relatedFindings: [] };
@@ -51,8 +54,11 @@ export function evaluateFullCheck(
     return { item, mapping, status: "manual", relatedFindings: [] };
   }
 
-  // Type "auto" — check modules present and evaluate findings
-  const mods = mapping.modules ?? [];
+  // Type "auto" — check modules present and evaluate findings.
+  // For non-AWS providers the aggregation module is substituted
+  // (huaweicloud: security_hub_findings → rms_compliance_findings).
+  const mods = (mapping.modules ?? []).map((mod) => resolveModuleAlias(mod, provider));
+  const isHuawei = provider === "huaweicloud";
 
   const allModulesPresent = mods.every((mod) =>
     scanModules.some((m) => m.module === mod && m.status === "success"),
@@ -62,9 +68,31 @@ export function evaluateFullCheck(
     return { item, mapping, status: "unknown", relatedFindings: [] };
   }
 
+  if (isHuawei && mapping.securityHubControlIds?.length && !mapping.rmsPolicyAssignmentNames?.length) {
+    // The check is only defined through AWS Security Hub control IDs; without an
+    // RMS policy mapping the aggregation module cannot be evaluated on Huawei Cloud.
+    const nonAggregation = mods.filter((mod) => mod !== "rms_compliance_findings");
+    if (nonAggregation.length === 0) {
+      return { item, mapping, status: "unknown", relatedFindings: [] };
+    }
+  }
+
   let relatedFindings: Finding[];
 
-  if (mapping.securityHubControlIds?.length) {
+  if (isHuawei && mods.includes("rms_compliance_findings") && (mapping.securityHubControlIds?.length || mapping.rmsPolicyAssignmentNames?.length)) {
+    // Hybrid (Huawei Cloud): rms_compliance_findings filtered by RMS policy assignment
+    // names, other scanner modules matched at module level (all findings count)
+    const names = (mapping.rmsPolicyAssignmentNames ?? []).map((n) => n.toLowerCase());
+    relatedFindings = allFindings.filter((f) => {
+      if (!mods.includes(f.module ?? "")) return false;
+      if (f.module === "rms_compliance_findings") {
+        if (names.length === 0) return false;
+        const text = `${f.title} ${f.impact}`.toLowerCase();
+        return names.some((n) => text.includes(n));
+      }
+      return true;
+    });
+  } else if (mapping.securityHubControlIds?.length) {
     // Hybrid: security_hub_findings filtered by specific control IDs,
     // other scanner modules matched at module level (all findings count)
     relatedFindings = allFindings.filter((f) => {
@@ -118,7 +146,7 @@ export function evaluateAllFullChecks(
         relatedFindings: [],
       };
     }
-    return evaluateFullCheck(item, mapping, allFindings, scanModules);
+    return evaluateFullCheck(item, mapping, allFindings, scanModules, scanResults.provider);
   });
 }
 
@@ -317,7 +345,7 @@ export function evaluateCheck(
 }
 
 export function generateMlps3Report(scanResults: FullScanResult, lang?: Lang): string {
-  const t = getI18n(lang ?? "zh");
+  const t = getI18n(lang ?? "zh", scanResults.provider);
   const isEn = (lang ?? "zh") === "en";
   const { accountId, region, scanStart } = scanResults;
   const scanTime = scanStart.replace("T", " ").replace(/\.\d+Z$/, " UTC");

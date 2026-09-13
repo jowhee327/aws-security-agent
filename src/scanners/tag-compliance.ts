@@ -19,7 +19,7 @@ import { ScanResult, ScanContext, Finding } from "../types.js";
 import { createClient } from "../utils/aws-client.js";
 import { severityFromScore, priorityFromSeverity } from "../utils/risk-scoring.js";
 
-const DEFAULT_REQUIRED_TAGS = ["Environment", "Project", "Owner"];
+export const DEFAULT_REQUIRED_TAGS = ["Environment", "Project", "Owner"];
 
 function makeFinding(opts: {
   riskScore: number;

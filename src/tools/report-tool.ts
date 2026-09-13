@@ -21,7 +21,7 @@ function formatDuration(start: string, end: string): string {
 }
 
 export function generateMarkdownReport(scanResults: FullScanResult, lang?: Lang): string {
-  const t = getI18n(lang ?? "zh");
+  const t = getI18n(lang ?? "zh", scanResults.provider);
   const { summary, modules, accountId, region, scanStart, scanEnd } =
     scanResults;
   const date = scanStart.split("T")[0];

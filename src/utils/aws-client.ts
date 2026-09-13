@@ -1,4 +1,5 @@
 import { STSClient, GetCallerIdentityCommand } from "@aws-sdk/client-sts";
+import { isAwsCredentials, type CloudCredentials } from "../types.js";
 
 let cachedAccountId: string | undefined;
 
@@ -27,9 +28,10 @@ export async function getAccountId(region?: string): Promise<string> {
 export function createClient<T>(
   ClientClass: new (config: any) => T,
   region?: string,
-  credentials?: { accessKeyId: string; secretAccessKey: string; sessionToken: string },
+  credentials?: CloudCredentials,
 ): T {
   const config: any = { region: region ?? "us-east-1" };
-  if (credentials) config.credentials = credentials;
+  // Only AWS-shaped credentials are meaningful for AWS SDK clients.
+  if (isAwsCredentials(credentials)) config.credentials = credentials;
   return new ClientClass(config);
 }

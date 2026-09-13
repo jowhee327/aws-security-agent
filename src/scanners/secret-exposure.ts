@@ -17,7 +17,19 @@ import { runWithConcurrency } from "../utils/concurrency.js";
 
 const USERDATA_CONCURRENCY = 5;
 
-const SECRET_PATTERNS: Array<{ name: string; pattern: RegExp; matchType: "value" | "name" }> = [
+/**
+ * A secret detector. `matchType: "value"` patterns run against env-var values /
+ * user data; `matchType: "name"` patterns run against env-var names only.
+ * Shared with the Huawei Cloud secret_exposure scanner
+ * (src/providers/huaweicloud/scanners/secret-exposure.ts).
+ */
+export interface SecretPattern {
+  name: string;
+  pattern: RegExp;
+  matchType: "value" | "name";
+}
+
+export const SECRET_PATTERNS: readonly SecretPattern[] = [
   { name: "AWS Access Key", pattern: /AKIA[0-9A-Z]{16}/, matchType: "value" },
   { name: "Private Key", pattern: /-----BEGIN.*PRIVATE KEY-----/, matchType: "value" },
   { name: "Password in env var", pattern: /^(PASSWORD|PASSWD|DB_PASSWORD|SECRET|API_KEY|APIKEY|TOKEN|AUTH_TOKEN)$/i, matchType: "name" },

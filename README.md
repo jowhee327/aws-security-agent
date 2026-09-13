@@ -278,7 +278,7 @@ This uploads the dashboard files (including your latest `data.json`) to the buck
 | `save_results` | Save scan results for the dashboard |
 | `get_setup_template` | Get CloudFormation StackSet template for cross-account audit role |
 
-All tools accept an optional `region` parameter (defaults to the server's configured region).
+All tools accept an optional `region` parameter (defaults to the server's configured region). Scan tools also accept an optional `provider` parameter (`aws` by default, or `huaweicloud` — see [Multi-cloud](#multi-cloud-huawei-cloud-phase-1)).
 
 ## Recommended IAM Policy
 
@@ -475,6 +475,61 @@ For scanning across an AWS Organization:
 3. **Optional filtering** — Pass `account_ids` to scan specific accounts instead of the full organization.
 
 The StackSet templates are available in the `templates/` directory in both YAML and JSON formats.
+
+## Multi-cloud (Huawei Cloud, Phase 1)
+
+The server can scan a **Huawei Cloud** account with the same tools and report formats. AWS remains the default; nothing changes unless you pass `provider`.
+
+**Selecting the provider**
+
+- Every scan tool (`scan_all`, `scan_group`, `scan_<module>`, `scan_and_report`, `detect_services`, `list_modules`, `list_org_accounts`) accepts an optional `provider: "aws" | "huaweicloud"` parameter (default `aws`).
+- Server-wide default: `aws-security-mcp --provider huaweicloud`, or the environment variable `CLOUD_PROVIDER=huaweicloud` (alias `AWS_SECURITY_MCP_PROVIDER`).
+- Region semantics with `provider: "huaweicloud"`: `region` is a Huawei Cloud region ID (e.g. `cn-north-4`). Omit it, or pass `"all"`, to scan every region project of the account (discovered via IAM `keystoneListProjects`). Account-wide modules (RMS) run once; regional modules run once per region.
+
+**Credentials** (read-only access key pair; the SDK does not read the file itself, the server parses it)
+
+1. Environment: `HUAWEICLOUD_SDK_AK` / `HUAWEICLOUD_SDK_SK` (optional `HUAWEICLOUD_SDK_SECURITY_TOKEN`, `HUAWEICLOUD_SDK_PROJECT_ID`, `HUAWEICLOUD_SDK_DOMAIN_ID`).
+2. File: `~/.huaweicloud/credentials` (override with `HUAWEICLOUD_CREDENTIALS_FILE`) with an INI layout:
+
+```ini
+[basic]
+ak = <access key for regional services>
+sk = <secret key>
+
+[global]
+ak = <access key for global services: IAM / RMS / Organizations>
+sk = <secret key>
+```
+
+Project IDs (per region) and the domain ID are resolved once via IAM and cached. Credential values are never logged; the Huawei SDK's built-in log4js output is disabled because it would otherwise print signed `Authorization` headers to stdout (the MCP transport).
+
+**Supported modules (11)**
+
+| Module | Huawei Cloud services | Notes |
+|--------|-----------------------|-------|
+| `service_detection` | CTS, RMS (Config), HSS, SecMaster | Security-service maturity matrix |
+| `config_rules_findings` | RMS tracker | Detection only (recorder enabled?) |
+| `rms_compliance_findings` | RMS policy states | Huawei-only aggregation module; substitutes `security_hub_findings` in scan groups and reports (`scan_rms_compliance_findings`) |
+| `public_access_verify` | OBS (ACL / bucket policy / public access block), RDS public IPs | |
+| `secret_exposure` | FunctionGraph env vars, ECS user data | |
+| `ssl_certificate` | SCM, ELB certificates | |
+| `idle_resources` | EVS, EIP, ECS, VPC security groups | |
+| `tag_compliance` | RMS resource inventory | Required tags: Environment / Project / Owner |
+| `inspector_findings` | HSS host vulnerabilities | Detection + summary: no protected hosts → "HSS not enabled" finding; otherwise unhandled Critical/High vulnerabilities as findings (top 50), Medium/Low summarised in a warning |
+| `patch_compliance_findings` | HSS per-host OS vulnerabilities (`linux_vul` / `windows_vul`) | Huawei Cloud has no Patch Manager; one finding per protected host with unhandled OS vulnerabilities (Critical/High → 7.5, else 5.5) |
+| `imdsv2_enforcement` | ECS metadata options (`http_tokens`) | Per-server `showMetadataOptions` (running servers, concurrency 5, cap 500); `http_tokens != required` → 7.5 |
+
+Findings use the URN `hws:<region>:<domainId>:<service>:<type>:<id>` in `resourceArn`; `accountId` is the IAM domain ID. Report generators (Markdown / HTML / MLPS Level 3 / HW Defense) accept Huawei results; MLPS "cloud provider" items are worded for Huawei Cloud and Security Hub control IDs are replaced by RMS built-in policy names where mapped (e.g. `iam-user-mfa-enabled`, `volumes-encrypted-check`, `vpc-sg-ports-check`).
+
+**Recommended read-only IAM system policies** (attach to the audit user / agency)
+
+`IAM ReadOnlyAccess`, `RMS ReadOnlyAccess`, `CTS ReadOnlyAccess`, `OBS ReadOnlyAccess` (or `Tenant Guest`), `ECS ReadOnlyAccess`, `EVS ReadOnlyAccess`, `VPC ReadOnlyAccess` (includes EIP), `RDS ReadOnlyAccess`, `ELB ReadOnlyAccess`, `SCM Administrator` (no dedicated read-only policy), `FunctionGraph ReadOnlyAccess`, `HSS ReadOnlyAccess`, `SecMaster ReadOnlyAccess`; for later phases also `WAF ReadOnlyAccess`, `DNS ReadOnlyAccess`, `CBR ReadOnlyAccess`, `CES ReadOnlyAccess`, `Organizations ReadOnlyAccess`. `Tenant Guest` covers most reads but **not** IAM security-policy reads. Missing permissions degrade gracefully: the module reports a warning and stays `success`.
+
+**Known limitations (Phase 1)**
+
+- Single account only. `org_mode` / `role_name` emit a warning and scan the current account; multi-account via Organizations + STS `assumeAgency` is reserved for Phase 2 (`list_org_accounts` returns an error for `huaweicloud`).
+- No IAM privilege-escalation scanner yet (requires `IAM ReadOnlyAccess`, which the reference test account lacks); `dns_dangling`, `network_reachability`, `disaster_recovery`, `waf_coverage`, `guardduty_findings`, `trusted_advisor_findings`, `access_analyzer_findings` and `scan_ecr_image_cve` are AWS-only for now (requesting them with `provider: "huaweicloud"` returns a clear error; scan groups list them as unavailable).
+- No enterprise-project (EPS) splitting; results cover the whole account.
 
 ## Output Format
 

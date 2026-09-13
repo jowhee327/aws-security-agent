@@ -180,6 +180,7 @@ export const zhI18n: I18n = {
     inspector_findings: "Inspector",
     trusted_advisor_findings: "Trusted Advisor",
     config_rules_findings: "Config Rules",
+    rms_compliance_findings: "RMS 合规检查",
     access_analyzer_findings: "Access Analyzer",
     patch_compliance_findings: "补丁合规",
     imdsv2_enforcement: "IMDSv2 强制",

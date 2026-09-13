@@ -1,6 +1,7 @@
 import type { FullScanResult, Finding, Severity } from "../types.js";
 import { VERSION } from "../version.js";
 import { getI18n, type Lang } from "../i18n/index.js";
+import { resolveModuleAlias } from "../providers/module-aliases.js";
 
 // ---------------------------------------------------------------------------
 // Helpers (same XSS-safe helpers as html-report.ts)
@@ -210,11 +211,14 @@ export function generateHwDefenseHtmlReport(
   scanResults: FullScanResult,
   lang?: Lang,
 ): string {
-  const t = getI18n(lang ?? "zh");
+  const t = getI18n(lang ?? "zh", scanResults.provider);
   const htmlLang = (lang ?? "zh") === "zh" ? "zh-CN" : "en";
   const { accountId, region, scanStart } = scanResults;
   const date = scanStart.split("T")[0];
   const scanTime = scanStart.replace("T", " ").replace(/\.\d+Z$/, " UTC");
+  // Aggregation module whose findings are distributed by keyword (Security Hub on AWS,
+  // RMS compliance on Huawei Cloud).
+  const aggregationModule = resolveModuleAlias("security_hub_findings", scanResults.provider);
 
   // Build module findings map
   const moduleMap = new Map<string, Finding[]>();
@@ -253,7 +257,7 @@ export function generateHwDefenseHtmlReport(
 
     // Collect SH findings by keyword match (dedup across sections)
     if (section.shKeywords.length > 0) {
-      const shFindings = moduleMap.get("security_hub_findings") ?? [];
+      const shFindings = moduleMap.get(aggregationModule) ?? [];
       for (const f of shFindings) {
         const key = shFindingKey(f);
         if (assignedShFindings.has(key)) continue;
@@ -271,7 +275,7 @@ export function generateHwDefenseHtmlReport(
     // Check if we actually have scanner results for any of the auto modules
     const hasAutoResults = hasAutoModules && (
       section.autoModules.some((m) => moduleMap.has(m)) ||
-      (section.shKeywords.length > 0 && moduleMap.has("security_hub_findings"))
+      (section.shKeywords.length > 0 && moduleMap.has(aggregationModule))
     );
 
     // Manual items from i18n
