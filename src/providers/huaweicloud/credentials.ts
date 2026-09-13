@@ -22,6 +22,7 @@ import { join } from "path";
 import { inspect } from "util";
 import type { HuaweiCloudCredentials } from "../../types.js";
 import type { RegionScope } from "../types.js";
+import { registerHwSecret } from "./errors.js";
 
 export const HUAWEI_CREDENTIALS_FILE_ENV = "HUAWEICLOUD_CREDENTIALS_FILE";
 export const HUAWEI_ENV_AK = "HUAWEICLOUD_SDK_AK";
@@ -67,9 +68,14 @@ export function createHuaweiCredentials(input: HuaweiCredentialInput): HuaweiClo
     if (value === undefined) return;
     Object.defineProperty(obj, key, { value, enumerable: false, writable: false, configurable: false });
   };
+  const securityToken = input.securityToken?.trim() || undefined;
   define("ak", ak);
   define("sk", sk);
-  define("securityToken", input.securityToken?.trim() || undefined);
+  define("securityToken", securityToken);
+  // Let the diagnostic redactor strip the literal values from any error text.
+  registerHwSecret(ak);
+  registerHwSecret(sk);
+  registerHwSecret(securityToken);
   if (input.projectId) obj.projectId = input.projectId.trim();
   if (input.domainId) obj.domainId = input.domainId.trim();
 

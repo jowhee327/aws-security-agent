@@ -7,6 +7,7 @@ import type { Scanner } from "./scanners/base.js";
 import { runAllScanners, runMultiAccountScanners, buildScanContext, HUAWEI_ALL_REGIONS } from "./scanners/runner.js";
 import { getProvider, isProviderId, listProviderIds, DEFAULT_PROVIDER_ID } from "./providers/registry.js";
 import { resolveModuleAlias } from "./providers/module-aliases.js";
+import { redactHwDiagnostic } from "./providers/huaweicloud/errors.js";
 import { ServiceDetectionScanner } from "./scanners/service-detection.js";
 import type { ServiceDetectionResult } from "./scanners/service-detection.js";
 import { SecretExposureScanner } from "./scanners/secret-exposure.js";
@@ -277,6 +278,15 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
   /** Region semantics per provider: AWS = server default; Huawei Cloud = every region project unless specified. */
   const regionFor = (region: string | undefined, provider: ProviderId): string =>
     provider === "aws" ? (region ?? defaultRegion) : (region ?? HUAWEI_ALL_REGIONS);
+  /**
+   * Tool-level error text. AWS messages are returned verbatim (byte-identical to the
+   * pre-multicloud behaviour); Huawei Cloud messages go through the diagnostic redactor
+   * because SDK / proxy errors may echo the signed request (Authorization header, AK).
+   */
+  const toolErrorText = (err: unknown, provider: ProviderId | undefined): string => {
+    const msg = err instanceof Error ? err.message : String(err);
+    return `Error: ${provider === "huaweicloud" ? redactHwDiagnostic(msg) : msg}`;
+  };
   const moduleUnavailableError = (moduleName: string, provider: ProviderId) => ({
     content: [{
       type: "text" as const,
@@ -310,8 +320,8 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
       provider: providerParam(),
     },
     async ({ region, org_mode, role_name, account_ids, lang, provider }) => {
+      const p = resolveProvider(provider);
       try {
-        const p = resolveProvider(provider);
         const r = regionFor(region, p);
         const scanners = scannersFor(p);
         let result: FullScanResult;
@@ -334,7 +344,7 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
           ],
         };
       } catch (err) {
-        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+        return { content: [{ type: "text", text: toolErrorText(err, p) }], isError: true };
       }
     },
   );
@@ -373,8 +383,8 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
         provider: providerParam(),
       },
       async ({ region, provider }) => {
+        const p = provider ?? defaultProviderFor(moduleName);
         try {
-          const p = provider ?? defaultProviderFor(moduleName);
           const scanner = scannerMapFor(p).get(moduleName);
           if (!scanner) return moduleUnavailableError(moduleName, p);
           const r = regionFor(region, p);
@@ -387,7 +397,7 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
             ],
           };
         } catch (err) {
-          return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+          return { content: [{ type: "text", text: toolErrorText(err, p) }], isError: true };
         }
       },
     );
@@ -470,8 +480,8 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
       provider: providerParam(),
     },
     async ({ group, region, org_mode, role_name, account_ids, lang, provider }) => {
+      const p = resolveProvider(provider);
       try {
-        const p = resolveProvider(provider);
         const groupDef = SCAN_GROUPS[group];
         if (!groupDef) {
           const available = Object.keys(SCAN_GROUPS).join(", ");
@@ -584,7 +594,7 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
 
         return { content };
       } catch (err) {
-        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+        return { content: [{ type: "text", text: toolErrorText(err, p) }], isError: true };
       }
     },
   );
@@ -771,18 +781,52 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
           };
         }
 
-        const serviceImpacts: Record<string, string> = {
-          "CloudTrail": "API activity logging",
-          "Security Hub": "+300 security checks",
-          "GuardDuty": "Threat detection",
-          "Inspector": "Vulnerability scanning",
-          "AWS Config": "Configuration tracking",
-        };
-        const serviceFreeTrials: Record<string, boolean> = {
-          "Security Hub": true,
-          "GuardDuty": true,
-          "Inspector": true,
-        };
+        // Provider-specific tables. AWS values are unchanged; Huawei Cloud uses the
+        // service names emitted by providers/huaweicloud/scanners/service-detection.ts
+        // (CTS / RMS (Config) / HSS / SecMaster; 4 services → top maturity level "advanced").
+        const isHuawei = parsed.provider === "huaweicloud";
+        const serviceImpacts: Record<string, string> = isHuawei
+          ? {
+              "CTS": "API activity audit logging",
+              "RMS (Config)": "Configuration tracking + compliance rules",
+              "HSS": "Host vulnerability / intrusion detection",
+              "SecMaster": "Centralized security operations",
+            }
+          : {
+              "CloudTrail": "API activity logging",
+              "Security Hub": "+300 security checks",
+              "GuardDuty": "Threat detection",
+              "Inspector": "Vulnerability scanning",
+              "AWS Config": "Configuration tracking",
+            };
+        // Suffix appended to a recommendation line ("" = none).
+        const serviceTrialNotes: Record<string, string> = isHuawei
+          ? {
+              "CTS": " \u2014 management tracker is free of charge",
+              "RMS (Config)": " \u2014 resource recorder is free of charge",
+              "HSS": " \u2014 check the console for the current free-trial / basic edition offer",
+              "SecMaster": " \u2014 check the console for the current free-trial offer",
+            }
+          : {
+              "Security Hub": " \u2014 free trial available",
+              "GuardDuty": " \u2014 free trial available",
+              "Inspector": " \u2014 free trial available",
+            };
+        const priorityOrder = isHuawei
+          ? ["CTS", "RMS (Config)", "HSS", "SecMaster"]
+          : ["Security Hub", "GuardDuty", "Inspector", "AWS Config", "CloudTrail"];
+        const nextMilestones: Record<string, { level: string; target: number; suggestions: string[] }> = isHuawei
+          ? {
+              basic: { level: "Intermediate", target: 2, suggestions: ["CTS", "RMS (Config)"] },
+              intermediate: { level: "Advanced", target: 4, suggestions: ["HSS", "SecMaster"] },
+            }
+          : {
+              basic: { level: "Intermediate", target: 2, suggestions: ["Security Hub", "GuardDuty"] },
+              intermediate: { level: "Advanced", target: 4, suggestions: ["Inspector", "AWS Config"] },
+              advanced: { level: "Comprehensive", target: 5, suggestions: ["CloudTrail"] },
+            };
+        const topLevel = isHuawei ? "advanced" : "comprehensive";
+        const topLevelLabel = isHuawei ? "Advanced" : "Comprehensive";
 
         const services = detection.services;
         const coveragePercent = detection.coveragePercent;
@@ -823,14 +867,14 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
           lines.push("");
           lines.push("### Recommendations (Priority Order)");
           lines.push("");
-          // Priority order: Security Hub, GuardDuty, Inspector, Config, CloudTrail
-          const priorityOrder = ["Security Hub", "GuardDuty", "Inspector", "AWS Config", "CloudTrail"];
+          // Priority order — AWS: Security Hub, GuardDuty, Inspector, Config, CloudTrail;
+          // Huawei Cloud: CTS, RMS (Config), HSS, SecMaster.
           const sorted = disabled.sort(
             (a, b) => priorityOrder.indexOf(a.name) - priorityOrder.indexOf(b.name),
           );
           let idx = 1;
           for (const svc of sorted) {
-            const trial = serviceFreeTrials[svc.name] ? " \u2014 free trial available" : "";
+            const trial = serviceTrialNotes[svc.name] ?? "";
             lines.push(`${idx}. Enable ${svc.name}${trial}`);
             idx++;
           }
@@ -846,12 +890,7 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
           lines.push(`- **Current**: ${maturityLevel.charAt(0).toUpperCase() + maturityLevel.slice(1)} (${enabledCount}/${totalServices} services)`);
         }
 
-        if (maturityLevel !== "comprehensive") {
-          const nextMilestones: Record<string, { level: string; target: number; suggestions: string[] }> = {
-            basic: { level: "Intermediate", target: 2, suggestions: ["Security Hub", "GuardDuty"] },
-            intermediate: { level: "Advanced", target: 4, suggestions: ["Inspector", "AWS Config"] },
-            advanced: { level: "Comprehensive", target: 5, suggestions: ["CloudTrail"] },
-          };
+        if (maturityLevel !== topLevel) {
           const next = nextMilestones[maturityLevel];
           if (next) {
             const remaining = next.suggestions.filter((s) =>
@@ -861,7 +900,7 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
               lines.push(`- **Next milestone**: ${next.level} (${next.target}/${knownCount}) \u2014 enable ${remaining.join(" + ")}`);
             }
           }
-          lines.push(`- **Target**: Comprehensive (${knownCount}/${knownCount})`);
+          lines.push(`- **Target**: ${topLevelLabel} (${knownCount}/${knownCount})`);
         }
 
         lines.push("");
@@ -1013,8 +1052,8 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
       provider: providerParam(),
     },
     async ({ region, org_mode, role_name, account_ids, reports, lang, ai_summary, provider }) => {
+      const p = resolveProvider(provider);
       try {
-        const p = resolveProvider(provider);
         const r = regionFor(region, p);
         const l = (lang ?? "zh") as Lang;
         const reportTypes = reports ?? ["all"];
@@ -1086,7 +1125,7 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
           }],
         };
       } catch (err) {
-        return { content: [{ type: "text" as const, text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+        return { content: [{ type: "text" as const, text: toolErrorText(err, p) }], isError: true };
       }
     },
   );

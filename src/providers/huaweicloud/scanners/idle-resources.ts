@@ -8,12 +8,17 @@
  *     (Huawei exposes no stop timestamp; the server's `updated` time —
  *     the last state change — is used as the stop time proxy. Servers
  *     without a parseable `updated` produce a warning, as on AWS.)
- *  4. VPC security groups not referenced by any ECS server           → 2.0
- *     (skipped when the ECS listing failed, to avoid false positives;
- *     the `default` group is never reported.)
+ *  4. VPC security groups not referenced by any ECS server NOR by any
+ *     VPC port (ELB, RDS, CCE, NAT, ENIs, ...)                        → 2.0
+ *     The set of "in use" groups is the union of ECS `security_groups`
+ *     and VPC v2 `listPorts` → `security_groups[]`. The check is skipped
+ *     (with a warning) when either listing is unavailable or the port
+ *     listing was truncated, to avoid false positives; the `default`
+ *     group is never reported.
  *
  * Pagination: EVS `offset`/`limit` (+ `count`), EIP `marker`(= last id)/`limit`,
- * ECS `offset`(page)/`limit` (+ `count`), VPC `marker`(= last id)/`limit`.
+ * ECS `offset`(page)/`limit` (+ `count`), VPC ports / security groups
+ * `marker`(= last id)/`limit`.
  *
  * Graceful degradation: 403 / not enabled per service → warning, continue.
  * Any other failure → status "error" (as the AWS scanner).
@@ -24,7 +29,7 @@ import { severityFromScore, priorityFromSeverity } from "../../../utils/risk-sco
 import { hwClient } from "../client.js";
 import { degradeHwError, describeHwError } from "../errors.js";
 import { toResourceUrn } from "../urn.js";
-import { hwCredentialsFromContext, hwRegionScopeFromContext, parseHwTimestamp } from "./shared.js";
+import { hwCredentialsFromContext, hwRegionScopeFromContext, parseHwTimestamp, MarkerGuard, repeatedMarkerWarning } from "./shared.js";
 
 export const EVS_PAGE_SIZE = 100;
 export const EVS_MAX_VOLUMES = 2000;
@@ -34,6 +39,8 @@ export const ECS_PAGE_SIZE = 100;
 export const ECS_MAX_SERVERS = 1000;
 export const SG_PAGE_SIZE = 100;
 export const SG_MAX_GROUPS = 2000;
+export const PORT_PAGE_SIZE = 200;
+export const PORT_MAX_PORTS = 10000;
 export const STOPPED_DAYS_THRESHOLD = 30;
 const MAX_PAGES = 100;
 
@@ -100,6 +107,18 @@ interface LooseListSecurityGroupsResponse {
   securityGroups?: LooseSecurityGroup[];
 }
 
+/** VPC v2 port (ENI): `security_groups` is a list of SG ids. */
+interface LoosePort {
+  id?: string;
+  device_owner?: string;
+  deviceOwner?: string;
+  security_groups?: string[];
+  securityGroups?: string[];
+}
+interface LooseListPortsResponse {
+  ports?: LoosePort[];
+}
+
 /** Minimal client surfaces (tests inject fakes). */
 export interface EvsLikeClient {
   listVolumes(req?: unknown): Promise<unknown>;
@@ -112,6 +131,7 @@ export interface EcsLikeClient {
 }
 export interface VpcLikeClient {
   listSecurityGroups(req?: unknown): Promise<unknown>;
+  listPorts(req?: unknown): Promise<unknown>;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -149,10 +169,12 @@ async function listByIdMarker<T extends { id?: string }>(
   pick: (resp: unknown) => T[] | undefined,
   pageSize: number,
   max: number,
-): Promise<{ items: T[]; truncated: boolean }> {
+): Promise<{ items: T[]; truncated: boolean; repeatedMarker: boolean }> {
   const items: T[] = [];
   let marker: string | undefined;
   let truncated = false;
+  let repeatedMarker = false;
+  const markers = new MarkerGuard();
   for (let page = 0; page < MAX_PAGES; page++) {
     const req: Record<string, unknown> = { limit: pageSize };
     if (marker !== undefined) req.marker = marker;
@@ -165,10 +187,15 @@ async function listByIdMarker<T extends { id?: string }>(
     }
     if (batch.length === 0 || batch.length < pageSize) break;
     const last = batch[batch.length - 1]?.id;
-    if (!last || last === marker) break;
+    if (!last) break;
+    if (!markers.accept(last)) {
+      // The server handed back a page ending in an id we already used as marker: stop instead of spinning.
+      repeatedMarker = true;
+      break;
+    }
     marker = last;
   }
-  return { items, truncated };
+  return { items, truncated, repeatedMarker };
 }
 
 /* ------------------------------------------------------------------------ */
@@ -247,13 +274,14 @@ export class HuaweiIdleResourcesScanner implements Scanner {
         const { EipClient } = await import("@huaweicloud/huaweicloud-sdk-eip/v2/EipClient.js");
         const eip = (await hwClient(EipClient, "eip", creds, scope)) as unknown as EipLikeClient;
 
-        const { items: publicips, truncated } = await listByIdMarker<LoosePublicip>(
+        const { items: publicips, truncated, repeatedMarker } = await listByIdMarker<LoosePublicip>(
           (req) => eip.listPublicips(req),
           (resp) => (Array.isArray((resp as LooseListPublicipsResponse | undefined)?.publicips) ? (resp as LooseListPublicipsResponse).publicips : undefined),
           EIP_PAGE_SIZE,
           EIP_MAX_ADDRESSES,
         );
         if (truncated) warnings.push(`EIP: more than ${EIP_MAX_ADDRESSES} public IPs; only the first ${EIP_MAX_ADDRESSES} were checked.`);
+        if (repeatedMarker) warnings.push(repeatedMarkerWarning("EIP", "public IPs"));
 
         resourcesScanned += publicips.length;
 
@@ -343,7 +371,7 @@ export class HuaweiIdleResourcesScanner implements Scanner {
         warnings.push(degraded);
       }
 
-      // 4. Security groups not referenced by any ECS server
+      // 4. Security groups not referenced by any ECS server nor any VPC port
       if (servers === undefined) {
         warnings.push("VPC: security group usage check skipped because the ECS server listing was unavailable.");
       } else {
@@ -351,48 +379,84 @@ export class HuaweiIdleResourcesScanner implements Scanner {
           const { VpcClient } = await import("@huaweicloud/huaweicloud-sdk-vpc");
           const vpc = (await hwClient(VpcClient, "vpc", creds, scope)) as unknown as VpcLikeClient;
 
-          const { items: groups, truncated } = await listByIdMarker<LooseSecurityGroup>(
-            (req) => vpc.listSecurityGroups(req),
-            (resp) => {
-              const r = resp as LooseListSecurityGroupsResponse | undefined;
-              const list = r?.security_groups ?? r?.securityGroups;
-              return Array.isArray(list) ? list : undefined;
-            },
-            SG_PAGE_SIZE,
-            SG_MAX_GROUPS,
-          );
-          if (truncated) warnings.push(`VPC: more than ${SG_MAX_GROUPS} security groups; only the first ${SG_MAX_GROUPS} were checked.`);
-
-          const usedSgIds = new Set<string>();
-          for (const srv of servers) {
-            for (const g of srv.security_groups ?? srv.securityGroups ?? []) {
-              if (g?.id) usedSgIds.add(g.id);
+          // 4a. Ports (ENIs) — the authoritative attachment source for ELB / RDS / CCE / NAT / ECS NICs.
+          // Unavailable or incomplete → skip the whole check rather than report false positives.
+          let ports: LoosePort[] | undefined;
+          try {
+            const portsPage = await listByIdMarker<LoosePort>(
+              (req) => vpc.listPorts(req),
+              (resp) => (Array.isArray((resp as LooseListPortsResponse | undefined)?.ports) ? (resp as LooseListPortsResponse).ports : undefined),
+              PORT_PAGE_SIZE,
+              PORT_MAX_PORTS,
+            );
+            if (portsPage.truncated) {
+              warnings.push(
+                `VPC: more than ${PORT_MAX_PORTS} ports; security group usage check skipped because port attachments would be incomplete.`,
+              );
+            } else if (portsPage.repeatedMarker) {
+              warnings.push(repeatedMarkerWarning("VPC", "ports"));
+              warnings.push("VPC: security group usage check skipped because the port listing was incomplete.");
+            } else {
+              ports = portsPage.items;
             }
+          } catch (err) {
+            const degraded = degradeHwError("VPC ports", err);
+            if (!degraded) throw err;
+            warnings.push(degraded);
+            warnings.push("VPC: security group usage check skipped because the port listing was unavailable.");
           }
 
-          resourcesScanned += groups.length;
-
-          for (const sg of groups) {
-            const sgId = sg.id ?? "unknown";
-            // The default security group cannot be deleted — skip it, as on AWS.
-            if (sg.name === "default") continue;
-            if (usedSgIds.has(sgId)) continue;
-            findings.push(
-              makeFinding({
-                riskScore: 2.0,
-                title: `Security group ${sgId} is not attached to any ECS server`,
-                resourceType: "HuaweiCloud::VPC::SecurityGroup",
-                resourceId: sgId,
-                resourceArn: toResourceUrn("vpc", "security-group", sgId, region, domainId),
-                region,
-                description: `Security group "${sg.name ?? "unknown"}" (${sgId}) is not associated with any ECS server in this region.`,
-                impact: "Unused security groups add clutter and may cause confusion during security reviews.",
-                remediationSteps: [
-                  "Verify the security group is not referenced by other resources (e.g., RDS instances, ELB, ENIs/ports, CCE nodes).",
-                  "Delete the security group if it is no longer needed.",
-                ],
-              }),
+          if (ports !== undefined) {
+            const { items: groups, truncated, repeatedMarker } = await listByIdMarker<LooseSecurityGroup>(
+              (req) => vpc.listSecurityGroups(req),
+              (resp) => {
+                const r = resp as LooseListSecurityGroupsResponse | undefined;
+                const list = r?.security_groups ?? r?.securityGroups;
+                return Array.isArray(list) ? list : undefined;
+              },
+              SG_PAGE_SIZE,
+              SG_MAX_GROUPS,
             );
+            if (truncated) warnings.push(`VPC: more than ${SG_MAX_GROUPS} security groups; only the first ${SG_MAX_GROUPS} were checked.`);
+            if (repeatedMarker) warnings.push(repeatedMarkerWarning("VPC", "security groups"));
+
+            // Union of ECS-declared groups and port-attached groups.
+            const usedSgIds = new Set<string>();
+            for (const srv of servers) {
+              for (const g of srv.security_groups ?? srv.securityGroups ?? []) {
+                if (g?.id) usedSgIds.add(g.id);
+              }
+            }
+            for (const port of ports) {
+              for (const id of port.security_groups ?? port.securityGroups ?? []) {
+                if (typeof id === "string" && id) usedSgIds.add(id);
+              }
+            }
+
+            resourcesScanned += groups.length;
+
+            for (const sg of groups) {
+              const sgId = sg.id ?? "unknown";
+              // The default security group cannot be deleted — skip it, as on AWS.
+              if (sg.name === "default") continue;
+              if (usedSgIds.has(sgId)) continue;
+              findings.push(
+                makeFinding({
+                  riskScore: 2.0,
+                  title: `Security group ${sgId} is not attached to any ECS server or VPC port`,
+                  resourceType: "HuaweiCloud::VPC::SecurityGroup",
+                  resourceId: sgId,
+                  resourceArn: toResourceUrn("vpc", "security-group", sgId, region, domainId),
+                  region,
+                  description: `Security group "${sg.name ?? "unknown"}" (${sgId}) is not associated with any ECS server or VPC port (ELB, RDS, CCE, NAT, ENI) in this region.`,
+                  impact: "Unused security groups add clutter and may cause confusion during security reviews.",
+                  remediationSteps: [
+                    "Verify the security group is not referenced by resources outside this region's VPC ports (e.g. cross-service references).",
+                    "Delete the security group if it is no longer needed.",
+                  ],
+                }),
+              );
+            }
           }
         } catch (err) {
           const degraded = degradeHwError("VPC", err);

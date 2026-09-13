@@ -23,7 +23,7 @@ import { severityFromScore, priorityFromSeverity } from "../../../utils/risk-sco
 import { hwClient } from "../client.js";
 import { degradeHwError, describeHwError } from "../errors.js";
 import { toResourceUrn } from "../urn.js";
-import { daysUntil, hwCredentialsFromContext, hwRegionScopeFromContext, parseHwTimestamp } from "./shared.js";
+import { daysUntil, hwCredentialsFromContext, hwRegionScopeFromContext, parseHwTimestamp, MarkerGuard, repeatedMarkerWarning } from "./shared.js";
 
 export const SCM_PAGE_SIZE = 50;
 export const SCM_MAX_CERTIFICATES = 1000;
@@ -299,6 +299,7 @@ export class HuaweiSslCertificateScanner implements Scanner {
         const certs: LooseElbCertificate[] = [];
         let marker: string | undefined;
         let truncated = false;
+        const markers = new MarkerGuard();
         for (let page = 0; page < MAX_PAGES; page++) {
           const req: Record<string, unknown> = { limit: ELB_CERT_PAGE_SIZE };
           if (marker !== undefined) req.marker = marker;
@@ -313,6 +314,10 @@ export class HuaweiSslCertificateScanner implements Scanner {
           const pageInfo = resp?.page_info ?? resp?.pageInfo;
           const next = pageInfo?.next_marker ?? pageInfo?.nextMarker;
           if (batch.length === 0 || !next || next === marker) break;
+          if (!markers.accept(next)) {
+            warnings.push(repeatedMarkerWarning("ELB", "certificates"));
+            break;
+          }
           marker = next;
         }
         if (truncated) warnings.push(`ELB: more than ${ELB_MAX_CERTIFICATES} certificates; only the first ${ELB_MAX_CERTIFICATES} were checked.`);

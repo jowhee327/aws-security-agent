@@ -23,7 +23,7 @@ import { runWithConcurrency } from "../../../utils/concurrency.js";
 import { hwClient } from "../client.js";
 import { classifyHwError, degradeHwError, describeHwError } from "../errors.js";
 import { toResourceUrn } from "../urn.js";
-import { hwCredentialsFromContext, hwRegionScopeFromContext } from "./shared.js";
+import { hwCredentialsFromContext, hwRegionScopeFromContext, MarkerGuard, repeatedMarkerWarning } from "./shared.js";
 
 export const FG_MAX_FUNCTIONS = 500;
 export const FG_PAGE_SIZE = 200;
@@ -198,6 +198,7 @@ export class HuaweiSecretExposureScanner implements Scanner {
         const functions: LooseFunction[] = [];
         let marker: number | undefined;
         let truncated = false;
+        const markers = new MarkerGuard();
         for (let page = 0; page < MAX_PAGES; page++) {
           const req: Record<string, string> = { maxitems: String(FG_PAGE_SIZE) };
           if (marker !== undefined) req.marker = String(marker);
@@ -212,6 +213,10 @@ export class HuaweiSecretExposureScanner implements Scanner {
           const next = toMarkerNumber(resp?.next_marker ?? resp?.nextMarker);
           const count = typeof resp?.count === "number" ? resp.count : undefined;
           if (batch.length === 0 || next === undefined || next === marker || (count !== undefined && next >= count)) break;
+          if (!markers.accept(next)) {
+            warnings.push(repeatedMarkerWarning("FunctionGraph", "functions"));
+            break;
+          }
           marker = next;
         }
         if (truncated) warnings.push(`FunctionGraph: more than ${FG_MAX_FUNCTIONS} functions; only the first ${FG_MAX_FUNCTIONS} were checked.`);

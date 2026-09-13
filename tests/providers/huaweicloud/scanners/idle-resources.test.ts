@@ -5,11 +5,12 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll, afterEach } from "vitest";
 import { inspect } from "util";
 
-const { listVolumes, listPublicips, listServersDetails, listSecurityGroups, hwClientMock, loadHuaweiCredentialsMock, resolveRegionScopeMock } = vi.hoisted(() => ({
+const { listVolumes, listPublicips, listServersDetails, listSecurityGroups, listPorts, hwClientMock, loadHuaweiCredentialsMock, resolveRegionScopeMock } = vi.hoisted(() => ({
   listVolumes: vi.fn(),
   listPublicips: vi.fn(),
   listServersDetails: vi.fn(),
   listSecurityGroups: vi.fn(),
+  listPorts: vi.fn(),
   hwClientMock: vi.fn(),
   loadHuaweiCredentialsMock: vi.fn(),
   resolveRegionScopeMock: vi.fn(),
@@ -38,6 +39,7 @@ import {
   EIP_PAGE_SIZE,
   ECS_PAGE_SIZE,
   SG_PAGE_SIZE,
+  PORT_PAGE_SIZE,
 } from "../../../../src/providers/huaweicloud/scanners/idle-resources.js";
 import { createHuaweiCredentials } from "../../../../src/providers/huaweicloud/credentials.js";
 import { huaweiCloudProvider } from "../../../../src/providers/huaweicloud/index.js";
@@ -88,7 +90,7 @@ function installClients() {
     if (svc === "evs") return { listVolumes };
     if (svc === "eip") return { listPublicips };
     if (svc === "ecs") return { listServersDetails };
-    if (svc === "vpc") return { listSecurityGroups };
+    if (svc === "vpc") return { listSecurityGroups, listPorts };
     throw new Error(`unexpected service ${svc}`);
   });
 }
@@ -97,13 +99,14 @@ describe("HuaweiIdleResourcesScanner (idle_resources)", () => {
   const scanner = new HuaweiIdleResourcesScanner();
 
   beforeEach(() => {
-    for (const m of [listVolumes, listPublicips, listServersDetails, listSecurityGroups, hwClientMock, loadHuaweiCredentialsMock, resolveRegionScopeMock]) m.mockReset();
+    for (const m of [listVolumes, listPublicips, listServersDetails, listSecurityGroups, listPorts, hwClientMock, loadHuaweiCredentialsMock, resolveRegionScopeMock]) m.mockReset();
     installClients();
     // defaults: nothing deployed
     listVolumes.mockResolvedValue({ volumes: [], count: 0 });
     listPublicips.mockResolvedValue({ publicips: [] });
     listServersDetails.mockResolvedValue({ servers: [], count: 0 });
     listSecurityGroups.mockResolvedValue({ security_groups: [] });
+    listPorts.mockResolvedValue({ ports: [] });
   });
 
   it("is registered on the huaweicloud provider under the AWS module name", () => {
@@ -111,7 +114,7 @@ describe("HuaweiIdleResourcesScanner (idle_resources)", () => {
     expect(huaweiCloudProvider.scanners().map((s) => s.moduleName)).toContain("idle_resources");
   });
 
-  it("flags unattached EVS volumes (3.0), unbound EIPs (2.0), long-stopped ECS (3.0) and unused SGs (2.0) — attached / bound / active / used are ignored", async () => {
+  it("flags unattached EVS volumes (3.0), unbound EIPs (2.0), long-stopped ECS (3.0) and unused SGs (2.0) — attached / bound / active / used (ECS or VPC port) are ignored", async () => {
     listVolumes.mockResolvedValueOnce({
       count: 3,
       volumes: [
@@ -141,6 +144,16 @@ describe("HuaweiIdleResourcesScanner (idle_resources)", () => {
         { id: "sg-idle", name: "old-sg", vpc_id: "vpc-1" },
         { id: "sg-default", name: "default", vpc_id: "vpc-1" },
         { id: "sg-default-2", name: "default", vpc_id: "vpc-2" }, // default groups never reported
+        { id: "sg-elb", name: "elb-sg", vpc_id: "vpc-1" }, // attached only through a VPC port (ELB), not through ECS
+        { id: "sg-rds", name: "rds-sg", vpc_id: "vpc-1" }, // attached only through a VPC port (RDS)
+      ],
+    });
+    listPorts.mockResolvedValueOnce({
+      ports: [
+        { id: "port-ecs", device_owner: "compute:cn-north-4a", security_groups: ["sg-used"] },
+        { id: "port-elb", device_owner: "neutron:LOADBALANCERV3", security_groups: ["sg-elb"] },
+        { id: "port-rds", device_owner: "network:rds", security_groups: ["sg-rds", "sg-elb"] },
+        { id: "port-none", device_owner: "network:dhcp", security_groups: [] },
       ],
     });
 
@@ -148,7 +161,7 @@ describe("HuaweiIdleResourcesScanner (idle_resources)", () => {
 
     expect(result.status).toBe("success");
     expect(result.error).toBeUndefined();
-    expect(result.resourcesScanned).toBe(3 + 2 + 4 + 4);
+    expect(result.resourcesScanned).toBe(3 + 2 + 4 + 6);
     expect(result.findingsCount).toBe(4);
     expect(result.warnings).toEqual(['Could not determine stop date for ECS server srv-nodate (no parseable "updated" timestamp).']);
 
@@ -162,7 +175,10 @@ describe("HuaweiIdleResourcesScanner (idle_resources)", () => {
     expect(byArn.get(urn("ecs", "server", "srv-old"))).toMatchObject({ riskScore: 3.0, resourceType: "HuaweiCloud::ECS::CloudServer", resourceId: "srv-old" });
     expect(byArn.get(urn("ecs", "server", "srv-old"))!.title).toBe("ECS server srv-old has been stopped for 45 days");
     expect(byArn.get(urn("vpc", "security-group", "sg-idle"))).toMatchObject({ riskScore: 2.0, resourceType: "HuaweiCloud::VPC::SecurityGroup", resourceId: "sg-idle" });
-    // Not flagged: attached volume, error volume, bound EIP, active server, recently stopped server, used SG, default SGs.
+    expect(byArn.get(urn("vpc", "security-group", "sg-idle"))!.title).toBe("Security group sg-idle is not attached to any ECS server or VPC port");
+    // Not flagged: attached volume, error volume, bound EIP, active server, recently stopped server, used SG, port-attached SGs, default SGs.
+    expect(byArn.has(urn("vpc", "security-group", "sg-elb"))).toBe(false);
+    expect(byArn.has(urn("vpc", "security-group", "sg-rds"))).toBe(false);
     expect(byArn.has(urn("evs", "volume", "vol-used"))).toBe(false);
     expect(byArn.has(urn("evs", "volume", "vol-err"))).toBe(false);
     expect(byArn.has(urn("eip", "publicip", "eip-bound"))).toBe(false);
@@ -172,6 +188,10 @@ describe("HuaweiIdleResourcesScanner (idle_resources)", () => {
     expect(byArn.has(urn("vpc", "security-group", "sg-default"))).toBe(false);
     expect(byArn.has(urn("vpc", "security-group", "sg-default-2"))).toBe(false);
 
+    // Ports are listed before security groups (a single VPC client serves both).
+    expect(listPorts).toHaveBeenCalledTimes(1);
+    expect(listPorts.mock.calls[0][0]).toEqual({ limit: PORT_PAGE_SIZE });
+    expect(listPorts.mock.invocationCallOrder[0]).toBeLessThan(listSecurityGroups.mock.invocationCallOrder[0]);
     // Regional (basic) clients built with the region scope; credential chain not consulted.
     expect(hwClientMock.mock.calls.map((c) => c[1])).toEqual(["evs", "eip", "ecs", "vpc"]);
     for (const c of hwClientMock.mock.calls) {
@@ -181,7 +201,7 @@ describe("HuaweiIdleResourcesScanner (idle_resources)", () => {
     expect(loadHuaweiCredentialsMock).not.toHaveBeenCalled();
   });
 
-  it("paginates: EVS offset/limit + count, EIP marker (= last id), ECS offset pages + count, VPC marker (= last id) — 2 pages each", async () => {
+  it("paginates: EVS offset/limit + count, EIP marker (= last id), ECS offset pages + count, VPC ports / SGs marker (= last id) — 2 pages each", async () => {
     const evs1 = Array.from({ length: EVS_PAGE_SIZE }, (_, i) => ({ id: `vol-${i}`, status: "in-use" }));
     const evs2 = [{ id: "vol-last", status: "available", size: 1, volume_type: "SAS" }];
     listVolumes
@@ -199,8 +219,12 @@ describe("HuaweiIdleResourcesScanner (idle_resources)", () => {
       .mockResolvedValueOnce({ servers: ecs2, count: ECS_PAGE_SIZE + 1 });
 
     const sg1 = Array.from({ length: SG_PAGE_SIZE }, (_, i) => ({ id: `sg-${i}`, name: `sg-${i}` }));
-    const sg2 = [{ id: "sg-last", name: "sg-last" }, { id: "sg-orphan", name: "orphan" }];
+    const sg2 = [{ id: "sg-last", name: "sg-last" }, { id: "sg-orphan", name: "orphan" }, { id: "sg-port-only", name: "port-only" }];
     listSecurityGroups.mockResolvedValueOnce({ security_groups: sg1 }).mockResolvedValueOnce({ security_groups: sg2 });
+
+    const ports1 = Array.from({ length: PORT_PAGE_SIZE }, (_, i) => ({ id: `port-${i}`, security_groups: [] }));
+    const ports2 = [{ id: "port-last", device_owner: "neutron:LOADBALANCERV3", security_groups: ["sg-port-only"] }];
+    listPorts.mockResolvedValueOnce({ ports: ports1 }).mockResolvedValueOnce({ ports: ports2 });
 
     const result = await scanner.scan(ctx);
 
@@ -217,8 +241,11 @@ describe("HuaweiIdleResourcesScanner (idle_resources)", () => {
     expect(listSecurityGroups).toHaveBeenCalledTimes(2);
     expect(listSecurityGroups.mock.calls[0][0]).toEqual({ limit: SG_PAGE_SIZE });
     expect(listSecurityGroups.mock.calls[1][0]).toEqual({ limit: SG_PAGE_SIZE, marker: `sg-${SG_PAGE_SIZE - 1}` });
+    expect(listPorts).toHaveBeenCalledTimes(2);
+    expect(listPorts.mock.calls[0][0]).toEqual({ limit: PORT_PAGE_SIZE });
+    expect(listPorts.mock.calls[1][0]).toEqual({ limit: PORT_PAGE_SIZE, marker: `port-${PORT_PAGE_SIZE - 1}` });
 
-    expect(result.resourcesScanned).toBe(EVS_PAGE_SIZE + 1 + EIP_PAGE_SIZE + 1 + ECS_PAGE_SIZE + 1 + SG_PAGE_SIZE + 2);
+    expect(result.resourcesScanned).toBe(EVS_PAGE_SIZE + 1 + EIP_PAGE_SIZE + 1 + ECS_PAGE_SIZE + 1 + SG_PAGE_SIZE + 3);
     expect(result.findings.map((f) => f.resourceId).sort()).toEqual(["eip-last", "sg-orphan", "srv-last", "vol-last"]);
     expect(result.warnings).toBeUndefined();
   });
@@ -253,6 +280,55 @@ describe("HuaweiIdleResourcesScanner (idle_resources)", () => {
     const serialized = JSON.stringify(noEcs);
     expect(serialized).not.toContain("Authorization");
     expect(serialized).not.toContain(FAKE_AK);
+  });
+
+  it("skips the SG usage check (no SG findings, warning) when listPorts is denied, not available, truncated or repeats a marker", async () => {
+    const idleOnly = { security_groups: [{ id: "sg-x", name: "would-be-false-positive" }] };
+
+    // 403 on ports → warning, SG listing not even attempted, EVS/EIP/ECS results intact
+    listVolumes.mockResolvedValueOnce({ volumes: [{ id: "vol-free", status: "available", size: 1, volume_type: "SAS" }], count: 1 });
+    listPorts.mockRejectedValueOnce({ httpStatusCode: 403, errorCode: "VPC.0003", errorMsg: "Forbidden", requestId: "r-ports" });
+    listSecurityGroups.mockResolvedValueOnce(idleOnly);
+    const denied = await scanner.scan(ctx);
+    expect(denied.status).toBe("success");
+    expect(denied.findings.map((f) => f.resourceId)).toEqual(["vol-free"]);
+    expect(listSecurityGroups).not.toHaveBeenCalled();
+    expect(denied.warnings).toEqual([
+      "VPC ports: insufficient permissions (HTTP 403 | VPC.0003 | Forbidden | requestId=r-ports); skipped",
+      "VPC: security group usage check skipped because the port listing was unavailable.",
+    ]);
+
+    // 404 / not enabled on ports → same skip
+    listPorts.mockRejectedValueOnce({ httpStatusCode: 404, errorCode: "APIGW.0101", errorMsg: "API not found" });
+    listSecurityGroups.mockResolvedValueOnce(idleOnly);
+    const notEnabled = await scanner.scan(ctx);
+    expect(notEnabled.status).toBe("success");
+    expect(notEnabled.findingsCount).toBe(0);
+    expect(notEnabled.warnings![0]).toContain("VPC ports: service not enabled or not available");
+    expect(notEnabled.warnings![1]).toContain("security group usage check skipped");
+
+    // repeated marker: the API keeps returning the same full page → stop, skip the check
+    const samePage = Array.from({ length: PORT_PAGE_SIZE }, (_, i) => ({ id: `port-${i}`, security_groups: [] }));
+    listPorts.mockReset();
+    listPorts.mockResolvedValue({ ports: samePage });
+    listSecurityGroups.mockClear();
+    listSecurityGroups.mockResolvedValueOnce(idleOnly);
+    const repeated = await scanner.scan(ctx);
+    expect(repeated.status).toBe("success");
+    expect(repeated.findingsCount).toBe(0);
+    expect(listPorts).toHaveBeenCalledTimes(2);
+    expect(listSecurityGroups).not.toHaveBeenCalled();
+    expect(repeated.warnings).toEqual([
+      "VPC: pagination of ports stopped early because the API repeated a page marker; results may be incomplete.",
+      "VPC: security group usage check skipped because the port listing was incomplete.",
+    ]);
+
+    // unexpected failure on ports → status error, as for any other unexpected VPC failure
+    listPorts.mockReset();
+    listPorts.mockRejectedValueOnce({ httpStatusCode: 500, errorCode: "VPC.9999", errorMsg: "internal error" });
+    const failed = await scanner.scan(ctx);
+    expect(failed.status).toBe("error");
+    expect(failed.error).toBe("Huawei Cloud idle resources scan failed: HTTP 500 | VPC.9999 | internal error");
   });
 
   it("treats 404 / not-enabled as a warning and returns status error on unexpected failures", async () => {

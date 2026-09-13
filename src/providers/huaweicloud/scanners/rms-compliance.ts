@@ -37,7 +37,7 @@ import { severityFromScore, priorityFromSeverity } from "../../../utils/risk-sco
 import { hwClient } from "../client.js";
 import { classifyHwError, describeHwError } from "../errors.js";
 import { HWS_GLOBAL_REGION, toResourceUrn } from "../urn.js";
-import { hwCredentialsFromContext, hwDomainIdFromContext } from "./shared.js";
+import { hwCredentialsFromContext, hwDomainIdFromContext, MarkerGuard, repeatedMarkerWarning } from "./shared.js";
 
 export const RMS_POLICY_STATES_PAGE_SIZE = 200;
 export const RMS_MAX_POLICY_STATES = 5000;
@@ -283,6 +283,11 @@ export class HuaweiRmsComplianceScanner implements Scanner {
       let truncated = false;
       let otherRegionCount = 0;
       let droppedCount = 0;
+      let duplicateCount = 0;
+      const markers = new MarkerGuard();
+      // Dedupe by (policy_assignment_id, resource_id): a repeated / overlapping page
+      // must not produce the same finding twice.
+      const seenStates = new Set<string>();
 
       pages: for (let page = 0; page < MAX_PAGES; page++) {
         const req: Record<string, unknown> = {
@@ -312,12 +317,28 @@ export class HuaweiRmsComplianceScanner implements Scanner {
           }
 
           const assignmentId = state.policy_assignment_id ?? state.policyAssignmentId;
+          const resourceId = state.resource_id ?? state.resourceId;
+          if (assignmentId || resourceId) {
+            const key = `${assignmentId ?? ""}|${resourceId ?? ""}`;
+            if (seenStates.has(key)) {
+              duplicateCount += 1;
+              continue;
+            }
+            seenStates.add(key);
+          }
           const assignment = assignmentId ? assignments.get(assignmentId) : undefined;
           findings.push(policyStateToFinding(state, { domainId, module: this.moduleName }, assignment));
         }
 
         marker = nextMarkerOf(resp);
         if (!marker || batch.length === 0) break;
+        if (!markers.accept(marker)) {
+          warnings.push(repeatedMarkerWarning("RMS", "policy states"));
+          break;
+        }
+      }
+      if (duplicateCount > 0) {
+        warnings.push(`RMS returned ${duplicateCount} duplicate policy state(s) (same policy assignment + resource); duplicates were dropped.`);
       }
 
       if (truncated) {
@@ -388,6 +409,7 @@ export class HuaweiRmsComplianceScanner implements Scanner {
     if (typeof rms.listPolicyAssignments !== "function") return map;
     try {
       let marker: string | undefined;
+      const markers = new MarkerGuard();
       for (let page = 0; page < MAX_PAGES; page++) {
         const req: Record<string, unknown> = { limit: RMS_POLICY_ASSIGNMENTS_PAGE_SIZE };
         if (marker !== undefined) req.marker = marker;
@@ -405,6 +427,10 @@ export class HuaweiRmsComplianceScanner implements Scanner {
         }
         marker = nextMarkerOf(resp);
         if (!marker || batch.length === 0) break;
+        if (!markers.accept(marker)) {
+          warnings.push(repeatedMarkerWarning("RMS", "policy assignments"));
+          break;
+        }
       }
     } catch (err) {
       warnings.push(

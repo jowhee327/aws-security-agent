@@ -66,6 +66,9 @@ export const huaweiCloudProvider: CloudProvider = {
   // global endpoint `organizations.myhuaweicloud.com`, GlobalCredentials, paginated via
   // `marker`/`page_info.next_marker`). The runner deliberately does NOT call this yet
   // (Phase 1 = single account; `org_mode` emits HUAWEI_MULTI_ACCOUNT_WARNING instead).
+  // The SDK package is NOT installed in Phase 1 — add it back with
+  //   npm install @huaweicloud/huaweicloud-sdk-organizations@3.1.214
+  // (root import verified OK for this package; pin to the same version as the other SDK packages).
   async listAccounts(_scope: RegionScope, _creds?: CloudCredentials): Promise<AccountRef[]> {
     throw new Error("Huawei Cloud multi-account discovery (Organizations listAccounts) is not implemented in Phase 1");
   },
@@ -77,6 +80,9 @@ export const huaweiCloudProvider: CloudProvider = {
   // external_id?: opts.externalId }. The returned CredentialsDto (access/secret/security_token)
   // becomes a HuaweiCloudCredentials via createHuaweiCredentials() and is placed on
   // ScanContext.credentials, mirroring AWS assumeRole. `roleName` == agency name.
+  // The SDK package is NOT installed in Phase 1 — add it back with
+  //   npm install @huaweicloud/huaweicloud-sdk-sts@3.1.214
+  // (root import verified OK; the "sts" entry in client.ts's endpoint table is already regional).
   async assumeCrossAccount(
     _target: AccountRef,
     _scope: RegionScope,

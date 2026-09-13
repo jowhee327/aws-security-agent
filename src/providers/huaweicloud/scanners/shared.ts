@@ -104,3 +104,26 @@ export function parseHwTimestamp(value: unknown): number | undefined {
 export function daysUntil(targetMs: number, nowMs: number = Date.now()): number {
   return Math.floor((targetMs - nowMs) / (24 * 60 * 60 * 1000));
 }
+
+/**
+ * Guard for `marker` / `next_marker` pagination loops: a server that keeps
+ * returning the same (or an already seen) marker would otherwise spin until
+ * the page cap. `accept(marker)` returns false when the marker was seen
+ * before; callers then break with {@link repeatedMarkerWarning}.
+ */
+export class MarkerGuard {
+  private readonly seen = new Set<string>();
+
+  accept(marker: string | number | undefined): boolean {
+    if (marker === undefined || marker === null || marker === "") return false;
+    const key = String(marker);
+    if (this.seen.has(key)) return false;
+    this.seen.add(key);
+    return true;
+  }
+}
+
+/** Standard warning when a list API repeats a pagination marker. */
+export function repeatedMarkerWarning(service: string, what: string): string {
+  return `${service}: pagination of ${what} stopped early because the API repeated a page marker; results may be incomplete.`;
+}

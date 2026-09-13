@@ -23,7 +23,7 @@ import { severityFromScore, priorityFromSeverity } from "../../../utils/risk-sco
 import { hwClient } from "../client.js";
 import { degradeHwError, describeHwError } from "../errors.js";
 import { toResourceUrn } from "../urn.js";
-import { hwCredentialsFromContext, hwDomainIdFromContext } from "./shared.js";
+import { hwCredentialsFromContext, hwDomainIdFromContext, MarkerGuard, repeatedMarkerWarning } from "./shared.js";
 
 export { DEFAULT_REQUIRED_TAGS };
 
@@ -162,6 +162,7 @@ export class HuaweiTagComplianceScanner implements Scanner {
 
         typeLoop: for (const rmsType of this.resourceTypes) {
           let marker: string | undefined;
+          const markers = new MarkerGuard();
           for (let page = 0; page < MAX_PAGES; page++) {
             // Plain-object requests use the wire (snake_case) keys; see ConfigClient.listAllResources.
             const req: Record<string, unknown> = { region_id: region, type: rmsType, limit: RMS_RESOURCE_PAGE_SIZE };
@@ -212,6 +213,10 @@ export class HuaweiTagComplianceScanner implements Scanner {
             const pageInfo = resp?.page_info ?? resp?.pageInfo;
             const next = pageInfo?.next_marker ?? pageInfo?.nextMarker;
             if (batch.length === 0 || !next || next === marker) break;
+            if (!markers.accept(next)) {
+              warnings.push(repeatedMarkerWarning("RMS", `${rmsType} resources`));
+              break;
+            }
             marker = next;
           }
         }

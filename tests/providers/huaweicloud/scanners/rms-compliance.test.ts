@@ -215,6 +215,39 @@ describe("HuaweiRmsComplianceScanner (rms_compliance_findings)", () => {
     expect(serialized).not.toContain(FAKE_SK);
   });
 
+  it("stops when the API repeats next_marker and dedupes states by (policy_assignment_id, resource_id)", async () => {
+    const page = [
+      state({ resource_id: "srv-1", policy_assignment_id: "pa-mfa", policy_assignment_name: "Org-iam-user-mfa-enabled", policy_definition_id: "iam-user-mfa-enabled" }),
+      state({ resource_id: "srv-1", policy_assignment_id: "pa-tag", policy_assignment_name: "Org-required-tag-check", policy_definition_id: "required-tag-check" }), // same resource, different rule → kept
+      state({ resource_id: "srv-1", policy_assignment_id: "pa-mfa" }), // exact duplicate within the page → dropped
+    ];
+    // Page 2 repeats page 1 AND hands back the same marker again: the loop must stop after the 2nd call.
+    listPolicyStatesByDomainId
+      .mockResolvedValueOnce({ value: page, page_info: { current_count: 3, next_marker: "m-loop" } })
+      .mockResolvedValueOnce({ value: page, page_info: { current_count: 3, next_marker: "m-loop" } })
+      .mockResolvedValue({ value: page, page_info: { current_count: 3, next_marker: "m-loop" } });
+    listPolicyAssignments
+      .mockResolvedValueOnce({ ...ASSIGNMENTS, page_info: { current_count: 3, next_marker: "a-loop" } })
+      .mockResolvedValue({ ...ASSIGNMENTS, page_info: { current_count: 3, next_marker: "a-loop" } });
+
+    const result = await scanner.scan(ctx);
+
+    expect(result.status).toBe("success");
+    expect(listPolicyStatesByDomainId).toHaveBeenCalledTimes(2);
+    expect(listPolicyStatesByDomainId.mock.calls[1][0]).toMatchObject({ marker: "m-loop" });
+    expect(listPolicyAssignments).toHaveBeenCalledTimes(2);
+    expect(result.resourcesScanned).toBe(6);
+    expect(result.findingsCount).toBe(2);
+    expect(result.findings.map((f) => f.title).sort()).toEqual(
+      result.findings.map((f) => f.title).sort().filter((t, i, arr) => arr.indexOf(t) === i), // no duplicate titles
+    );
+    expect(result.warnings).toEqual([
+      "RMS: pagination of policy assignments stopped early because the API repeated a page marker; results may be incomplete.",
+      "RMS: pagination of policy states stopped early because the API repeated a page marker; results may be incomplete.",
+      "RMS returned 4 duplicate policy state(s) (same policy assignment + resource); duplicates were dropped.",
+    ]);
+  });
+
   it("regionScope=context drops other-region states but keeps global ones, with a warning", async () => {
     const scoped = new HuaweiRmsComplianceScanner({ regionScope: "context" });
     listPolicyStatesByDomainId.mockResolvedValueOnce({
@@ -275,11 +308,13 @@ describe("HuaweiRmsComplianceScanner (rms_compliance_findings)", () => {
   });
 
   it("caps at RMS_MAX_POLICY_STATES with a truncation warning", async () => {
-    const big = Array.from({ length: RMS_POLICY_STATES_PAGE_SIZE }, (_, i) => state({ resource_id: `r-${i}` }));
-    listPolicyStatesByDomainId.mockImplementation(async (req: { marker?: string }) => ({
-      value: big,
-      page_info: { current_count: big.length, next_marker: `m-${req.marker ?? "0"}` },
-    }));
+    // Every page carries distinct resources (states are deduped by assignment + resource) and a fresh marker.
+    let page = 0;
+    listPolicyStatesByDomainId.mockImplementation(async (req: { marker?: string }) => {
+      const n = page++;
+      const big = Array.from({ length: RMS_POLICY_STATES_PAGE_SIZE }, (_, i) => state({ resource_id: `r-${n}-${i}` }));
+      return { value: big, page_info: { current_count: big.length, next_marker: `m-${req.marker ?? "0"}` } };
+    });
 
     const result = await scanner.scan(ctx);
 

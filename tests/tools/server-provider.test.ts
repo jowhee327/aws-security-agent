@@ -347,6 +347,124 @@ describe("MCP tools — provider parameter", () => {
     }
   });
 
+  it("redacts credential material from Huawei Cloud tool errors; AWS tool errors are verbatim", async () => {
+    const FAKE_AK = "FAKEAK0123456789ABCD";
+    const header = `SDK-HMAC-SHA256 Access=${FAKE_AK}, SignedHeaders=host;x-sdk-date, Signature=deadbeef`;
+    const { client, close } = await connect();
+    try {
+      mocks.runAllScanners.mockRejectedValueOnce(new Error(`boom Authorization: ${header}`));
+      const hw = await call(client, "scan_all", { provider: "huaweicloud" });
+      expect(hw.isError).toBe(true);
+      expect(hw.content[0].text).toBe("Error: boom Authorization=[REDACTED]");
+
+      mocks.buildScanContext.mockRejectedValueOnce(new Error(`IAM rejected ak=${FAKE_AK}`));
+      const mod = await call(client, "scan_idle_resources", { provider: "huaweicloud" });
+      expect(mod.isError).toBe(true);
+      expect(mod.content[0].text).toBe("Error: IAM rejected ak=[REDACTED]");
+
+      mocks.runAllScanners.mockRejectedValueOnce(new Error(`boom Authorization: ${header}`));
+      const grp = await call(client, "scan_group", { group: "quick", provider: "huaweicloud" });
+      expect(grp.isError).toBe(true);
+      expect(grp.content[0].text).not.toContain(FAKE_AK);
+
+      // AWS: byte-identical pass-through of the message.
+      mocks.runAllScanners.mockRejectedValueOnce(new Error(`boom Authorization: ${header}`));
+      const aws = await call(client, "scan_all", {});
+      expect(aws.isError).toBe(true);
+      expect(aws.content[0].text).toBe(`Error: boom Authorization: ${header}`);
+    } finally {
+      await close();
+    }
+  });
+
+  it("generate_maturity_report uses Huawei Cloud impact / priority / roadmap tables for provider huaweicloud and AWS tables otherwise", async () => {
+    const base = {
+      scanStart: "2026-09-13T00:00:00.000Z",
+      scanEnd: "2026-09-13T00:00:01.000Z",
+      summary: { totalFindings: 0, critical: 0, high: 0, medium: 0, low: 0, modulesSuccess: 1, modulesError: 0 },
+    };
+    const sd = (services: Array<{ name: string; enabled: boolean | null }>, maturityLevel: string) => ({
+      module: "service_detection",
+      status: "success",
+      resourcesScanned: services.length,
+      findingsCount: 0,
+      scanTimeMs: 1,
+      findings: [],
+      serviceDetection: {
+        services,
+        coveragePercent: Math.round((services.filter((s) => s.enabled).length / services.length) * 100),
+        maturityLevel,
+      },
+    });
+    const { client, close } = await connect();
+    try {
+      const hwResult = {
+        ...base,
+        region: "cn-north-4",
+        accountId: "d0m41n",
+        provider: "huaweicloud",
+        modules: [sd([
+          { name: "CTS", enabled: true },
+          { name: "RMS (Config)", enabled: true },
+          { name: "SecMaster", enabled: false },
+          { name: "HSS", enabled: false },
+        ], "intermediate")],
+      };
+      const hw = await call(client, "generate_maturity_report", { scan_results: JSON.stringify(hwResult) });
+      expect(hw.isError).toBeUndefined();
+      const text = hw.content[0].text;
+      expect(text).toContain("# Huawei Cloud Security Maturity Assessment");
+      expect(text).toContain("| CTS | \u2705 Enabled | API activity audit logging |");
+      expect(text).toContain("| RMS (Config) | \u2705 Enabled | Configuration tracking + compliance rules |");
+      expect(text).toContain("| HSS | \u274c Not Enabled | Host vulnerability / intrusion detection |");
+      expect(text).toContain("| SecMaster | \u274c Not Enabled | Centralized security operations |");
+      // Priority order CTS → RMS → HSS → SecMaster (only disabled ones listed), with Huawei free-tier notes.
+      expect(text).toContain("1. Enable HSS \u2014 check the console for the current free-trial / basic edition offer");
+      expect(text).toContain("2. Enable SecMaster \u2014 check the console for the current free-trial offer");
+      // Roadmap: 4 services → top level is Advanced, never Comprehensive.
+      expect(text).toContain("- **Current**: Intermediate (2/4 services)");
+      expect(text).toContain("- **Next milestone**: Advanced (4/4) \u2014 enable HSS + SecMaster");
+      expect(text).toContain("- **Target**: Advanced (4/4)");
+      expect(text).not.toContain("Comprehensive");
+      expect(text).not.toContain("Security Hub");
+
+      // All four enabled → no roadmap beyond "Current".
+      const hwFull = { ...hwResult, modules: [sd([
+        { name: "CTS", enabled: true }, { name: "RMS (Config)", enabled: true }, { name: "HSS", enabled: true }, { name: "SecMaster", enabled: true },
+      ], "advanced")] };
+      const full = await call(client, "generate_maturity_report", { scan_results: JSON.stringify(hwFull) });
+      expect(full.content[0].text).toContain("- **Current**: Advanced (4/4 services)");
+      expect(full.content[0].text).not.toContain("Target");
+
+      // AWS (no provider field): unchanged tables.
+      const awsResult = {
+        ...base,
+        region: "us-east-1",
+        accountId: "123456789012",
+        modules: [sd([
+          { name: "CloudTrail", enabled: true },
+          { name: "Security Hub", enabled: false },
+          { name: "GuardDuty", enabled: false },
+          { name: "Inspector", enabled: false },
+          { name: "AWS Config", enabled: false },
+        ], "basic")],
+      };
+      const aws = await call(client, "generate_maturity_report", { scan_results: JSON.stringify(awsResult) });
+      const awsText = aws.content[0].text;
+      expect(awsText).toContain("# AWS Security Maturity Assessment");
+      expect(awsText).toContain("| Security Hub | \u274c Not Enabled | +300 security checks |");
+      expect(awsText).toContain("1. Enable Security Hub \u2014 free trial available");
+      expect(awsText).toContain("2. Enable GuardDuty \u2014 free trial available");
+      expect(awsText).toContain("3. Enable Inspector \u2014 free trial available");
+      expect(awsText).toContain("4. Enable AWS Config");
+      expect(awsText).toContain("- **Next milestone**: Intermediate (2/5) \u2014 enable Security Hub + GuardDuty");
+      expect(awsText).toContain("- **Target**: Comprehensive (5/5)");
+      expect(awsText).not.toContain("CTS");
+    } finally {
+      await close();
+    }
+  });
+
   it("createServer defaultProvider makes provider-less calls route to Huawei Cloud", async () => {
     const { client, close } = await connect({ defaultProvider: "huaweicloud" });
     try {

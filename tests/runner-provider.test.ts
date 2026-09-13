@@ -230,6 +230,32 @@ describe("runner — Huawei Cloud single-account orchestration", () => {
     expect(result.summary.modulesError).toBe(1);
   });
 
+  it("redacts credential material from Huawei scanner errors and discovery warnings (AWS messages untouched)", async () => {
+    const FAKE_AK = "FAKEAK0123456789ABCD";
+    const FAKE_SK = "FAKESK0123456789abcdefghijklmnopqrstuvwx";
+    const header = `SDK-HMAC-SHA256 Access=${FAKE_AK}, SignedHeaders=host;x-sdk-date, Signature=deadbeef`;
+
+    const leaky: Scanner = {
+      moduleName: "idle_resources",
+      scan: vi.fn().mockRejectedValue(new Error(`Request failed: Authorization: ${header} (sk=${FAKE_SK})`)),
+    };
+    const hw = await runAllScanners([leaky], "cn-north-4", { provider: "huaweicloud" });
+    expect(hw.modules[0].status).toBe("error");
+    expect(hw.modules[0].error).toBe("Request failed: Authorization=[REDACTED]");
+    expect(JSON.stringify(hw)).not.toContain(FAKE_AK);
+    expect(JSON.stringify(hw)).not.toContain(FAKE_SK);
+
+    mocks.hwProvider.listRegions.mockRejectedValue(new Error(`IAM rejected ak=${FAKE_AK}`));
+    mocks.hwProvider.getAccountId.mockRejectedValue(new Error("no"));
+    const disc = await runAllScanners([mockScanner("secret_exposure")], "all", { provider: "huaweicloud" });
+    expect(disc.modules[0].warnings?.[0]).toBe("Huawei Cloud region discovery failed: IAM rejected ak=[REDACTED]. Scanning cn-north-4 only.");
+
+    // AWS path: the error message is passed through verbatim (no provider on the context).
+    const awsLeaky: Scanner = { moduleName: "idle_resources", scan: vi.fn().mockRejectedValue(new Error(`Authorization: ${header}`)) };
+    const aws = await runAllScanners([awsLeaky], "us-east-1");
+    expect(aws.modules[0].error).toBe(`Authorization: ${header}`);
+  });
+
   it("org_mode: Phase 1 falls back to single account with an explicit warning", async () => {
     const s = mockScanner("ssl_certificate");
     const result = await runMultiAccountScanners([s], "cn-north-4", {

@@ -7,6 +7,7 @@ import { runWithConcurrency } from "../utils/concurrency.js";
 import { getProvider } from "../providers/registry.js";
 import type { RegionScope } from "../providers/types.js";
 import { HUAWEI_PARTITION, DEFAULT_HUAWEI_REGION } from "../providers/huaweicloud/index.js";
+import { redactHwDiagnostic } from "../providers/huaweicloud/errors.js";
 
 const DEFAULT_CONCURRENCY = 5;
 
@@ -96,10 +97,12 @@ async function runScannersWithContext(
       }
       return result.value;
     }
+    const reason = result.reason instanceof Error ? result.reason.message : String(result.reason);
     return {
       module: scanners[i].moduleName,
       status: "error" as const,
-      error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+      // Huawei SDK / proxy errors may echo the signed request; AWS messages are passed through untouched.
+      error: ctx.provider === "huaweicloud" ? redactHwDiagnostic(reason) : reason,
       resourcesScanned: 0,
       findingsCount: 0,
       scanTimeMs: 0,
@@ -338,7 +341,7 @@ async function resolveHuaweiScopes(region: string | undefined): Promise<HuaweiSc
       }
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = redactHwDiagnostic(err instanceof Error ? err.message : String(err));
     const fallback = requested ?? DEFAULT_HUAWEI_REGION;
     warnings.push(`Huawei Cloud region discovery failed: ${msg}. Scanning ${fallback} only.`);
     scopes = [{ region: fallback }];
