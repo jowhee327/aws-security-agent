@@ -333,7 +333,7 @@ sk = <SK>
 
 各 region 的 project ID 与账号 domain ID 通过 IAM 解析一次并缓存。凭据值绝不写日志；华为 SDK 自带的 log4js 输出已被关闭（否则会把含签名 `Authorization` 头的错误日志打到 stdout，即 MCP 通道）。
 
-**支持的模块（8 个）**
+**支持的模块（11 个）**
 
 | 模块 | 华为云服务 | 说明 |
 |------|-----------|------|
@@ -345,6 +345,9 @@ sk = <SK>
 | `ssl_certificate` | SCM、ELB 证书 | |
 | `idle_resources` | EVS、EIP、ECS、VPC 安全组 | |
 | `tag_compliance` | RMS 资源清单 | 必需标签 Environment / Project / Owner |
+| `inspector_findings` | HSS 主机漏洞 | 探测 + 汇总：无防护主机 → “HSS 未启用” finding；否则未处理的 Critical/High 漏洞逐条输出（最多 50 条），Medium/Low 以 warning 汇总 |
+| `patch_compliance_findings` | HSS 逐主机系统漏洞（`linux_vul` / `windows_vul`） | 华为云无 Patch Manager；每台存在未处理系统漏洞的防护主机一条 finding（含 Critical/High → 7.5，否则 5.5） |
+| `imdsv2_enforcement` | ECS 元数据选项（`http_tokens`） | 逐台 `showMetadataOptions`（仅运行中实例，并发 5，上限 500）；`http_tokens != required` → 7.5 |
 
 Finding 的 `resourceArn` 使用 URN `hws:<region>:<domainId>:<service>:<type>:<id>`，`accountId` 为 IAM domain ID。Markdown / HTML / 等保三级 / 护网 报告均接受华为云结果；等保“云平台负责”项按华为云措辞，Security Hub 控制号在已映射处替换为 RMS 内置策略名（如 `iam-user-mfa-enabled`、`volumes-encrypted-check`、`vpc-sg-ports-check`）。
 
@@ -355,7 +358,7 @@ Finding 的 `resourceArn` 使用 URN `hws:<region>:<domainId>:<service>:<type>:<
 **已知限制（Phase 1）**
 
 - 仅单账号。`org_mode` / `role_name` 会给出 warning 并只扫当前账号；基于 Organizations + STS `assumeAgency` 的多账号留待 Phase 2（`list_org_accounts` 对 `huaweicloud` 返回错误）。
-- 暂无 IAM 提权检测（依赖 `IAM ReadOnlyAccess`，测试账号当前无此权限）；`dns_dangling`、`network_reachability`、`disaster_recovery`、`imdsv2_enforcement`、`waf_coverage`、`patch_compliance_findings`、`inspector_findings`、`guardduty_findings`、`trusted_advisor_findings`、`access_analyzer_findings` 与 `scan_ecr_image_cve` 目前仍为 AWS 专属（以 `provider: "huaweicloud"` 调用会返回明确错误；扫描分组会将其列为不可用）。
+- 暂无 IAM 提权检测（依赖 `IAM ReadOnlyAccess`，测试账号当前无此权限）；`dns_dangling`、`network_reachability`、`disaster_recovery`、`waf_coverage`、`guardduty_findings`、`trusted_advisor_findings`、`access_analyzer_findings` 与 `scan_ecr_image_cve` 目前仍为 AWS 专属（以 `provider: "huaweicloud"` 调用会返回明确错误；扫描分组会将其列为不可用）。
 - 不按企业项目（EPS）拆分，结果覆盖整个账号。
 
 ---

@@ -26,6 +26,13 @@ describe("getI18n(lang, provider)", () => {
     expect(en.cloudItemsNote(3)).toContain("Huawei Cloud platform");
     expect(zh.serviceRecommendations.config_rules_findings.service).toContain("RMS");
     expect(en.serviceRecommendations.config_rules_findings.action).toContain("RMS");
+    // T9: HSS replaces Inspector / SSM Patch Manager in the "service not enabled" recommendations.
+    expect(zh.serviceRecommendations.inspector_findings.service).toContain("HSS");
+    expect(en.serviceRecommendations.inspector_findings.service).toContain("HSS");
+    expect(zh.serviceRecommendations.patch_compliance_findings.service).toContain("HSS");
+    expect(en.serviceRecommendations.patch_compliance_findings.action).toContain("HSS");
+    expect(zhI18n.serviceRecommendations.inspector_findings.service).toBe("Inspector");
+    expect(enI18n.serviceRecommendations.patch_compliance_findings.service).toBe("SSM Patch Manager");
     // Untouched entries are shared with the AWS table.
     expect(zh.moduleNames).toBe(zhI18n.moduleNames);
     expect(zh.serviceRecommendations.guardduty_findings).toBe(zhI18n.serviceRecommendations.guardduty_findings);

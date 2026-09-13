@@ -503,7 +503,7 @@ sk = <secret key>
 
 Project IDs (per region) and the domain ID are resolved once via IAM and cached. Credential values are never logged; the Huawei SDK's built-in log4js output is disabled because it would otherwise print signed `Authorization` headers to stdout (the MCP transport).
 
-**Supported modules (8)**
+**Supported modules (11)**
 
 | Module | Huawei Cloud services | Notes |
 |--------|-----------------------|-------|
@@ -515,6 +515,9 @@ Project IDs (per region) and the domain ID are resolved once via IAM and cached.
 | `ssl_certificate` | SCM, ELB certificates | |
 | `idle_resources` | EVS, EIP, ECS, VPC security groups | |
 | `tag_compliance` | RMS resource inventory | Required tags: Environment / Project / Owner |
+| `inspector_findings` | HSS host vulnerabilities | Detection + summary: no protected hosts → "HSS not enabled" finding; otherwise unhandled Critical/High vulnerabilities as findings (top 50), Medium/Low summarised in a warning |
+| `patch_compliance_findings` | HSS per-host OS vulnerabilities (`linux_vul` / `windows_vul`) | Huawei Cloud has no Patch Manager; one finding per protected host with unhandled OS vulnerabilities (Critical/High → 7.5, else 5.5) |
+| `imdsv2_enforcement` | ECS metadata options (`http_tokens`) | Per-server `showMetadataOptions` (running servers, concurrency 5, cap 500); `http_tokens != required` → 7.5 |
 
 Findings use the URN `hws:<region>:<domainId>:<service>:<type>:<id>` in `resourceArn`; `accountId` is the IAM domain ID. Report generators (Markdown / HTML / MLPS Level 3 / HW Defense) accept Huawei results; MLPS "cloud provider" items are worded for Huawei Cloud and Security Hub control IDs are replaced by RMS built-in policy names where mapped (e.g. `iam-user-mfa-enabled`, `volumes-encrypted-check`, `vpc-sg-ports-check`).
 
@@ -525,7 +528,7 @@ Findings use the URN `hws:<region>:<domainId>:<service>:<type>:<id>` in `resourc
 **Known limitations (Phase 1)**
 
 - Single account only. `org_mode` / `role_name` emit a warning and scan the current account; multi-account via Organizations + STS `assumeAgency` is reserved for Phase 2 (`list_org_accounts` returns an error for `huaweicloud`).
-- No IAM privilege-escalation scanner yet (requires `IAM ReadOnlyAccess`, which the reference test account lacks); `dns_dangling`, `network_reachability`, `disaster_recovery`, `imdsv2_enforcement`, `waf_coverage`, `patch_compliance_findings`, `inspector_findings`, `guardduty_findings`, `trusted_advisor_findings`, `access_analyzer_findings` and `scan_ecr_image_cve` are AWS-only for now (requesting them with `provider: "huaweicloud"` returns a clear error; scan groups list them as unavailable).
+- No IAM privilege-escalation scanner yet (requires `IAM ReadOnlyAccess`, which the reference test account lacks); `dns_dangling`, `network_reachability`, `disaster_recovery`, `waf_coverage`, `guardduty_findings`, `trusted_advisor_findings`, `access_analyzer_findings` and `scan_ecr_image_cve` are AWS-only for now (requesting them with `provider: "huaweicloud"` returns a clear error; scan groups list them as unavailable).
 - No enterprise-project (EPS) splitting; results cover the whole account.
 
 ## Output Format

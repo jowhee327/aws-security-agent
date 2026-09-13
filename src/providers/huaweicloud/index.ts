@@ -20,6 +20,9 @@ import { HuaweiIdleResourcesScanner } from "./scanners/idle-resources.js";
 import { HuaweiTagComplianceScanner } from "./scanners/tag-compliance.js";
 import { HuaweiRmsComplianceScanner } from "./scanners/rms-compliance.js";
 import { HuaweiServiceDetectionScanner } from "./scanners/service-detection.js";
+import { HuaweiHssInspectorScanner } from "./scanners/hss-inspector.js";
+import { HuaweiHssPatchComplianceScanner } from "./scanners/hss-patch-compliance.js";
+import { HuaweiEcsImdsv2Scanner } from "./scanners/ecs-imdsv2.js";
 // Importing client.ts silences log4js at provider load (P0 mitigation, see client.ts).
 import "./client.js";
 
@@ -101,6 +104,9 @@ export const huaweiCloudProvider: CloudProvider = {
       new HuaweiTagComplianceScanner(), // tag_compliance (T5)
       new HuaweiRmsComplianceScanner(), // rms_compliance_findings (T6)
       new HuaweiServiceDetectionScanner(), // service_detection (T7)
+      new HuaweiHssInspectorScanner(), // inspector_findings (T9, HSS)
+      new HuaweiHssPatchComplianceScanner(), // patch_compliance_findings (T9, HSS)
+      new HuaweiEcsImdsv2Scanner(), // imdsv2_enforcement (T9, ECS metadata options)
     ];
   },
 
@@ -138,3 +144,19 @@ export {
   RMS_COMPLIANCE_SOURCE,
 } from "./scanners/rms-compliance.js";
 export { HuaweiServiceDetectionScanner, HW_SERVICE_RECOMMENDATIONS } from "./scanners/service-detection.js";
+export {
+  HuaweiHssInspectorScanner,
+  HSS_NOT_ENABLED_WARNING,
+  HSS_VUL_TYPES,
+  HSS_MAX_VUL_FINDINGS,
+  normalizeHssSeverity,
+  sortHssVulnerabilities,
+} from "./scanners/hss-inspector.js";
+export {
+  HuaweiHssPatchComplianceScanner,
+  HSS_PATCH_NOT_ENABLED_WARNING,
+  hssOsVulType,
+  summarizeHostVuls,
+  patchRiskScore,
+} from "./scanners/hss-patch-compliance.js";
+export { HuaweiEcsImdsv2Scanner, evaluateMetadataOptions, IMDS_MAX_SERVERS, IMDS_CONCURRENCY } from "./scanners/ecs-imdsv2.js";
