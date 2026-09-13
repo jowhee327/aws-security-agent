@@ -13,6 +13,8 @@ import type { AccountRef, AssumeCrossAccountOptions, CloudCredentials, CloudProv
 import { loadHuaweiCredentials, resolveProjects, resolveRegionScope } from "./credentials.js";
 import { toResourceUrn as toHwsUrn } from "./urn.js";
 import { RmsTrackerScanner } from "./scanners/rms-tracker.js";
+import { ObsPublicAccessScanner } from "./scanners/obs-public-access.js";
+import { HuaweiSecretExposureScanner } from "./scanners/secret-exposure.js";
 // Importing client.ts silences log4js at provider load (P0 mitigation, see client.ts).
 import "./client.js";
 
@@ -43,7 +45,7 @@ export const huaweiCloudProvider: CloudProvider = {
     const projects = await resolveProjects(c);
     const scopes: RegionScope[] = [];
     for (const p of projects.values()) {
-      if (p.region.includes("_")) continue; // sub-projects ("<region>_<name>") are not regions
+      // resolveProjects() already filtered to valid region IDs (no sub-projects / MOS).
       scopes.push({ region: p.region, projectId: p.projectId, domainId: p.domainId });
     }
     scopes.sort((a, b) => (a.region < b.region ? -1 : a.region > b.region ? 1 : 0)); // code-point order, locale-independent
@@ -72,6 +74,8 @@ export const huaweiCloudProvider: CloudProvider = {
   scanners(): Scanner[] {
     return [
       new RmsTrackerScanner(), // config_rules_findings (T2)
+      new ObsPublicAccessScanner(), // public_access_verify (T3)
+      new HuaweiSecretExposureScanner(), // secret_exposure (T4)
     ];
   },
 
@@ -96,3 +100,5 @@ export {
 } from "./credentials.js";
 export { hwClient, hwObsClient, hwEndpoint, isGlobalService, silenceSdkLogging, type HwService } from "./client.js";
 export { RmsTrackerScanner, RMS_TRACKER_NOT_ENABLED_WARNING, rmsTrackerUrn } from "./scanners/rms-tracker.js";
+export { ObsPublicAccessScanner, evaluateObsAcl, evaluateObsPolicy, pabBlocksAll, obsCall, ObsHttpError } from "./scanners/obs-public-access.js";
+export { HuaweiSecretExposureScanner, HUAWEI_SECRET_PATTERNS, HUAWEI_EXTRA_SECRET_PATTERNS } from "./scanners/secret-exposure.js";

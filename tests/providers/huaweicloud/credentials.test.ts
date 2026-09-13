@@ -14,6 +14,7 @@ import {
   resolveProjects,
   resolveRegionScope,
   clearHuaweiProjectCache,
+  isHuaweiRegionId,
   HuaweiCredentialsNotFoundError,
   HUAWEI_CREDENTIALS_FILE_ENV,
   REDACTED,
@@ -238,6 +239,17 @@ describe("loadHuaweiCredentials chain", () => {
   });
 });
 
+describe("isHuaweiRegionId", () => {
+  it("accepts real Huawei region IDs and rejects non-region project names", () => {
+    for (const r of ["cn-north-4", "cn-east-3", "cn-south-1", "cn-south-4b", "ap-southeast-1", "ap-southeast-3", "la-south-2", "la-north-2", "af-south-1", "tr-west-1", "me-east-1", "ru-moscow-1", "sa-brazil-1", "na-mexico-1", "eu-west-101", "cn-southwest-2", "ap-southeast-4", "eu-west-0"]) {
+      expect(isHuaweiRegionId(r), r).toBe(true);
+    }
+    for (const n of ["MOS", "mos", "cn-north-4_sub", "example_domain_project", "", "cn-north", "north-4", "CN-NORTH-4", "cn_north_4", "default", "cn-north-4 "]) {
+      expect(isHuaweiRegionId(n), JSON.stringify(n)).toBe(false);
+    }
+  });
+});
+
 describe("resolveProjects / resolveRegionScope", () => {
   const DOMAIN = "0123456789abcdef0123456789abcdef";
   const projects = [
@@ -246,6 +258,10 @@ describe("resolveProjects / resolveRegionScope", () => {
     { id: "p-sub", name: "cn-north-4_sub", domain_id: DOMAIN, enabled: true },
     { id: "p-disabled", name: "ap-southeast-1", domain_id: DOMAIN, enabled: false },
     { id: "MOS", name: "MOS", domain_id: DOMAIN },
+    { id: "p-domain", name: "example_domain_project", domain_id: DOMAIN },
+    { id: "p-la", name: "la-south-2", domain_id: DOMAIN, enabled: true },
+    { id: "p-tr", name: "tr-west-1", domain_id: DOMAIN, enabled: true },
+    { id: "p-south4b", name: "cn-south-4b", domain_id: DOMAIN, enabled: true },
   ];
   const fake = { keystoneListProjects: vi.fn(async () => ({ projects })) };
   const creds = createHuaweiCredentials({ ak: FAKE_GLOBAL_AK, sk: FAKE_GLOBAL_SK });
@@ -260,6 +276,12 @@ describe("resolveProjects / resolveRegionScope", () => {
     expect(map.get("cn-north-4")).toEqual({ projectId: "p-north4", domainId: DOMAIN, region: "cn-north-4" });
     expect(map.get("cn-east-3")?.projectId).toBe("p-east3");
     expect(map.has("ap-southeast-1")).toBe(false); // disabled
+    expect(map.has("MOS")).toBe(false); // not a region (bulk migration project)
+    expect(map.has("cn-north-4_sub")).toBe(false); // sub-project
+    expect(map.has("example_domain_project")).toBe(false); // domain project
+    expect(map.get("la-south-2")?.projectId).toBe("p-la");
+    expect(map.get("tr-west-1")?.projectId).toBe("p-tr");
+    expect(map.get("cn-south-4b")?.projectId).toBe("p-south4b");
     expect(fake.keystoneListProjects).toHaveBeenCalledTimes(1);
     expect(fake.keystoneListProjects.mock.calls[0][0]?.constructor?.name).toBe("KeystoneListProjectsRequest");
 
@@ -283,13 +305,13 @@ describe("resolveProjects / resolveRegionScope", () => {
   });
 
   it("errors clearly for an unknown region (listing known regions, no secrets)", async () => {
-    await expect(resolveRegionScope(creds, "eu-west-0", { client: fake })).rejects.toThrow(/eu-west-0.*Known regions: MOS, cn-east-3, cn-north-4/);
+    await expect(resolveRegionScope(creds, "eu-west-0", { client: fake })).rejects.toThrow(/eu-west-0.*Known regions: cn-east-3, cn-north-4, cn-south-4b, la-south-2, tr-west-1/);
   });
 
   it("provider.listRegions and getAccountId use the resolved projects (sub-projects excluded)", async () => {
     await resolveProjects(creds, { client: fake }); // warm cache; provider path never hits the network
     const regions = await huaweiCloudProvider.listRegions(creds, "cn-north-4");
-    expect(regions.map((r) => r.region)).toEqual(["cn-north-4", "MOS", "cn-east-3"]);
+    expect(regions.map((r) => r.region)).toEqual(["cn-north-4", "cn-east-3", "cn-south-4b", "la-south-2", "tr-west-1"]);
     expect(regions[0]).toEqual({ region: "cn-north-4", projectId: "p-north4", domainId: DOMAIN });
     await expect(huaweiCloudProvider.getAccountId({ region: "cn-east-3" }, creds)).resolves.toBe(DOMAIN);
     expect(fake.keystoneListProjects).toHaveBeenCalledTimes(1);

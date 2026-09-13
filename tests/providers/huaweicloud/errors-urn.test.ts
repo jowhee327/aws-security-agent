@@ -64,7 +64,15 @@ describe("Huawei error classification", () => {
 describe("Huawei URN", () => {
   it("formats hws:<region>:<domainId>:<svc>:<type>:<id>", () => {
     expect(toResourceUrn("ecs", "server", "abc-123", "cn-north-4", "d0m41n")).toBe("hws:cn-north-4:d0m41n:ecs:server:abc-123");
-    expect(toResourceUrn("obs", "bucket", "my-bucket", "", "d0m41n")).toBe("hws::d0m41n:obs:bucket:my-bucket");
+    expect(toResourceUrn("obs", "bucket", "my-bucket", "cn-east-3", "d0m41n")).toBe("hws:cn-east-3:d0m41n:obs:bucket:my-bucket");
+  });
+
+  it("coerces an empty/undefined region to the logical 'global' region (never hws::...)", () => {
+    expect(toResourceUrn("iam", "user", "u1", "", "d0m41n")).toBe("hws:global:d0m41n:iam:user:u1");
+    expect(toResourceUrn("iam", "user", "u1", undefined, "d0m41n")).toBe("hws:global:d0m41n:iam:user:u1");
+    expect(toResourceUrn("iam", "user", "u1", "   ", "d0m41n")).toBe("hws:global:d0m41n:iam:user:u1");
+    expect(toResourceUrn("rms", "tracker", "default", "global", "d0m41n")).toBe("hws:global:d0m41n:rms:tracker:default");
+    expect(parseResourceUrn(toResourceUrn("iam", "user", "u1", "", "d0m41n"))?.region).toBe("global");
   });
 
   it("parses its own output (ids may contain colons)", () => {

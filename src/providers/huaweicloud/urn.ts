@@ -1,18 +1,22 @@
 /**
  * Huawei Cloud resource URN.
  * Format: `hws:<region>:<domainId>:<svc>:<type>:<id>` (decided in plan §6.4 Q5).
- * Global resources (IAM, OBS bucket names, ...) use an empty or logical region.
+ * Global resources (IAM, RMS, Organizations, ...) use the logical region
+ * {@link HWS_GLOBAL_REGION}; an empty/undefined region is coerced to it so a
+ * URN never contains an empty segment (`hws::...`).
  */
 export const HWS_URN_PREFIX = "hws";
+export const HWS_GLOBAL_REGION = "global";
 
 export function toResourceUrn(
   svc: string,
   type: string,
   id: string,
-  region: string,
+  region: string | undefined,
   domainId: string,
 ): string {
-  return `${HWS_URN_PREFIX}:${region}:${domainId}:${svc}:${type}:${id}`;
+  const r = region && region.trim() ? region.trim() : HWS_GLOBAL_REGION;
+  return `${HWS_URN_PREFIX}:${r}:${domainId}:${svc}:${type}:${id}`;
 }
 
 export interface ParsedHwsUrn {

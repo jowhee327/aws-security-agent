@@ -54,7 +54,6 @@
     "@huaweicloud/huaweicloud-sdk-hss": "3.1.214",
     "@huaweicloud/huaweicloud-sdk-iam": "3.1.214",
     "@huaweicloud/huaweicloud-sdk-organizations": "3.1.214",
-    "@huaweicloud/huaweicloud-sdk-rds": "3.1.214",
     "@huaweicloud/huaweicloud-sdk-scm": "3.1.214",
     "@huaweicloud/huaweicloud-sdk-secmaster": "3.1.214",
     "@huaweicloud/huaweicloud-sdk-sts": "3.1.214",

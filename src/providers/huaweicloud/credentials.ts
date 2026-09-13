@@ -322,6 +322,21 @@ export interface ResolveProjectsOptions {
 
 const projectCache = new Map<string, Map<string, HuaweiProjectInfo>>();
 
+/**
+ * Huawei Cloud region IDs look like `cn-north-4`, `ap-southeast-1`, `la-south-2`,
+ * `af-south-1`, `tr-west-1`, `me-east-1`, `ru-moscow-1`, `cn-south-4b`:
+ * `<2-letter area>-<letters>-<digits>[optional letter suffix]`.
+ * Keystone also lists non-region projects (e.g. the `MOS` bulk-migration project,
+ * `<region>_<sub-project>` sub-projects and the generic domain project); those
+ * must never be treated as scannable regions or we would build endpoints such
+ * as `ecs.MOS.myhuaweicloud.com`.
+ */
+export const HUAWEI_REGION_ID_PATTERN = /^[a-z]{2}-[a-z]+(?:-[a-z]+)?-\d+[a-z]?$/;
+
+export function isHuaweiRegionId(name: string): boolean {
+  return HUAWEI_REGION_ID_PATTERN.test(name);
+}
+
 function cacheKey(creds: HuaweiCloudCredentials): string {
   // Cache key derived from a non-reversible fingerprint of the AK; the AK itself is never stored as key.
   let h = 0;
@@ -364,8 +379,10 @@ export async function resolveProjects(
   for (const p of resp?.projects ?? []) {
     if (!p.id || !p.name) continue;
     if (p.enabled === false) continue;
+    // Only top-level region projects map 1:1 to regions; sub-projects
+    // ("<region>_<name>"), "MOS" and the domain project are skipped.
+    if (!isHuaweiRegionId(p.name)) continue;
     const domainId = p.domainId ?? p.domain_id ?? creds.domainId ?? "";
-    // Sub-projects are named "<region>_<name>"; only top-level region projects map 1:1.
     map.set(p.name, { projectId: p.id, domainId, region: p.name });
   }
   projectCache.set(key, map);
@@ -388,7 +405,7 @@ export async function resolveRegionScope(
   const info = projects.get(region);
   const domainId = creds.domainId ?? info?.domainId ?? [...projects.values()][0]?.domainId;
   if (!info && !creds.projectId) {
-    const known = [...projects.keys()].filter((n) => !n.includes("_")).sort().join(", ");
+    const known = [...projects.keys()].sort().join(", ");
     throw new Error(`Huawei Cloud region "${region}" has no project for these credentials. Known regions: ${known || "(none)"}`);
   }
   return {

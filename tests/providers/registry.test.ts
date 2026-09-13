@@ -64,7 +64,7 @@ describe("provider registry", () => {
   it("huaweicloud provider exposes its Phase 1 scanners and reserves multi-account", async () => {
     const hw = getProvider("huaweicloud");
     const scanners = hw.scanners();
-    expect(scanners.map((s) => s.moduleName)).toEqual(["config_rules_findings"]);
+    expect(scanners.map((s) => s.moduleName)).toEqual(["config_rules_findings", "public_access_verify", "secret_exposure"]);
     expect(hw.scanners()[0]).not.toBe(scanners[0]); // fresh instances
     expect(hw.toResourceUrn("ecs:server", "srv-1", { region: "cn-north-4", domainId: "d0m41n" }, "ignored"))
       .toBe("hws:cn-north-4:d0m41n:ecs:server:srv-1");

@@ -50,3 +50,24 @@ export function emptyScanResult(
     findings: [],
   };
 }
+
+/**
+ * Region scope (projectId + domainId) for regional-service calls. Order:
+ * `ctx.projectId`/`ctx.domainId` → credential fields → IAM project resolution
+ * (cached). `domainId` may still be undefined when nothing resolves it; callers
+ * that need it for URNs should fall back to `ctx.accountId`.
+ */
+export async function hwRegionScopeFromContext(
+  ctx: ScanContext,
+  creds: HuaweiCloudCredentials,
+): Promise<{ region: string; projectId: string; domainId: string }> {
+  const projectId = ctx.projectId ?? creds.projectId;
+  const domainId = ctx.domainId ?? creds.domainId ?? (ctx.provider === "huaweicloud" && ctx.accountId ? ctx.accountId : undefined);
+  if (projectId && domainId) return { region: ctx.region, projectId, domainId };
+  const scope = await resolveRegionScope(creds, ctx.region);
+  const resolvedProject = projectId ?? scope.projectId;
+  if (!resolvedProject) {
+    throw new Error(`Huawei Cloud project ID could not be resolved for region "${ctx.region}"`);
+  }
+  return { region: ctx.region, projectId: resolvedProject, domainId: domainId ?? scope.domainId ?? ctx.accountId ?? "" };
+}
