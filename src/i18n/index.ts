@@ -162,6 +162,7 @@ const PROVIDER_NAMES: Record<ProviderId, Record<Lang, string>> = {
   aws: { zh: "AWS", en: "AWS" },
   huaweicloud: { zh: "\u534e\u4e3a\u4e91", en: "Huawei Cloud" },
   alicloud: { zh: "\u963f\u91cc\u4e91", en: "Alibaba Cloud" },
+  azure: { zh: "Azure", en: "Azure" },
 };
 
 /** Human-readable cloud provider name for report titles / notes. Absent provider means AWS. */

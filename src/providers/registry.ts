@@ -3,9 +3,10 @@ import type { CloudProvider } from "./types.js";
 import { awsProvider } from "./aws/index.js";
 import { huaweiCloudProvider } from "./huaweicloud/index.js";
 import { alibabaCloudProvider } from "./alicloud/index.js";
+import { azureProvider } from "./azure/index.js";
 
 /** Every registered provider ID as a literal tuple (zod enums need one). Order = display order. */
-export const PROVIDER_IDS = ["aws", "huaweicloud", "alicloud"] as const;
+export const PROVIDER_IDS = ["aws", "huaweicloud", "alicloud", "azure"] as const;
 
 // Compile-time guard: PROVIDER_IDS and the ProviderId union must list the same IDs.
 type _ProviderIdsCoverUnion = [ProviderId] extends [(typeof PROVIDER_IDS)[number]] ? true : never;
@@ -16,6 +17,7 @@ const PROVIDERS: Record<(typeof PROVIDER_IDS)[number], CloudProvider> = {
   aws: awsProvider,
   huaweicloud: huaweiCloudProvider,
   alicloud: alibabaCloudProvider,
+  azure: azureProvider,
 };
 
 export const DEFAULT_PROVIDER_ID: ProviderId = "aws";
@@ -30,7 +32,7 @@ export function isProviderId(id: string): id is ProviderId {
  * default {@link listProviderIds} listing so that callers enumerating the stable
  * provider set are unaffected; pass `includeExperimental` to get every registered ID.
  */
-export const EXPERIMENTAL_PROVIDER_IDS: ReadonlySet<ProviderId> = new Set<ProviderId>(["alicloud"]);
+export const EXPERIMENTAL_PROVIDER_IDS: ReadonlySet<ProviderId> = new Set<ProviderId>(["alicloud", "azure"]);
 
 export interface ListProviderIdsOptions {
   /** Include experimental providers (default false). */

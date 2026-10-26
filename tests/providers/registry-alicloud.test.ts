@@ -49,14 +49,14 @@ const FAKE_HW: HuaweiCloudCredentials = {
 
 describe("provider registry — alicloud", () => {
   it("exports PROVIDER_IDS as the full ordered tuple", () => {
-    expect(PROVIDER_IDS).toEqual(["aws", "huaweicloud", "alicloud"]);
+    expect(PROVIDER_IDS).toEqual(["aws", "huaweicloud", "alicloud", "azure"]);
   });
 
   it("registers alicloud (experimental) without changing the stable listing", () => {
     expect(isProviderId("alicloud")).toBe(true);
     expect(EXPERIMENTAL_PROVIDER_IDS.has("alicloud")).toBe(true);
     expect(listProviderIds()).toEqual(["aws", "huaweicloud"]);
-    expect(listProviderIds({ includeExperimental: true })).toEqual(["aws", "huaweicloud", "alicloud"]);
+    expect(listProviderIds({ includeExperimental: true })).toEqual(["aws", "huaweicloud", "alicloud", "azure"]);
   });
 
   it("getProvider('alicloud') returns the skeleton provider with its hooks", () => {

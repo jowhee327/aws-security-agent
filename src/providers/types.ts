@@ -7,6 +7,7 @@ export type {
   AwsCredentials,
   HuaweiCloudCredentials,
   AlibabaCloudCredentials,
+  AzureCredentials,
 } from "../types.js";
 
 /**
@@ -14,6 +15,7 @@ export type {
  * - AWS: `region` + `partition`.
  * - Huawei Cloud: `region` + `projectId` (per-region project) + `domainId` (account).
  * - Alibaba Cloud: `region` only (the account UID is resolved separately).
+ * - Azure: `region` = subscription ID, `domainId` = tenant ID (one scope per subscription).
  */
 export interface RegionScope {
   region: string;

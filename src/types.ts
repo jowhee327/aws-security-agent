@@ -35,7 +35,7 @@ export interface ScanResult {
 }
 
 /** Cloud provider identifier. Default (and legacy) is "aws". */
-export type ProviderId = "aws" | "huaweicloud" | "alicloud";
+export type ProviderId = "aws" | "huaweicloud" | "alicloud" | "azure";
 
 export interface AwsCredentials {
   accessKeyId: string;
@@ -75,8 +75,28 @@ export interface AlibabaCloudCredentials {
   source?: "explicit" | "env" | "file";
 }
 
+/** Azure national cloud: China (21Vianet, the default) or Global (public). */
+export type AzureCloud = "china" | "global";
+
+/**
+ * Azure service principal (client secret). `tenantId` / `clientId` are identifiers;
+ * `clientSecret` is the only secret and is held in memory only. Scans iterate every
+ * subscription visible to the principal (one scope per subscription).
+ *
+ * NEVER log or serialize instances of this type.
+ */
+export interface AzureCredentials {
+  kind: "azure";
+  tenantId: string;
+  clientId: string;
+  clientSecret: string;
+  /** Default "china" (21Vianet). */
+  cloud: AzureCloud;
+  source?: "explicit" | "env";
+}
+
 /** Provider-agnostic credentials carried on a ScanContext. */
-export type CloudCredentials = AwsCredentials | HuaweiCloudCredentials | AlibabaCloudCredentials;
+export type CloudCredentials = AwsCredentials | HuaweiCloudCredentials | AlibabaCloudCredentials | AzureCredentials;
 
 /** AWS credentials: `accessKeyId` + `secretAccessKey` and no provider `kind` discriminator. */
 export function isAwsCredentials(c: CloudCredentials | undefined): c is AwsCredentials {
@@ -90,6 +110,10 @@ export function isAwsCredentials(c: CloudCredentials | undefined): c is AwsCrede
 
 export function isAlibabaCloudCredentials(c: CloudCredentials | undefined): c is AlibabaCloudCredentials {
   return !!c && (c as AlibabaCloudCredentials).kind === "alicloud";
+}
+
+export function isAzureCredentials(c: CloudCredentials | undefined): c is AzureCredentials {
+  return !!c && (c as AzureCredentials).kind === "azure";
 }
 
 export function isHuaweiCloudCredentials(c: CloudCredentials | undefined): c is HuaweiCloudCredentials {
@@ -118,6 +142,12 @@ export interface ScanContext {
    * Alibaba Cloud OSS buckets without region info) report it exactly once.
    */
   primaryRegionScope?: boolean;
+  /** Azure: subscription scanned by this scope (the scope's `region` field). */
+  subscriptionId?: string;
+  /** Azure: Entra ID tenant (also the context `accountId`). */
+  tenantId?: string;
+  /** Azure: national cloud of the credentials. */
+  cloud?: AzureCloud;
 }
 
 export interface FullScanResult {
