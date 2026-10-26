@@ -112,6 +112,12 @@ export interface ScanContext {
   domainId?: string;
   /** Huawei Cloud: enterprise project ID ("0" = default/all). */
   enterpriseProjectId?: string;
+  /**
+   * Regional providers, multi-region scans only: `false` on every region scope except the
+   * first (absent otherwise). Lets regional modules that also see account-wide data (e.g.
+   * Alibaba Cloud OSS buckets without region info) report it exactly once.
+   */
+  primaryRegionScope?: boolean;
 }
 
 export interface FullScanResult {

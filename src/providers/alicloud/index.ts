@@ -21,6 +21,7 @@ import { ALI_GLOBAL_URN_SERVICES, toAliUrn } from "./urn.js";
 import { AliConfigRecorderScanner } from "./scanners/config-recorder.js";
 import { AliConfigComplianceScanner } from "./scanners/config-compliance.js";
 import { AliServiceDetectionScanner } from "./scanners/service-detection.js";
+import { AliPublicAccessScanner } from "./scanners/public-access.js";
 
 export * from "./api-catalog.js";
 export * from "./client.js";
@@ -30,6 +31,7 @@ export * from "./urn.js";
 export { AliConfigRecorderScanner } from "./scanners/config-recorder.js";
 export { AliConfigComplianceScanner } from "./scanners/config-compliance.js";
 export { AliServiceDetectionScanner } from "./scanners/service-detection.js";
+export { AliPublicAccessScanner } from "./scanners/public-access.js";
 
 export const ALICLOUD_PARTITION = "alicloud";
 export const DEFAULT_ALICLOUD_REGION = "cn-hangzhou";
@@ -136,9 +138,15 @@ export const alibabaCloudProvider: CloudProvider = {
     throw new Error("Alibaba Cloud cross-account access (STS AssumeRole) is not implemented in Phase 2");
   },
 
-  // T2: Config recorder / compliance + service detection; remaining scanners land in T3–T7.
+  // T2: Config recorder / compliance + service detection; T3: public access (OSS + RDS);
+  // remaining scanners land in T4–T7.
   scanners(): Scanner[] {
-    return [new AliConfigRecorderScanner(), new AliConfigComplianceScanner(), new AliServiceDetectionScanner()];
+    return [
+      new AliConfigRecorderScanner(),
+      new AliConfigComplianceScanner(),
+      new AliServiceDetectionScanner(),
+      new AliPublicAccessScanner(),
+    ];
   },
 
   // plan §3.4 — global services (RAM / CAS / Config / SAS …) use an empty region segment.

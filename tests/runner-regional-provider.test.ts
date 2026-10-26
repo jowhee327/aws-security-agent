@@ -142,6 +142,14 @@ describe("regional provider — all regions", () => {
     expect(mocks.fakeProvider.listRegions).toHaveBeenCalledWith(undefined, undefined);
   });
 
+  it("marks every region scope except the first with primaryRegionScope=false", async () => {
+    const regional = mockScanner("regional_mod");
+    await runAllScanners([regional], "all", { provider: "alicloud" });
+    const flags = regional.scan.mock.calls.map((c) => (c[0] as ScanContext).primaryRegionScope);
+    expect(flags).toEqual([undefined, false, false]);
+    expect("primaryRegionScope" in ctxOf(regional, 0)).toBe(false);
+  });
+
   it("falls back to defaultRegion when discovery returns nothing", async () => {
     mocks.fakeProvider.listRegions.mockResolvedValue([]);
     const regional = mockScanner("regional_mod");

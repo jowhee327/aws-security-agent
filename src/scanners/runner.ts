@@ -412,8 +412,10 @@ async function runRegionalProviderScanners(
       modules.push(...(await runScannersWithContext(globalScanners, regionalContext(provider, hooks, scopes[0], accountId))));
     }
     if (regionalScanners.length > 0) {
-      for (const scope of scopes) {
-        modules.push(...(await runScannersWithContext(regionalScanners, regionalContext(provider, hooks, scope, accountId))));
+      for (const [i, scope] of scopes.entries()) {
+        const ctx = regionalContext(provider, hooks, scope, accountId);
+        if (i > 0) ctx.primaryRegionScope = false;
+        modules.push(...(await runScannersWithContext(regionalScanners, ctx)));
       }
     }
   }
