@@ -33,6 +33,8 @@ import {
   aliErrorResult,
   aliField,
   aliNumber,
+  aliSafeFinding,
+  aliSafeWarnings,
   aliScanEnv,
   aliSoftWarning,
   aliString,
@@ -61,7 +63,7 @@ export const IDLE_SG_RISK = 2.0;
 
 function makeFinding(opts: Omit<Finding, "severity" | "priority" | "provider">): Finding {
   const severity = severityFromScore(opts.riskScore);
-  return { ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" };
+  return aliSafeFinding({ ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" });
 }
 
 interface SubResult {
@@ -357,7 +359,7 @@ export class AliIdleResourcesScanner implements Scanner {
       return {
         module: this.moduleName,
         status: "success",
-        ...(warnings.length > 0 ? { warnings } : {}),
+        ...(warnings.length > 0 ? { warnings: aliSafeWarnings(warnings) } : {}),
         resourcesScanned,
         findingsCount: findings.length,
         scanTimeMs: Date.now() - startMs,

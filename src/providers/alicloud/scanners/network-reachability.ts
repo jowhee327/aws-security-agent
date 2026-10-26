@@ -40,6 +40,8 @@ import {
   aliErrorResult,
   aliField,
   aliNumber,
+  aliSafeFinding,
+  aliSafeWarnings,
   aliScanEnv,
   aliSoftWarning,
   aliString,
@@ -78,7 +80,7 @@ const DEFAULT_PRIORITY = 1;
 
 function makeFinding(opts: Omit<Finding, "severity" | "priority" | "provider">): Finding {
   const severity = severityFromScore(opts.riskScore);
-  return { ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" };
+  return aliSafeFinding({ ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" });
 }
 
 /* ------------------------------------------------------------------------ */
@@ -270,7 +272,7 @@ export class AliNetworkReachabilityScanner implements Scanner {
         return {
           module: this.moduleName,
           status: "success",
-          warnings,
+          warnings: aliSafeWarnings(warnings),
           resourcesScanned: 0,
           findingsCount: 0,
           scanTimeMs: Date.now() - startMs,
@@ -366,7 +368,7 @@ export class AliNetworkReachabilityScanner implements Scanner {
       return {
         module: this.moduleName,
         status: "success",
-        ...(warnings.length > 0 ? { warnings } : {}),
+        ...(warnings.length > 0 ? { warnings: aliSafeWarnings(warnings) } : {}),
         resourcesScanned: publicInstances.length,
         findingsCount: findings.length,
         scanTimeMs: Date.now() - startMs,

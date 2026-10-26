@@ -46,6 +46,7 @@ import {
   aliUntrusted,
   aliField,
   aliNumber,
+  aliSafeFinding,
   aliScanEnv,
   aliString,
   emptyScanResult,
@@ -258,7 +259,8 @@ export function evaluationToFinding(
   if (identifier) remediationSteps.push(`Managed rule reference: ${identifier} (see the Alibaba Cloud Config managed rule documentation).`);
   remediationSteps.push("Fix the resource configuration, then re-evaluate the rule to confirm compliance.");
 
-  return {
+  // Every part is already redacted above; aliSafeFinding is the shared defence-in-depth pass.
+  return aliSafeFinding({
     severity,
     title: `Config rule non-compliance: ${ruleName}`,
     resourceType,
@@ -275,7 +277,7 @@ export function evaluationToFinding(
     accountId: uid,
     source,
     provider: "alicloud",
-  };
+  });
 }
 
 /* ------------------------------------------------------------------------ */

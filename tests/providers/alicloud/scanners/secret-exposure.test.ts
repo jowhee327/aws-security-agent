@@ -37,6 +37,7 @@ import {
   UID,
   type AliHandler,
 } from "./helpers.js";
+import { expectNoHostileLeak, hostile, HOSTILE_AK } from "./helpers.js";
 
 /* ------------------------------------------------------------------------ */
 /* Fixtures (fake secrets only)                                             */
@@ -439,5 +440,67 @@ describe("combined + registration", () => {
   it("alicloud provider exposes secret_exposure as a regional module", () => {
     expect(alibabaCloudProvider.scanners().some((s) => s.moduleName === "secret_exposure")).toBe(true);
     expect(alibabaCloudProvider.globalModules?.has("secret_exposure")).toBe(false);
+  });
+});
+
+describe("hostile server strings (FIX2)", () => {
+  it("FC function name + env var names are redacted; values never emitted", async () => {
+    const fnName = hostile("fn");
+    routeAliCall(mocks.aliCall, {
+      ...ECS_EMPTY,
+      ListFunctions: {
+        functions: [
+          {
+            functionName: fnName,
+            environmentVariables: {
+              [`APP_${HOSTILE_AK}`]: PLANTED_ALI_AK,
+              [hostile("VAR")]: `export AK=${PLANTED_ALI_AK}`,
+            },
+          },
+        ],
+      },
+    });
+
+    const r = await scanner.scan(aliCtx());
+    expect(r.status).toBe("success");
+    expect(r.findingsCount).toBe(2);
+    expect(r.findings.every((f) => f.resourceId.startsWith("fn-[REDACTED]"))).toBe(true);
+    expect(r.findings.some((f) => f.description.includes('"APP_[REDACTED]"'))).toBe(true);
+    expectNoHostileLeak(r);
+    assertNoSecretValues(r);
+  });
+
+  it("ECS instance id is redacted in findings; the raw id still reaches DescribeUserData", async () => {
+    const id = hostile("i");
+    routeAliCall(mocks.aliCall, {
+      ...FC_EMPTY,
+      DescribeInstances: instancesPage([id]),
+      DescribeUserData: userDataHandler({ [id]: b64(`#!/bin/bash\nexport ALI_AK=${PLANTED_ALI_AK}\n`) }),
+    });
+
+    const r = await scanner.scan(aliCtx());
+    expect(r.status).toBe("success");
+    expect(r.findingsCount).toBe(1);
+    expect(callsFor(mocks.aliCall, "DescribeUserData")[0][2].InstanceId).toBe(id);
+    expect(r.findings[0].resourceId.startsWith("i-[REDACTED]")).toBe(true);
+    expect(r.findings[0].resourceArn.startsWith(`acs:ecs:cn-hangzhou:${UID}:instance/i-[REDACTED]`)).toBe(true);
+    expectNoHostileLeak(r);
+    assertNoSecretValues(r);
+  });
+
+  it("DescribeUserData failure warning never echoes a hostile instance id", async () => {
+    routeAliCall(mocks.aliCall, {
+      ...FC_EMPTY,
+      DescribeInstances: instancesPage([hostile("i")]),
+      DescribeUserData: () => {
+        throw deniedError("ecs:DescribeUserData");
+      },
+    });
+
+    const r = await scanner.scan(aliCtx());
+    expect(r.status).toBe("success");
+    expect(r.warnings).toHaveLength(1);
+    expect(r.warnings![0].startsWith("ECS i-[REDACTED]")).toBe(true);
+    expectNoHostileLeak(r);
   });
 });

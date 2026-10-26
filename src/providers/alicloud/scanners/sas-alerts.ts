@@ -27,7 +27,18 @@ import { aliCall, aliPaginate } from "../client.js";
 import { redactAliDiagnostic } from "../errors.js";
 import { toAliUrn } from "../urn.js";
 import { checkSasEdition, sasListFailure, sasTruncate } from "./sas-shared.js";
-import { aliArray, aliCallCtx, aliErrorResult, aliField, aliNumber, aliScanEnv, aliUntrusted, emptyScanResult, isAliFatal } from "./shared.js";
+import {
+  aliArray,
+  aliCallCtx,
+  aliErrorResult,
+  aliField,
+  aliNumber,
+  aliSafeFinding,
+  aliScanEnv,
+  aliUntrusted,
+  emptyScanResult,
+  isAliFatal,
+} from "./shared.js";
 
 export const SAS_ALERT_PAGE_SIZE = 100;
 /** Alerts listed per scan. */
@@ -46,7 +57,7 @@ const WHAT = "security alert (threat detection) data";
 
 function makeFinding(opts: Omit<Finding, "severity" | "priority" | "provider">): Finding {
   const severity = severityFromScore(opts.riskScore);
-  return { ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" };
+  return aliSafeFinding({ ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" });
 }
 
 /** Normalise `Level` (case-insensitive). */

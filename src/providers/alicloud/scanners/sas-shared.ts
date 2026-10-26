@@ -21,7 +21,7 @@ import { ALI_API } from "../api-catalog.js";
 import { aliCall, aliPaginate } from "../client.js";
 import { classifyAliError, describeAliError, redactAliDiagnostic } from "../errors.js";
 import { ALI_SAS_EDITIONS, ALI_SAS_LOW_MATURITY_VERSIONS } from "./service-detection.js";
-import { aliArray, aliCallCtx, aliField, aliNumber, aliSoftWarning, aliString, isAliFatal, type AliScanEnv } from "./shared.js";
+import { aliArray, aliCallCtx, aliField, aliNumber, aliSoftWarning, aliString, aliUntrusted, isAliFatal, type AliScanEnv } from "./shared.js";
 
 /** Prefix of every "SAS not enabled / insufficient edition" warning. */
 export const SAS_NOT_ENABLED_WARNING = "Security Center (SAS) is not enabled or runs an insufficient edition";
@@ -196,7 +196,7 @@ export async function listSasVulRecords(
       warnings.push(...page.warnings.map(redactAliDiagnostic));
       for (const rec of page.items) {
         if (!sasVulOpen(rec)) continue;
-        records.push({ type: aliString(rec.Type)?.toLowerCase() ?? type, rec });
+        records.push({ type: aliUntrusted(rec.Type)?.toLowerCase() ?? type, rec });
       }
     } catch (err) {
       if (isAliFatal(err)) throw err;

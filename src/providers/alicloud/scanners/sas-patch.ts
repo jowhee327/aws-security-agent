@@ -27,7 +27,7 @@ import type { Finding, ScanContext, ScanResult } from "../../../types.js";
 import { priorityFromSeverity, severityFromScore } from "../../../utils/risk-scoring.js";
 import { toAliUrn } from "../urn.js";
 import { checkSasEdition, listSasVulRecords, sasNecessity, SAS_NECESSITY_RANK, type SasVulRecord } from "./sas-shared.js";
-import { aliErrorResult, aliScanEnv, aliUntrusted, emptyScanResult } from "./shared.js";
+import { aliErrorResult, aliSafeFinding, aliScanEnv, aliUntrusted, emptyScanResult } from "./shared.js";
 
 /** `sys` = Windows system patches, `cve` = Linux software vulnerabilities. */
 export const SAS_PATCH_VUL_TYPES: readonly string[] = ["sys", "cve"];
@@ -59,7 +59,7 @@ export interface SasHostPatchState {
 
 function makeFinding(opts: Omit<Finding, "severity" | "priority" | "provider">): Finding {
   const severity = severityFromScore(opts.riskScore);
-  return { ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" };
+  return aliSafeFinding({ ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" });
 }
 
 /** Aggregate unhandled `sys` / `cve` records per host (pure); items are de-duplicated per host by Type + Name. */

@@ -33,6 +33,7 @@ import {
   throttledError,
   UID,
 } from "./helpers.js";
+import { expectNoHostileLeak, hostile, HOSTILE_FORBIDDEN } from "./helpers.js";
 
 const ACTION = "GetConfigurationRecorder";
 
@@ -164,5 +165,23 @@ describe("AliConfigRecorderScanner", () => {
     const r = await scanner.scan(aliCtx({ credentials: undefined }));
     expect(r.status).toBe("error");
     expect(mocks.aliCall).not.toHaveBeenCalled();
+  });
+});
+
+describe("hostile server strings (FIX2)", () => {
+  const scanner = new AliConfigRecorderScanner();
+
+  it("hostile ConfigurationRecorderStatus is redacted (before upper-casing) in the warning", async () => {
+    routeAliCall(mocks.aliCall, { [ACTION]: recorder(hostile("unregistered")) });
+    const r = await scanner.scan(aliCtx());
+    expect(r.status).toBe("success");
+    expect(r.warnings).toHaveLength(1);
+    expect(r.warnings?.[0]).toContain(ALI_CONFIG_RECORDER_NOT_ENABLED_WARNING);
+    expect(r.warnings?.[0]).toContain("ConfigurationRecorderStatus=UNREGISTERED-[REDACTED]");
+    // context after the redacted status survives re-redaction
+    expect(r.warnings?.[0]).toContain("config.cn-shanghai.aliyuncs.com");
+    expectNoHostileLeak(r);
+    const upper = JSON.stringify(r);
+    for (const bad of HOSTILE_FORBIDDEN) expect(upper).not.toContain(bad.toUpperCase());
   });
 });

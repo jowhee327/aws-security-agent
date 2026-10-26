@@ -39,6 +39,7 @@ import {
   UID,
   type AliHandler,
 } from "./helpers.js";
+import { expectNoHostileLeak, hostile, HOSTILE_SECRET_PAIR, HOSTILE_SIGN_ECHO } from "./helpers.js";
 
 /* ------------------------------------------------------------------------ */
 /* Fixtures                                                                 */
@@ -579,5 +580,103 @@ describe("registration", () => {
     const p = alibabaCloudProvider;
     expect(p.scanners().some((s) => s.moduleName === "public_access_verify")).toBe(true);
     expect(p.globalModules?.has("public_access_verify")).toBe(false);
+  });
+});
+
+describe("hostile server strings (FIX2)", () => {
+  const HOSTILE_POLICY = {
+    Version: "1",
+    Statement: [
+      {
+        Sid: hostile("sid"),
+        Effect: "Allow",
+        Principal: ["*"],
+        Action: ["oss:GetObject", `oss:${HOSTILE_SECRET_PAIR}`, `oss:Put ${HOSTILE_SIGN_ECHO}`],
+        Resource: ["acs:oss:*:*:b/*"],
+      },
+    ],
+  };
+
+  it("OSS bucket name + policy Sid / actions are redacted in findings", async () => {
+    const name = hostile("bkt");
+    const oss = fakeOss([{ name, region: "oss-cn-hangzhou", acl: "public-read-write", policy: HOSTILE_POLICY }]);
+    mocks.aliOssClient.mockResolvedValue(oss);
+    routeAliCall(mocks.aliCall, RDS_EMPTY);
+
+    const r = await scanner.scan(aliCtx());
+    expect(r.status).toBe("success");
+    expect(r.findingsCount).toBe(2);
+    // the raw name still reaches the SDK
+    expect(oss.getBucketInfo).toHaveBeenCalledWith(name);
+    expect(r.findings.every((f) => f.resourceId.startsWith("bkt-[REDACTED]"))).toBe(true);
+    expect(r.findings.some((f) => f.description.includes("Sid sid-[REDACTED]"))).toBe(true);
+    expectNoHostileLeak(r);
+    noSecrets(r);
+  });
+
+  it("Block Public Access note and per-bucket warnings never echo a hostile bucket name", async () => {
+    const blocked = hostile("blocked");
+    const denied = hostile("denied");
+    const oss = fakeOss(
+      [
+        { name: blocked, region: "oss-cn-hangzhou", acl: "public-read", bpa: true, policy: HOSTILE_POLICY },
+        { name: denied, region: "oss-cn-hangzhou" },
+      ],
+      {
+        getBucketInfo: async (n: unknown) => {
+          if (n === denied) throw ossError(403, "AccessDenied", "denied");
+          return { bucket: { Name: n, AccessControlList: { Grant: "public-read" }, BlockPublicAccess: "true" } };
+        },
+        getBucketPolicy: async (n: unknown) => {
+          if (n === denied) throw ossError(403, "AccessDenied", "denied");
+          return { policy: HOSTILE_POLICY, status: 200 };
+        },
+      },
+    );
+    mocks.aliOssClient.mockResolvedValue(oss);
+    routeAliCall(mocks.aliCall, RDS_EMPTY);
+
+    const r = await scanner.scan(aliCtx());
+    expect(r.status).toBe("success");
+    expect(r.findings).toEqual([]);
+    expect(r.warnings?.some((w) => w.includes("Block Public Access is enabled"))).toBe(true);
+    expect(r.warnings?.filter((w) => w.startsWith("OSS bucket denied-[REDACTED]")).length).toBe(2);
+    expectNoHostileLeak(r);
+  });
+
+  it("RDS instance id / connection string / whitelist group name are redacted", async () => {
+    mocks.aliOssClient.mockResolvedValue(fakeOss([]));
+    const id = hostile("rm");
+    routeAliCall(mocks.aliCall, {
+      DescribeDBInstances: { Items: { DBInstance: [{ DBInstanceId: id, Engine: hostile("MySQL") }] }, TotalRecordCount: 1 },
+      DescribeDBInstanceNetInfo: (q) => {
+        expect(q.DBInstanceId).toBe(id); // raw id to the SDK
+        return netInfo({ type: "Public", cs: hostile("cs"), port: "3306" });
+      },
+      DescribeDBInstanceIPArrayList: ipArray({ name: hostile("grp"), list: "0.0.0.0/0" }),
+    });
+
+    const r = await scanner.scan(aliCtx());
+    expect(r.status).toBe("success");
+    expect(r.findingsCount).toBe(1);
+    expect(r.findings[0].severity).toBe("HIGH");
+    expect(r.findings[0].resourceId.startsWith("rm-[REDACTED]")).toBe(true);
+    expect(r.findings[0].resourceArn.startsWith(`acs:rds:cn-hangzhou:${UID}:dbinstance/rm-[REDACTED]`)).toBe(true);
+    expectNoHostileLeak(r);
+  });
+
+  it("RDS per-instance warning never echoes a hostile instance id", async () => {
+    mocks.aliOssClient.mockResolvedValue(fakeOss([]));
+    routeAliCall(mocks.aliCall, {
+      DescribeDBInstances: { Items: { DBInstance: [{ DBInstanceId: hostile("rm") }] }, TotalRecordCount: 1 },
+      DescribeDBInstanceNetInfo: () => {
+        throw deniedError("rds:DescribeDBInstanceNetInfo");
+      },
+    });
+
+    const r = await scanner.scan(aliCtx());
+    expect(r.status).toBe("success");
+    expect(r.warnings?.some((w) => w.startsWith("RDS rm-[REDACTED]"))).toBe(true);
+    expectNoHostileLeak(r);
   });
 });

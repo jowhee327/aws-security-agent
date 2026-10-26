@@ -36,6 +36,8 @@ import {
   aliCallCtx,
   aliErrorResult,
   aliField,
+  aliSafeFinding,
+  aliSafeWarnings,
   aliScanEnv,
   aliSoftWarning,
   aliString,
@@ -55,7 +57,7 @@ export const TAG_OSS_CONCURRENCY = 5;
 
 function makeFinding(opts: Omit<Finding, "severity" | "priority" | "provider">): Finding {
   const severity = severityFromScore(opts.riskScore);
-  return { ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" };
+  return aliSafeFinding({ ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" });
 }
 
 interface SubResult {
@@ -332,7 +334,7 @@ async function scanOss(ctx: ScanContext, env: AliScanEnv): Promise<SubResult> {
       r.warnings.push(aliSoftWarning(`OSS bucket ${name} GetBucketTags`, s.reason));
       continue;
     }
-    targets.push({ id: name, region: b.region ?? region, keys: redactKeys(s.value) });
+    targets.push({ id: name, region: aliUntrusted(b.region) ?? region, keys: redactKeys(s.value) });
   }
   evaluate(OSS_BUCKET, targets, env.accountId, r);
   return r;
@@ -373,7 +375,7 @@ export class AliTagComplianceScanner implements Scanner {
       return {
         module: this.moduleName,
         status: "success",
-        ...(warnings.length > 0 ? { warnings } : {}),
+        ...(warnings.length > 0 ? { warnings: aliSafeWarnings(warnings) } : {}),
         resourcesScanned,
         findingsCount: findings.length,
         scanTimeMs: Date.now() - startMs,

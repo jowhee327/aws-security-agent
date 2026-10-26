@@ -15,6 +15,7 @@ import { AliEcsMetadataScanner, ECS_METADATA_NOT_HARDENED_RISK, evaluateAliMetad
 import { alibabaCloudProvider } from "../../../../src/providers/alicloud/index.js";
 import type { ScanResult } from "../../../../src/types.js";
 import { aliCtx, authError, callsFor, deniedError, FAKE_AK, FAKE_SK, isolateAliEnv, misuseError, restoreAliEnv, routeAliCall, UID } from "./helpers.js";
+import { expectNoHostileLeak, hostile } from "./helpers.js";
 
 interface Inst {
   id: string;
@@ -204,5 +205,49 @@ describe("AliEcsMetadataScanner", () => {
   it("alicloud provider exposes imdsv2_enforcement as a regional module", () => {
     expect(alibabaCloudProvider.scanners().some((s) => s.moduleName === "imdsv2_enforcement")).toBe(true);
     expect(alibabaCloudProvider.globalModules?.has("imdsv2_enforcement")).toBe(false);
+  });
+});
+
+describe("hostile server strings (FIX2)", () => {
+  const hostilePage = (metadata: Record<string, unknown> | undefined) => ({
+    Instances: {
+      Instance: [
+        {
+          InstanceId: hostile("i"),
+          InstanceType: hostile("ecs.type"),
+          Status: "Running",
+          ...(metadata ? { MetadataOptions: metadata } : {}),
+        },
+      ],
+    },
+    TotalCount: 1,
+    PageNumber: 1,
+    PageSize: 100,
+  });
+
+  it("ECS instance id / type / HttpTokens are redacted in the finding (incl. lower-cased HttpTokens)", async () => {
+    routeAliCall(mocks.aliCall, {
+      DescribeInstances: hostilePage({ HttpTokens: hostile("Optional"), HttpEndpoint: "enabled", HttpPutResponseHopLimit: 2 }),
+    });
+
+    const r = await scanner.scan(aliCtx());
+    expect(r.status).toBe("success");
+    expect(r.findingsCount).toBe(1);
+    const f = r.findings[0];
+    expect(f.resourceId.startsWith("i-[REDACTED]")).toBe(true);
+    expect(f.resourceArn.startsWith(`acs:ecs:cn-hangzhou:${UID}:instance/i-[REDACTED]`)).toBe(true);
+    expect(f.description).toContain("ecs.type-[REDACTED]");
+    expectNoHostileLeak(r);
+    expect(JSON.stringify(r).toLowerCase()).not.toContain("ltai5tfake0");
+    noSecrets(r);
+  });
+
+  it("missing-MetadataOptions warning never echoes a hostile instance id", async () => {
+    routeAliCall(mocks.aliCall, { DescribeInstances: hostilePage(undefined) });
+
+    const r = await scanner.scan(aliCtx());
+    expect(r.status).toBe("success");
+    expect(r.warnings?.some((w) => w.includes("returned no MetadataOptions") && w.includes("i-[REDACTED]"))).toBe(true);
+    expectNoHostileLeak(r);
   });
 });

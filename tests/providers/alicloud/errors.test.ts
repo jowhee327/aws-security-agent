@@ -314,3 +314,29 @@ describe("redactAliDiagnostic", () => {
     for (const s of samples) expect(redactAliDiagnostic(s)).toBe(s);
   });
 });
+
+describe("redactAliDiagnostic — hostile server strings (FIX2)", () => {
+  const HOSTILE_AK = "LTAI5tFAKE000000000000";
+
+  it("AKs glued to `_` or a URL-encoded byte are redacted; alnum-glued text is left alone", () => {
+    expect(redactAliDiagnostic(`APP_${HOSTILE_AK}`)).toBe(`APP_${ALI_REDACTED}`);
+    expect(redactAliDiagnostic(`${HOSTILE_AK}_suffix`)).toBe(`${ALI_REDACTED}_suffix`);
+    expect(redactAliDiagnostic(`a%2C${HOSTILE_AK}&b`)).toBe(`a%2C${ALI_REDACTED}&b`);
+    expect(redactAliDiagnostic("xLTAIword")).toBe("xLTAIword");
+  });
+
+  it("prefixed credential env-var names (APP_ACCESS_KEY_SECRET=…) are redacted", () => {
+    expect(redactAliDiagnostic("APP_ACCESS_KEY_SECRET=xyzFakeValue789")).toBe(`APP_ACCESS_KEY_SECRET=${ALI_REDACTED}`);
+  });
+
+  it("re-redacting a line keeps the context appended after an already-redacted marker", () => {
+    const shown = redactAliDiagnostic(`bkt-server string to sign is:POST&%2F&AccessKeyId%3D${HOSTILE_AK}`);
+    expect(shown).toBe(`bkt-server string to sign is: ${ALI_REDACTED}`);
+    const line = `OSS bucket ${shown} (cn-hangzhou): ACL suppressed`;
+    expect(redactAliDiagnostic(line)).toBe(line);
+    expect(redactAliDiagnostic(`${redactAliDiagnostic("Authorization: OSS x:y")} tail`)).toBe(`Authorization=${ALI_REDACTED} tail`);
+    expect(redactAliDiagnostic(`${redactAliDiagnostic("StringToSign: GET")} tail`)).toBe(`StringToSign=${ALI_REDACTED} tail`);
+    // upper-cased marker (scanner upper-cased a redacted status) is still recognised
+    expect(redactAliDiagnostic(`${shown.toUpperCase()}; tail`)).toBe(`${shown.toUpperCase()}; tail`);
+  });
+});

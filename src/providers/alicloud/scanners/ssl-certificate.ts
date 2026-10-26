@@ -27,7 +27,19 @@ import { ALI_API } from "../api-catalog.js";
 import { aliCall, aliPaginate } from "../client.js";
 import { classifyAliError, degradeAliError, describeAliError, redactAliDiagnostic } from "../errors.js";
 import { toAliUrn } from "../urn.js";
-import { aliArray, aliCallCtx, aliErrorResult, aliField, aliNumber, aliScanEnv, aliString, isAliFatal } from "./shared.js";
+import {
+  aliArray,
+  aliCallCtx,
+  aliErrorResult,
+  aliField,
+  aliNumber,
+  aliSafeFinding,
+  aliSafeWarnings,
+  aliScanEnv,
+  aliString,
+  aliUntrusted,
+  isAliFatal,
+} from "./shared.js";
 
 export const CAS_PAGE_SIZE = 50;
 /** Per-query certificate cap. */
@@ -56,7 +68,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 function makeFinding(opts: Omit<Finding, "severity" | "priority" | "provider">): Finding {
   const severity = severityFromScore(opts.riskScore);
-  return { ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" };
+  return aliSafeFinding({ ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" });
 }
 
 function truthy(v: unknown): boolean {
@@ -155,10 +167,12 @@ export class AliSslCertificateScanner implements Scanner {
       }
 
       const nowMs = Date.now();
-      for (const [certId, cert] of certs) {
-        const domain = aliString(cert.Domain) ?? aliString(cert.CommonName) ?? aliString(cert.Name) ?? certId;
-        const name = aliString(cert.Name);
-        const sans = aliString(cert.Sans);
+      for (const [rawCertId, cert] of certs) {
+        // Raw id is only the dedup map key; every emitted certificate field is redacted.
+        const certId = aliUntrusted(rawCertId) ?? "unknown";
+        const domain = aliUntrusted(cert.Domain) ?? aliUntrusted(cert.CommonName) ?? aliUntrusted(cert.Name) ?? certId;
+        const name = aliUntrusted(cert.Name);
+        const sans = aliUntrusted(cert.Sans);
         const source = truthy(cert.Upload) || aliString(cert.SourceType)?.toLowerCase() === "upload" ? " (uploaded)" : "";
         const label = `CAS certificate ${certId}${name && name !== domain ? ` "${name}"` : ""}${source} for "${domain}"${sans && sans !== domain ? ` (SANs: ${sans})` : ""}`;
         const base = {
@@ -247,7 +261,7 @@ export class AliSslCertificateScanner implements Scanner {
       return {
         module: this.moduleName,
         status: "success",
-        ...(warnings.length > 0 ? { warnings } : {}),
+        ...(warnings.length > 0 ? { warnings: aliSafeWarnings(warnings) } : {}),
         resourcesScanned: certs.size,
         findingsCount: findings.length,
         scanTimeMs: Date.now() - startMs,

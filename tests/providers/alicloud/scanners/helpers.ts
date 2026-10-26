@@ -80,3 +80,56 @@ export const notEnabledError = (api = "config:GetConfigurationRecorder") =>
 
 export const throttledError = (api = "config:GetConfigurationRecorder") =>
   new AliCloudError({ kind: "throttled", status: 429, code: "Throttling.User", message: "Request was denied due to user flow control." }, api);
+
+/*
+ * FIX2 hostile server strings: a fake AK, an `accessKeySecret=` pair and a
+ * SignatureDoesNotMatch string-to-sign echo, as a malicious / misconfigured resource could
+ * carry them in a name, Sid, domain, status … Every scanner must redact them before they
+ * reach a Finding field, a warning or the error text.
+ */
+export const HOSTILE_AK = "LTAI5tFAKE000000000000";
+export const HOSTILE_SK_VALUE = "FakeHostileSecretValue0000000001";
+export const HOSTILE_SECRET_PAIR = `accessKeySecret=${HOSTILE_SK_VALUE}`;
+export const HOSTILE_SIGN_ECHO = `server string to sign is:POST&%2F&AccessKeyId%3D${HOSTILE_AK}`;
+/** Substrings that must never appear in a scan result. */
+export const HOSTILE_FORBIDDEN = [
+  HOSTILE_AK,
+  HOSTILE_SK_VALUE,
+  HOSTILE_SECRET_PAIR,
+  HOSTILE_SIGN_ECHO,
+  "AccessKeyId%3DLTAI",
+  "POST&%2F&AccessKeyId",
+  "%3DLTAI",
+  "string to sign is:POST",
+];
+
+/**
+ * A hostile server string carrying all three payloads (non-alnum separated; the sign echo
+ * last because its redaction drops the rest of the line).
+ */
+export const hostile = (prefix: string): string => `${prefix}-${HOSTILE_AK}-x ${HOSTILE_SECRET_PAIR} ${HOSTILE_SIGN_ECHO}`;
+
+interface HostileCheckable {
+  error?: string;
+  warnings?: string[];
+  findings: Array<{
+    title: string;
+    description: string;
+    resourceId: string;
+    resourceArn: string;
+    remediationSteps: string[];
+  }>;
+}
+
+/** Assert no hostile payload in title / description / resourceId / resourceArn / remediation / warnings / error (and the whole result). */
+export function expectNoHostileLeak(r: HostileCheckable): void {
+  const texts: string[] = [JSON.stringify(r), r.error ?? "", ...(r.warnings ?? [])];
+  for (const f of r.findings) {
+    texts.push(f.title, f.description, f.resourceId, f.resourceArn, ...f.remediationSteps);
+  }
+  for (const t of texts) {
+    for (const bad of HOSTILE_FORBIDDEN) {
+      if (t.includes(bad)) throw new Error(`hostile payload ${JSON.stringify(bad)} leaked into: ${t.slice(0, 300)}`);
+    }
+  }
+}

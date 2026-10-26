@@ -36,10 +36,21 @@ import type { Finding, ScanContext, ScanResult } from "../../../types.js";
 import { priorityFromSeverity, severityFromScore } from "../../../utils/risk-scoring.js";
 import { ALI_API } from "../api-catalog.js";
 import { aliCall, type AliSite } from "../client.js";
-import { classifyAliError, describeAliError } from "../errors.js";
+import { classifyAliError, describeAliError, redactAliDiagnostic } from "../errors.js";
 import { toAliUrn } from "../urn.js";
 import { ALI_CONFIG_RECORDER_REGISTERED, aliConfigRecorderUrn, configRecorderStatus } from "./config-recorder.js";
-import { aliCallCtx, aliErrorResult, aliField, aliNumber, aliScanEnv, aliString, emptyScanResult, type AliScanEnv } from "./shared.js";
+import {
+  aliCallCtx,
+  aliErrorResult,
+  aliField,
+  aliNumber,
+  aliSafeFinding,
+  aliScanEnv,
+  aliString,
+  aliUntrusted,
+  emptyScanResult,
+  type AliScanEnv,
+} from "./shared.js";
 
 export const ALI_SERVICE_ACTIONTRAIL = "ActionTrail";
 export const ALI_SERVICE_CONFIG = "Config";
@@ -104,7 +115,7 @@ export function aliProbeOutcomeFromError(err: unknown): AliProbeOutcome {
 
 function makeFinding(opts: Omit<Finding, "severity" | "priority" | "provider">): Finding {
   const severity = severityFromScore(opts.riskScore);
-  return { ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" };
+  return aliSafeFinding({ ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" });
 }
 
 function asArray<T>(v: unknown): T[] {
@@ -212,16 +223,17 @@ export class AliServiceDetectionScanner implements Scanner {
   }
 
   /** Push the ServiceStatus for `name`; returns true when the service is "not enabled". */
+  /** `details` may echo server values (instance id / edition): always redacted (warnings via emptyScanResult). */
   private record(services: ServiceStatus[], warnings: string[], name: string, outcome: AliProbeOutcome): boolean {
     switch (outcome.kind) {
       case "enabled":
-        services.push({ name, enabled: true, details: outcome.details });
+        services.push({ name, enabled: true, details: redactAliDiagnostic(outcome.details) });
         return false;
       case "disabled":
         services.push({
           name,
           enabled: false,
-          ...(outcome.details ? { details: outcome.details } : {}),
+          ...(outcome.details ? { details: redactAliDiagnostic(outcome.details) } : {}),
           recommendation: ALI_SERVICE_RECOMMENDATIONS[name],
         });
         return true;
@@ -308,13 +320,13 @@ export class AliServiceDetectionScanner implements Scanner {
   private async probeWaf(env: AliScanEnv): Promise<AliProbeOutcome> {
     try {
       const body = await aliCall(ALI_API.waf.DescribeInstance, aliCallCtx(env), { RegionId: aliWafRegionId(env.site) });
-      const instanceId = aliString(aliField(body, "InstanceId"));
+      const instanceId = aliUntrusted(aliField(body, "InstanceId")); // echoed in details
       if (!instanceId) return { kind: "disabled", details: "No WAF 3.0 instance" };
       const status = aliNumber(aliField(body, "Status"));
       if (status !== undefined && status !== 1) {
         return { kind: "disabled", details: `WAF instance ${instanceId} is ${status === 2 ? "expired" : status === 3 ? "released" : `in status ${status}`}` };
       }
-      const edition = aliString(aliField(body, "Edition"));
+      const edition = aliUntrusted(aliField(body, "Edition"));
       return { kind: "enabled", details: `WAF 3.0 instance ${instanceId}${edition ? ` (${edition})` : ""}` };
     } catch (err) {
       return aliProbeOutcomeFromError(err);

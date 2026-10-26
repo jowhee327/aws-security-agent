@@ -7,6 +7,8 @@
  * Deliberate deviation: OSS buckets use `acs:oss:<region>:<uid>:bucket/<name>` (the
  * official OSS ARN is `acs:oss:*:<uid>:<bucket>`) so every URN has `<type>/<id>`.
  */
+import { redactAliDiagnostic } from "./errors.js";
+
 export const ACS_URN_PREFIX = "acs";
 
 /**
@@ -26,7 +28,9 @@ export const ALI_GLOBAL_URN_SERVICES: ReadonlySet<string> = new Set([
 
 export function toAliUrn(svc: string, type: string, id: string, region: string | undefined, uid: string): string {
   const r = region ? region.trim() : "";
-  return `${ACS_URN_PREFIX}:${svc}:${r}:${uid}:${type}/${id}`;
+  // id / region / uid are usually server-sourced: redact so a hostile value cannot smuggle
+  // credential material through the URN (ordinary IDs are unchanged).
+  return `${ACS_URN_PREFIX}:${svc}:${redactAliDiagnostic(r)}:${redactAliDiagnostic(uid)}:${type}/${redactAliDiagnostic(id)}`;
 }
 
 export interface ParsedAliUrn {

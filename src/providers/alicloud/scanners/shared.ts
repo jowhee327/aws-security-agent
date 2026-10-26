@@ -3,11 +3,11 @@
  * live account): credentials / call context from a ScanContext, result skeletons and the
  * canonical error result. Nothing here logs or serialises secret material.
  */
-import type { AlibabaCloudCredentials, ScanContext, ScanResult } from "../../../types.js";
+import type { AlibabaCloudCredentials, Finding, ScanContext, ScanResult } from "../../../types.js";
 import { ALI_API, type AliApiSpec } from "../api-catalog.js";
 import { aliCall, aliPaginate, resolveAliSite, type AliCallContext, type AliSite } from "../client.js";
 import { aliCredentialsFromContext } from "../credentials.js";
-import { AliCloudError, aliModuleErrorText, classifyAliError, degradeAliError, describeAliError, redactAliDiagnostic } from "../errors.js";
+import { AliCloudError, aliModuleErrorText, aliUntrusted, classifyAliError, degradeAliError, describeAliError, redactAliDiagnostic } from "../errors.js";
 
 /** Credentials + site + account UID resolved once per scan. */
 export interface AliScanEnv {
@@ -44,8 +44,8 @@ export function emptyScanResult(
   return {
     module,
     status: extra.status ?? "success",
-    ...(extra.error !== undefined ? { error: extra.error } : {}),
-    ...(extra.warnings && extra.warnings.length > 0 ? { warnings: extra.warnings } : {}),
+    ...(extra.error !== undefined ? { error: redactAliDiagnostic(extra.error) } : {}),
+    ...(extra.warnings && extra.warnings.length > 0 ? { warnings: aliSafeWarnings(extra.warnings) } : {}),
     resourcesScanned: 0,
     findingsCount: 0,
     scanTimeMs: Date.now() - startMs,
@@ -99,15 +99,31 @@ export function aliArray<T = unknown>(v: unknown): T[] {
   return v === undefined || v === null ? [] : [v as T];
 }
 
+/** Re-exported from errors.ts (the single untrusted-string wrapper). */
+export { aliUntrusted };
+
 /**
- * Server-sourced (untrusted) value → trimmed, credential-redacted string; undefined when
- * absent. Ordinary IDs / names pass through unchanged (only credential-looking patterns are
- * rewritten). Use for EVERY cloud-sourced value (id, name, tag, description) emitted in a
- * Finding or warning.
+ * Defence in depth for every emitted Finding: all free-text / identifier fields pass through
+ * {@link redactAliDiagnostic} (idempotent; ordinary text is unchanged). Scanners still wrap
+ * each server-sourced value with {@link aliUntrusted} at the point of extraction.
  */
-export function aliUntrusted(v: unknown): string | undefined {
-  const s = aliString(v);
-  return s === undefined ? undefined : redactAliDiagnostic(s);
+export function aliSafeFinding(f: Finding): Finding {
+  return {
+    ...f,
+    title: redactAliDiagnostic(f.title),
+    resourceType: redactAliDiagnostic(f.resourceType),
+    resourceId: redactAliDiagnostic(f.resourceId),
+    resourceArn: redactAliDiagnostic(f.resourceArn),
+    region: redactAliDiagnostic(f.region),
+    description: redactAliDiagnostic(f.description),
+    impact: redactAliDiagnostic(f.impact),
+    remediationSteps: f.remediationSteps.map(redactAliDiagnostic),
+  };
+}
+
+/** Defence in depth for warnings[]: every line redacted (idempotent). */
+export function aliSafeWarnings(warnings: readonly string[]): string[] {
+  return warnings.map(redactAliDiagnostic);
 }
 
 /** Re-wrap any error (ali-oss / SDK / other) as a redacted AliCloudError — never keep the raw object. */

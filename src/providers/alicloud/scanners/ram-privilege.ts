@@ -51,6 +51,8 @@ import {
   aliErrorResult,
   aliField,
   aliNumber,
+  aliSafeFinding,
+  aliSafeWarnings,
   aliScanEnv,
   aliSoftWarning,
   aliString,
@@ -486,7 +488,7 @@ async function fetchCustomPolicy(state: RamScanState, ref: PolicyRef, warnings: 
 
 function makeFinding(opts: Omit<Finding, "severity" | "priority" | "provider" | "region">): Finding {
   const severity = severityFromScore(opts.riskScore);
-  return { ...opts, region: "global", severity, priority: priorityFromSeverity(severity), provider: "alicloud" };
+  return aliSafeFinding({ ...opts, region: "global", severity, priority: priorityFromSeverity(severity), provider: "alicloud" });
 }
 
 type PrincipalKind = "user" | "role";
@@ -811,7 +813,7 @@ export class AliRamPrivilegeScanner implements Scanner {
       return {
         module: this.moduleName,
         status: "success",
-        ...(warnings.length > 0 ? { warnings } : {}),
+        ...(warnings.length > 0 ? { warnings: aliSafeWarnings(warnings) } : {}),
         resourcesScanned: users.length + roles.length,
         findingsCount: findings.length,
         scanTimeMs: Date.now() - startMs,

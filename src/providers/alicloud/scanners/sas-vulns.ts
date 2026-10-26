@@ -40,7 +40,7 @@ import {
   type SasNecessity,
   type SasVulRecord,
 } from "./sas-shared.js";
-import { aliErrorResult, aliScanEnv, aliUntrusted, emptyScanResult } from "./shared.js";
+import { aliErrorResult, aliSafeFinding, aliScanEnv, aliUntrusted, emptyScanResult } from "./shared.js";
 
 /** Vulnerability types queried (Windows `sys` patches are covered by `patch_compliance_findings`). */
 export const SAS_VUL_TYPES: readonly string[] = ["cve", "app", "emg"];
@@ -63,7 +63,7 @@ export interface SasVulSummary {
 
 function makeFinding(opts: Omit<Finding, "severity" | "priority" | "provider">): Finding {
   const severity = severityFromScore(opts.riskScore);
-  return { ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" };
+  return aliSafeFinding({ ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" });
 }
 
 /** Host label of a record: `InstanceId (InstanceName)`, else Uuid / IP (redacted). */

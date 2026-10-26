@@ -35,6 +35,7 @@ import {
   UID,
   type AliHandler,
 } from "./helpers.js";
+import { expectNoHostileLeak, hostile } from "./helpers.js";
 
 const DAY = 24 * 60 * 60 * 1000;
 /** Expiry `days` (+ half a day of margin so Math.floor is stable) from now, epoch ms. */
@@ -293,5 +294,35 @@ describe("AliSslCertificateScanner", () => {
   it("alicloud provider exposes ssl_certificate as a global module", () => {
     expect(alibabaCloudProvider.scanners().some((s) => s.moduleName === "ssl_certificate")).toBe(true);
     expect(alibabaCloudProvider.globalModules?.has("ssl_certificate")).toBe(true);
+  });
+});
+
+describe("hostile server strings (FIX2)", () => {
+  it("CAS certificate id / name / domain / SANs are redacted in findings", async () => {
+    const hostileCert = {
+      CertificateId: hostile("cert"),
+      Domain: hostile("dom"),
+      Name: hostile("name"),
+      Sans: hostile("san"),
+      Status: "ISSUED",
+      CertEndTime: inDays(-5),
+    };
+    routeAliCall(mocks.aliCall, {
+      ListUserCertificateOrder: casHandler({
+        "CERT|": { CertificateOrderList: [hostileCert], TotalCount: 1, CurrentPage: 1, ShowSize: 50 } as ReturnType<typeof page>,
+      }),
+    });
+
+    const r = await scanner.scan(aliCtx());
+    expect(r.status).toBe("success");
+    expect(r.findingsCount).toBe(1);
+    const f = r.findings[0];
+    expect(f.severity).toBe("HIGH");
+    expect(f.resourceId.startsWith("dom-[REDACTED]")).toBe(true);
+    expect(f.resourceArn.startsWith(`acs:cas::${UID}:certificate/cert-[REDACTED]`)).toBe(true);
+    expect(f.description).toContain("name-[REDACTED]");
+    expect(f.description).toContain("san-[REDACTED]");
+    expectNoHostileLeak(r);
+    noSecrets(r);
   });
 });

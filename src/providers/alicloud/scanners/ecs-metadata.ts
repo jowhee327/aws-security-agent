@@ -21,7 +21,17 @@ import type { Finding, ScanContext, ScanResult } from "../../../types.js";
 import { priorityFromSeverity, severityFromScore } from "../../../utils/risk-scoring.js";
 import { degradeAliError, describeAliError, redactAliDiagnostic } from "../errors.js";
 import { toAliUrn } from "../urn.js";
-import { aliErrorResult, aliField, aliNumber, aliScanEnv, aliString, isAliFatal, listAliEcsInstances } from "./shared.js";
+import {
+  aliErrorResult,
+  aliField,
+  aliNumber,
+  aliSafeFinding,
+  aliSafeWarnings,
+  aliScanEnv,
+  aliUntrusted,
+  isAliFatal,
+  listAliEcsInstances,
+} from "./shared.js";
 
 /** Aligned with the AWS imdsv2_enforcement finding. */
 export const ECS_METADATA_NOT_HARDENED_RISK = 7.5;
@@ -40,9 +50,10 @@ export interface AliMetadataVerdict {
 /** Evaluate one `DescribeInstances` entry's `MetadataOptions`. */
 export function evaluateAliMetadataOptions(instance: unknown): AliMetadataVerdict {
   const opts = aliField(instance, "MetadataOptions");
-  const rawTokens = aliString(aliField(opts, "HttpTokens"));
+  // Server-sourced: redacted BEFORE lower-casing (httpTokens is echoed in the description).
+  const rawTokens = aliUntrusted(aliField(opts, "HttpTokens"));
   const httpTokens = (rawTokens ?? "optional").toLowerCase();
-  const httpEndpoint = (aliString(aliField(opts, "HttpEndpoint")) ?? "enabled").toLowerCase();
+  const httpEndpoint = (aliUntrusted(aliField(opts, "HttpEndpoint")) ?? "enabled").toLowerCase();
   const hopLimit = aliNumber(aliField(opts, "HttpPutResponseHopLimit")) ?? 1;
   return {
     httpTokens,
@@ -55,7 +66,7 @@ export function evaluateAliMetadataOptions(instance: unknown): AliMetadataVerdic
 
 function makeFinding(opts: Omit<Finding, "severity" | "priority" | "provider">): Finding {
   const severity = severityFromScore(opts.riskScore);
-  return { ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" };
+  return aliSafeFinding({ ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" });
 }
 
 export class AliEcsMetadataScanner implements Scanner {
@@ -81,7 +92,7 @@ export class AliEcsMetadataScanner implements Scanner {
         return {
           module: this.moduleName,
           status: "success",
-          warnings,
+          warnings: aliSafeWarnings(warnings),
           resourcesScanned: 0,
           findingsCount: 0,
           scanTimeMs: Date.now() - startMs,
@@ -92,13 +103,14 @@ export class AliEcsMetadataScanner implements Scanner {
       const missing: string[] = [];
       let scanned = 0;
       for (const inst of instances) {
-        const id = aliString(inst.InstanceId);
+        // Every instance field below is server-sourced: only redacted forms are emitted.
+        const id = aliUntrusted(inst.InstanceId);
         if (!id) continue;
         scanned++;
         const v = evaluateAliMetadataOptions(inst);
         if (v.missing) missing.push(id);
-        const instanceType = aliString(inst.InstanceType) ?? "unknown";
-        const state = aliString(inst.Status) ?? "unknown";
+        const instanceType = aliUntrusted(inst.InstanceType) ?? "unknown";
+        const state = aliUntrusted(inst.Status) ?? "unknown";
 
         if (v.notHardened) {
           const description = [
@@ -143,7 +155,7 @@ export class AliEcsMetadataScanner implements Scanner {
       return {
         module: this.moduleName,
         status: "success",
-        ...(warnings.length > 0 ? { warnings } : {}),
+        ...(warnings.length > 0 ? { warnings: aliSafeWarnings(warnings) } : {}),
         resourcesScanned: scanned,
         findingsCount: findings.length,
         scanTimeMs: Date.now() - startMs,

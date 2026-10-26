@@ -35,8 +35,11 @@ import {
   aliCallCtx,
   aliErrorResult,
   aliField,
+  aliSafeFinding,
+  aliSafeWarnings,
   aliScanEnv,
   aliString,
+  aliUntrusted,
   isAliFatal,
   listAliEcsInstances,
   type AliScanEnv,
@@ -74,7 +77,7 @@ function isAccessKeyPattern(sp: SecretPattern): boolean {
 
 function makeFinding(opts: Omit<Finding, "severity" | "priority" | "provider">): Finding {
   const severity = severityFromScore(opts.riskScore);
-  return { ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" };
+  return aliSafeFinding({ ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" });
 }
 
 /**
@@ -169,7 +172,8 @@ async function scanEcsUserData(ctx: ScanContext, env: AliScanEnv): Promise<SubRe
   let firstFailure: string | undefined;
   for (let i = 0; i < settled.length; i++) {
     const s = settled[i];
-    const id = ids[i];
+    // Raw id was only used for the DescribeUserData call; only the redacted form is emitted.
+    const id = aliUntrusted(ids[i]) ?? "unknown";
     if (s.status === "rejected") {
       if (isAliFatal(s.reason)) return { ...r, fatal: toAliError(s.reason, "ecs:DescribeUserData") };
       if (classifyAliError(s.reason).kind === "not_found") continue; // instance released meanwhile
@@ -244,13 +248,16 @@ async function scanFunctionCompute(ctx: ScanContext, env: AliScanEnv): Promise<S
   }
 
   for (const fn of functions) {
-    const name = aliString(aliField(fn, "functionName"));
+    // Function / env var names are server-sourced: only redacted forms are emitted.
+    // (Env var VALUES are only pattern-matched, never emitted.)
+    const name = aliUntrusted(aliField(fn, "functionName"));
     if (!name) continue;
     r.resourcesScanned++;
     const resourceArn = toAliUrn("fc", "function", name, region, env.accountId);
 
-    for (const [varName, varValue] of fcEnvEntries(fn)) {
-      for (const sp of matchAliNamePatterns(varName)) {
+    for (const [rawVarName, varValue] of fcEnvEntries(fn)) {
+      const varName = aliUntrusted(rawVarName) ?? "";
+      for (const sp of matchAliNamePatterns(rawVarName)) {
         r.findings.push(
           makeFinding({
             riskScore: 7.5,
@@ -326,7 +333,7 @@ export class AliSecretExposureScanner implements Scanner {
       return {
         module: this.moduleName,
         status: "success",
-        ...(warnings.length > 0 ? { warnings } : {}),
+        ...(warnings.length > 0 ? { warnings: aliSafeWarnings(warnings) } : {}),
         resourcesScanned,
         findingsCount: findings.length,
         scanTimeMs: Date.now() - startMs,

@@ -37,7 +37,19 @@ import { ALI_API } from "../api-catalog.js";
 import { aliCall, aliOssClient, aliPaginate } from "../client.js";
 import { AliCloudError, classifyAliError, degradeAliError, describeAliError, redactAliDiagnostic } from "../errors.js";
 import { toAliUrn } from "../urn.js";
-import { aliCallCtx, aliErrorResult, aliField, aliNumber, aliScanEnv, aliString, isAliFatal, type AliScanEnv } from "./shared.js";
+import {
+  aliCallCtx,
+  aliErrorResult,
+  aliField,
+  aliNumber,
+  aliSafeFinding,
+  aliSafeWarnings,
+  aliScanEnv,
+  aliString,
+  aliUntrusted,
+  isAliFatal,
+  type AliScanEnv,
+} from "./shared.js";
 
 export const OSS_MAX_BUCKETS = 500;
 export const OSS_BUCKET_CONCURRENCY = 5;
@@ -63,7 +75,7 @@ export const OSS_POLICY_PUBLIC_RISK = 8.0;
 
 function makeFinding(opts: Omit<Finding, "severity" | "priority" | "provider">): Finding {
   const severity = severityFromScore(opts.riskScore);
-  return { ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" };
+  return aliSafeFinding({ ...opts, severity, priority: priorityFromSeverity(severity), provider: "alicloud" });
 }
 
 function asArray<T = unknown>(v: unknown): T[] {
@@ -99,7 +111,8 @@ export function normalizeOssRegion(v: unknown): string | undefined {
 /** ACL from `getBucketInfo().bucket.AccessControlList.Grant` (lower-cased). */
 export function ossBucketAcl(bucketInfo: unknown): string | undefined {
   const grant = aliField(aliField(bucketInfo, "AccessControlList"), "Grant");
-  return aliString(grant)?.toLowerCase();
+  // Redact BEFORE lower-casing: a lower-cased `ltai…` would no longer match the AK pattern.
+  return aliUntrusted(grant)?.toLowerCase();
 }
 
 /** `BlockPublicAccess` flag from `getBucketInfo().bucket`. */
@@ -160,9 +173,13 @@ export function evaluateOssPolicy(policy: unknown): OssPolicyExposure[] {
     if ((aliString(st.Effect) ?? "").toLowerCase() !== "allow") return;
     if (!ossPrincipalIsPublic(st.Principal)) return;
     if (ossConditionRestrictsNetwork(st.Condition)) return;
-    const actions = asArray(st.Action).filter((a): a is string => typeof a === "string");
+    // Sid / actions are server-sourced (bucket policy): redacted before they reach any text.
+    const actions = asArray(st.Action).flatMap((a) => {
+      const shown = typeof a === "string" ? aliUntrusted(a) : undefined;
+      return shown ? [shown] : [];
+    });
     const label = actions.length > 0 ? actions.slice(0, 5).join(", ") + (actions.length > 5 ? ", …" : "") : "(no Action)";
-    const sid = aliString(st.Sid);
+    const sid = aliUntrusted(st.Sid);
     out.push({ detail: `statement ${sid ? `Sid ${sid}` : `#${i + 1}`} allows ${label} to Principal "*" without an acs:SourceIp / acs:SourceVpc condition` });
   });
   return out;
@@ -242,6 +259,8 @@ interface BucketOutcome {
 
 async function checkBucket(oss: OssLike, name: string): Promise<BucketOutcome> {
   const out: BucketOutcome = { name, checked: false, blockPublicAccess: false, policyExposures: [], warnings: [] };
+  // Raw name for the SDK calls; redacted name for every warning.
+  const shown = aliUntrusted(name) ?? "unknown";
 
   try {
     const res = await oss.getBucketInfo(name);
@@ -252,7 +271,7 @@ async function checkBucket(oss: OssLike, name: string): Promise<BucketOutcome> {
   } catch (err) {
     if (isAliFatal(err)) throw toAliError(err, "oss:GetBucketInfo");
     if (classifyAliError(err).kind === "not_found") return out; // bucket deleted meanwhile
-    out.warnings.push(softWarning(`OSS bucket ${name} GetBucketInfo`, err));
+    out.warnings.push(softWarning(`OSS bucket ${shown} GetBucketInfo`, err));
   }
 
   try {
@@ -264,7 +283,7 @@ async function checkBucket(oss: OssLike, name: string): Promise<BucketOutcome> {
     if (isNoSuchPolicy(err)) {
       out.checked = true; // no policy is the normal case
     } else {
-      out.warnings.push(softWarning(`OSS bucket ${name} GetBucketPolicy`, err));
+      out.warnings.push(softWarning(`OSS bucket ${shown} GetBucketPolicy`, err));
     }
   }
   return out;
@@ -308,27 +327,30 @@ async function scanOss(ctx: ScanContext, env: AliScanEnv): Promise<SubResult> {
   for (let i = 0; i < settled.length; i++) {
     const s = settled[i];
     const bucket = buckets[i];
-    const bucketRegion = bucket.region ?? region;
+    const bucketRegion = aliUntrusted(bucket.region) ?? region;
+    // Bucket names are server-sourced: only the redacted form is emitted.
+    const name = aliUntrusted(bucket.name) ?? "unknown";
     if (s.status === "rejected") {
       if (isAliFatal(s.reason)) return { ...r, fatal: toAliError(s.reason, "oss:bucket") };
-      r.warnings.push(softWarning(`OSS bucket ${bucket.name}`, s.reason));
+      r.warnings.push(softWarning(`OSS bucket ${name}`, s.reason));
       continue;
     }
     const v = s.value;
     r.warnings.push(...v.warnings);
     if (v.checked) r.resourcesScanned++;
 
-    const urn = toAliUrn("oss", "bucket", v.name, bucketRegion, env.accountId);
+    const urn = toAliUrn("oss", "bucket", name, bucketRegion, env.accountId);
     const aclPublic = v.acl === "public-read-write" || v.acl === "public-read";
+    const acl = v.acl ?? "unknown"; // already redacted by ossBucketAcl
 
     if (v.blockPublicAccess) {
       const overridden = [
-        aclPublic ? `ACL ${v.acl}` : undefined,
+        aclPublic ? `ACL ${acl}` : undefined,
         v.policyExposures.length > 0 ? `${v.policyExposures.length} public bucket-policy statement(s)` : undefined,
       ].filter(Boolean);
       if (overridden.length > 0) {
         r.warnings.push(
-          `OSS bucket ${v.name} (${bucketRegion}): ${overridden.join(" and ")} suppressed — Block Public Access is enabled, so public access is blocked (informational).`,
+          `OSS bucket ${name} (${bucketRegion}): ${overridden.join(" and ")} suppressed — Block Public Access is enabled, so public access is blocked (informational).`,
         );
       }
       continue;
@@ -339,12 +361,12 @@ async function scanOss(ctx: ScanContext, env: AliScanEnv): Promise<SubResult> {
       r.findings.push(
         makeFinding({
           riskScore: writable ? OSS_ACL_PUBLIC_READ_WRITE_RISK : OSS_ACL_PUBLIC_READ_RISK,
-          title: writable ? `OSS bucket ${v.name} is publicly writable (ACL public-read-write)` : `OSS bucket ${v.name} is publicly readable (ACL public-read)`,
+          title: writable ? `OSS bucket ${name} is publicly writable (ACL public-read-write)` : `OSS bucket ${name} is publicly readable (ACL public-read)`,
           resourceType: "ACS::OSS::Bucket",
-          resourceId: v.name,
+          resourceId: name,
           resourceArn: urn,
           region: bucketRegion,
-          description: `OSS bucket "${v.name}" (${bucketRegion}) has bucket ACL "${v.acl}" and Block Public Access is not enabled.`,
+          description: `OSS bucket "${name}" (${bucketRegion}) has bucket ACL "${acl}" and Block Public Access is not enabled.`,
           impact: writable
             ? "Anyone on the internet can upload, overwrite or delete objects in this bucket (malware hosting, data tampering, ransom, cost abuse) and can read its contents."
             : "Anyone on the internet can read (and list) objects in this bucket, potentially exposing sensitive data.",
@@ -357,12 +379,12 @@ async function scanOss(ctx: ScanContext, env: AliScanEnv): Promise<SubResult> {
       r.findings.push(
         makeFinding({
           riskScore: OSS_POLICY_PUBLIC_RISK,
-          title: `OSS bucket ${v.name} policy grants access to any principal`,
+          title: `OSS bucket ${name} policy grants access to any principal`,
           resourceType: "ACS::OSS::Bucket",
-          resourceId: v.name,
+          resourceId: name,
           resourceArn: urn,
           region: bucketRegion,
-          description: `OSS bucket "${v.name}" (${bucketRegion}) bucket policy: ${v.policyExposures.map((e) => e.detail).join("; ")}. Block Public Access is not enabled.`,
+          description: `OSS bucket "${name}" (${bucketRegion}) bucket policy: ${v.policyExposures.map((e) => e.detail).join("; ")}. Block Public Access is not enabled.`,
           impact: "Anonymous users or any Alibaba Cloud account can perform the allowed OSS actions on this bucket from any network.",
           remediationSteps: OSS_REMEDIATION,
         }),
@@ -385,9 +407,9 @@ export function rdsPublicEndpoints(body: unknown): string[] {
   const out: string[] = [];
   for (const n of infos) {
     if ((aliString(aliField(n, "IPType")) ?? "").toLowerCase() !== "public") continue;
-    const cs = aliString(aliField(n, "ConnectionString"));
+    const cs = aliUntrusted(aliField(n, "ConnectionString"));
     if (!cs) continue;
-    const port = aliString(aliField(n, "Port"));
+    const port = aliUntrusted(aliField(n, "Port"));
     out.push(port ? `${cs}:${port}` : cs);
   }
   return out;
@@ -400,7 +422,7 @@ export function rdsOpenWhitelistGroups(body: unknown): string[] {
   for (const g of groups) {
     const list = aliString(aliField(g, "SecurityIPList")) ?? "";
     const entries = list.split(/[\s,]+/).map((e) => e.trim()).filter(Boolean);
-    if (entries.some((e) => RDS_OPEN_ENTRIES.has(e))) out.push(aliString(aliField(g, "DBInstanceIPArrayName")) ?? "default");
+    if (entries.some((e) => RDS_OPEN_ENTRIES.has(e))) out.push(aliUntrusted(aliField(g, "DBInstanceIPArrayName")) ?? "default");
   }
   return out;
 }
@@ -418,6 +440,8 @@ interface RdsOutcome {
 async function checkRdsInstance(env: AliScanEnv, region: string, id: string): Promise<RdsOutcome> {
   const out: RdsOutcome = { id, checked: false, publicEndpoints: [], openGroups: [], whitelistUnknown: false, warnings: [] };
   const callCtx = aliCallCtx(env, region);
+  // Raw id for the SDK calls; redacted id for every warning.
+  const shown = aliUntrusted(id) ?? "unknown";
 
   try {
     const net = await aliCall(ALI_API.rds.DescribeDBInstanceNetInfo, callCtx, { DBInstanceId: id });
@@ -425,7 +449,7 @@ async function checkRdsInstance(env: AliScanEnv, region: string, id: string): Pr
     out.checked = true;
   } catch (err) {
     if (isAliFatal(err)) throw toAliError(err, "rds:DescribeDBInstanceNetInfo");
-    if (classifyAliError(err).kind !== "not_found") out.warnings.push(softWarning(`RDS ${id} DescribeDBInstanceNetInfo`, err));
+    if (classifyAliError(err).kind !== "not_found") out.warnings.push(softWarning(`RDS ${shown} DescribeDBInstanceNetInfo`, err));
     return out;
   }
   if (out.publicEndpoints.length === 0) return out;
@@ -436,7 +460,7 @@ async function checkRdsInstance(env: AliScanEnv, region: string, id: string): Pr
   } catch (err) {
     if (isAliFatal(err)) throw toAliError(err, "rds:DescribeDBInstanceIPArrayList");
     out.whitelistUnknown = true;
-    out.warnings.push(softWarning(`RDS ${id} DescribeDBInstanceIPArrayList`, err));
+    out.warnings.push(softWarning(`RDS ${shown} DescribeDBInstanceIPArrayList`, err));
   }
   return out;
 }
@@ -466,7 +490,7 @@ async function scanRds(ctx: ScanContext, env: AliScanEnv): Promise<SubResult> {
     r.warnings.push(...page.warnings);
     instances = page.items.flatMap((i) => {
       const id = aliString(aliField(i, "DBInstanceId"));
-      return id ? [{ id, engine: aliString(aliField(i, "Engine")) }] : [];
+      return id ? [{ id, engine: aliUntrusted(aliField(i, "Engine")) }] : [];
     });
   } catch (err) {
     if (isAliFatal(err)) return { ...r, fatal: toAliError(err, "rds:DescribeDBInstances") };
@@ -482,9 +506,11 @@ async function scanRds(ctx: ScanContext, env: AliScanEnv): Promise<SubResult> {
   for (let i = 0; i < settled.length; i++) {
     const s = settled[i];
     const inst = instances[i];
+    // Instance ids are server-sourced: only the redacted form is emitted.
+    const id = aliUntrusted(inst.id) ?? "unknown";
     if (s.status === "rejected") {
       if (isAliFatal(s.reason)) return { ...r, fatal: toAliError(s.reason, "rds:instance") };
-      r.warnings.push(softWarning(`RDS ${inst.id}`, s.reason));
+      r.warnings.push(softWarning(`RDS ${id}`, s.reason));
       continue;
     }
     const v = s.value;
@@ -504,13 +530,13 @@ async function scanRds(ctx: ScanContext, env: AliScanEnv): Promise<SubResult> {
       makeFinding({
         riskScore: open ? RDS_PUBLIC_OPEN_RISK : RDS_PUBLIC_RESTRICTED_RISK,
         title: open
-          ? `RDS instance ${v.id} is publicly accessible from any IP (public endpoint + 0.0.0.0/0 whitelist)`
-          : `RDS instance ${v.id} has a public (Internet) endpoint`,
+          ? `RDS instance ${id} is publicly accessible from any IP (public endpoint + 0.0.0.0/0 whitelist)`
+          : `RDS instance ${id} has a public (Internet) endpoint`,
         resourceType: "ACS::RDS::DBInstance",
-        resourceId: v.id,
-        resourceArn: toAliUrn("rds", "dbinstance", v.id, region, env.accountId),
+        resourceId: id,
+        resourceArn: toAliUrn("rds", "dbinstance", id, region, env.accountId),
         region,
-        description: `RDS instance ${v.id}${engine} has public connection string(s) ${endpoints}. ${whitelistNote}`,
+        description: `RDS instance ${id}${engine} has public connection string(s) ${endpoints}. ${whitelistNote}`,
         impact: open
           ? "The database can be reached from the public internet, making it vulnerable to brute-force, credential stuffing, and exploitation of database vulnerabilities."
           : "The database has an internet-facing endpoint; a whitelist change or a compromised whitelisted address exposes it to brute-force and exploitation of database vulnerabilities.",
@@ -551,7 +577,7 @@ export class AliPublicAccessScanner implements Scanner {
       return {
         module: this.moduleName,
         status: "success",
-        ...(warnings.length > 0 ? { warnings } : {}),
+        ...(warnings.length > 0 ? { warnings: aliSafeWarnings(warnings) } : {}),
         resourcesScanned,
         findingsCount: findings.length,
         scanTimeMs: Date.now() - startMs,

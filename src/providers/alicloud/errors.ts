@@ -65,26 +65,35 @@ const { registerAliSecret, redactRegisteredAliSecrets } = (() => {
 
 export { registerAliSecret };
 
+/*
+ * Key patterns are delimited by alnum lookarounds rather than `\b`: `_` is a word character,
+ * so `\b` would miss an AK glued to an underscore (`APP_LTAI5t…`, a common env-var / name form).
+ * An AK right after a URL-encoded byte (`%3DLTAI…`, `%2CLTAI…`) is matched too.
+ */
 /** (b) Permanent AK (`LTAI` + 12–30 alnum). */
-const LTAI_AK_RE = /\bLTAI[0-9A-Za-z]{12,30}\b/g;
+const LTAI_AK_RE = /(?:(?<![0-9A-Za-z])|(?<=%[0-9A-Fa-f]{2}))LTAI[0-9A-Za-z]{12,30}(?![0-9A-Za-z])/g;
 /** (b) Half-masked AK as echoed by FC / gateways: `LTAI5t…0006`, `LTAI5t...0006`, `LTAI****0001`. */
-const LTAI_MASKED_RE = /\bLTAI[0-9A-Za-z]{0,6}(?:…|\.{2,3}|\*{2,})[0-9A-Za-z]{0,8}/g;
+const LTAI_MASKED_RE = /(?:(?<![0-9A-Za-z])|(?<=%[0-9A-Fa-f]{2}))LTAI[0-9A-Za-z]{0,6}(?:…|\.{2,3}|\*{2,})[0-9A-Za-z]{0,8}/g;
 /** (c) STS temporary AK. */
-const STS_AK_RE = /\bSTS\.[0-9A-Za-z]{16,}/g;
+const STS_AK_RE = /(?<![0-9A-Za-z])STS\.[0-9A-Za-z]{16,}/g;
 /** (c) STS security token (base64-ish, starts with `CAIS`). */
-const CAIS_TOKEN_RE = /\bCAIS[0-9A-Za-z+/=_-]{16,}/g;
+const CAIS_TOKEN_RE = /(?<![0-9A-Za-z])CAIS[0-9A-Za-z+/=_-]{16,}/g;
+/*
+ * The "rest of the line" patterns below skip an already-redacted marker, so re-redacting a
+ * line (scanner → runner → MCP) keeps any context that was appended after the marker.
+ */
 /** (d) RPC V1 `SignatureDoesNotMatch` echo — the string to sign embeds the (URL-encoded) AK. */
-const SERVER_STRING_TO_SIGN_RE = /server string to sign is\s*:?[^\r\n]*/gi;
+const SERVER_STRING_TO_SIGN_RE = /server string to sign is(?!\s*:?\s*\[REDACTED\])\s*:?[^\r\n]*/gi;
 /** (e) OSS XML elements that echo credential / signature material. */
 const OSS_XML_ELEMENT_RE =
   /<(OSSAccessKeyId|AccessKeyId|SecurityToken|StringToSign|StringToSignBytes|SignatureProvided|CanonicalRequest)>[\s\S]*?<\/\1>/gi;
 /** (d) `StringToSign: …` / `"StringToSign":"…"` / `CanonicalRequest=…` outside XML → drop the rest of the line. */
-const STRING_TO_SIGN_KV_RE = /\b(StringToSign(?:Bytes)?|CanonicalRequest)\b["']?\s*[:=]\s*[^\r\n]*/gi;
+const STRING_TO_SIGN_KV_RE = /\b(StringToSign(?:Bytes)?|CanonicalRequest)\b(?!["']?\s*[:=]\s*\[REDACTED\])["']?\s*[:=]\s*[^\r\n]*/gi;
 /** (d) Query-string / URL-encoded components (`AccessKeyId=…`, `AccessKeyId%3D…`, `Signature=…`, `SignatureNonce=…`, `SecurityToken=…`). */
 const SIGNED_QUERY_COMPONENT_RE =
   /\b(OSSAccessKeyId|AccessKeyId|Signature|SignatureNonce|SecurityToken|x-acs-security-token)(=|%3D|%253D)(?!\[REDACTED\])[^\s&%,"'<\]}]+/gi;
 /** (f) `Authorization: …` header (header or JSON form) → drop the rest of the line. */
-const AUTHORIZATION_HEADER_RE = /\bAuthorization\b["']?\s*[:=]\s*[^\r\n]*/gi;
+const AUTHORIZATION_HEADER_RE = /\bAuthorization\b(?!["']?\s*[:=]\s*\[REDACTED\])["']?\s*[:=]\s*[^\r\n]*/gi;
 /** (f) Bare V3 / OSS V4 signature blobs outside an Authorization header. */
 const HMAC_BLOB_RE = /\b(ACS3-HMAC-SHA256|ACS3-HMAC-SM3|ACS3-RSA-SHA256|OSS4-HMAC-SHA256)\b(?! \[REDACTED\])[^\r\n]*/g;
 /** (f) OSS V1 / legacy ACS signature: `OSS <ak>:<sig>` / `acs <ak>:<sig>`. */
@@ -92,10 +101,11 @@ const OSS_V1_AUTH_RE = /\b(OSS|acs)\s+(?!\[REDACTED\])[0-9A-Za-z.]{8,}:[0-9A-Za-
 /**
  * (g) Generic credential `key=value` / `key: value` / `"key":"value"` pairs
  * (accessKeySecret, access_key_secret, accessKeyId, securityToken, stsToken, the
- * Alibaba env var names, …). Case-insensitive.
+ * Alibaba env var names, …). Case-insensitive. Leading alnum lookbehind (not `\b`) so a
+ * prefixed env-var name such as `APP_ACCESS_KEY_SECRET=…` is caught too.
  */
 const CREDENTIAL_KV_RE =
-  /\b(access[_-]?key[_-]?(?:id|secret)|secret[_-]?(?:access[_-]?)?key|access[_-]?secret|security[_-]?token|sts[_-]?token|session[_-]?token|alibaba_cloud_access_key_(?:id|secret)|alibaba_cloud_security_token|alicloud_(?:access_key|secret_key|security_token))\b["']?\s*[:=]\s*["']?(?!\[REDACTED\])([^\s"',;&<\]}]+)/gi;
+  /(?<![0-9A-Za-z])(access[_-]?key[_-]?(?:id|secret)|secret[_-]?(?:access[_-]?)?key|access[_-]?secret|security[_-]?token|sts[_-]?token|session[_-]?token|alibaba_cloud_access_key_(?:id|secret)|alibaba_cloud_security_token|alicloud_(?:access_key|secret_key|security_token))\b["']?\s*[:=]\s*["']?(?!\[REDACTED\])([^\s"',;&<\]}]+)/gi;
 /** Lines mentioning a secret: an exact 30-char alnum token after that word is treated as an AccessKey secret. */
 const SECRET_LINE_TRIGGER_RE = /secret/i;
 const THIRTY_CHAR_TOKEN_RE = /(?<![A-Za-z0-9+/=])[A-Za-z0-9]{30}(?![A-Za-z0-9+/=])/g;
@@ -149,6 +159,20 @@ export function redactAliDiagnostic(text: string): string {
     // Regex failures are not expected; never leak the original text if one happens.
     return ALI_REDACTED;
   }
+}
+
+/**
+ * Server-sourced (untrusted) value → trimmed, credential-redacted string; undefined when
+ * absent / empty. Ordinary IDs / names pass through unchanged (only credential-looking
+ * patterns are rewritten). THE single wrapper for every cloud-sourced value (id, name, tag,
+ * description, status, policy Sid / action, …) that is emitted in a Finding field, a URN,
+ * a warning or a status / error message. Keep raw values only for SDK parameters / map keys.
+ */
+export function aliUntrusted(v: unknown): string | undefined {
+  let s: string | undefined;
+  if (typeof v === "string" && v.trim()) s = v.trim();
+  else if (typeof v === "number" && Number.isFinite(v)) s = String(v);
+  return s === undefined ? undefined : redactAliDiagnostic(s);
 }
 
 /* ------------------------------------------------------------------------ */

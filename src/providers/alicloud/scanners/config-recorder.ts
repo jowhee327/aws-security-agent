@@ -23,7 +23,7 @@ import { ALI_API } from "../api-catalog.js";
 import { aliCall, aliEndpoint, type AliSite } from "../client.js";
 import { classifyAliError, degradeAliError, describeAliError } from "../errors.js";
 import { toAliUrn } from "../urn.js";
-import { aliCallCtx, aliErrorResult, aliField, aliScanEnv, aliString, emptyScanResult } from "./shared.js";
+import { aliCallCtx, aliErrorResult, aliField, aliScanEnv, aliUntrusted, emptyScanResult } from "./shared.js";
 
 export const ALI_CONFIG_RECORDER_NOT_ENABLED_WARNING =
   "Alibaba Cloud Config resource recorder is not enabled for this account.";
@@ -35,9 +35,12 @@ export function aliConfigRecorderUrn(accountId: string): string {
   return toAliUrn("config", "recorder", "default", "", accountId);
 }
 
-/** `ConfigurationRecorder.ConfigurationRecorderStatus` (upper-cased), undefined when absent. */
+/**
+ * `ConfigurationRecorder.ConfigurationRecorderStatus` (redacted, then upper-cased — it is
+ * echoed into the warning), undefined when absent.
+ */
 export function configRecorderStatus(body: unknown): string | undefined {
-  const status = aliString(aliField(aliField(body, "ConfigurationRecorder"), "ConfigurationRecorderStatus"));
+  const status = aliUntrusted(aliField(aliField(body, "ConfigurationRecorder"), "ConfigurationRecorderStatus"));
   return status?.toUpperCase();
 }
 
