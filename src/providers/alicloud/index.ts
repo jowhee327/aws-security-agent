@@ -4,7 +4,7 @@
  *
  * T0 wired the provider into the registry / runner; T1 adds credentials (§3.2),
  * the openapi-core client factory + API catalog (§3.5), error classification /
- * redaction (§3.6) and URNs (§3.4). Scanners land in T2–T7 (T2–T6 done).
+ * redaction (§3.6) and URNs (§3.4). Scanners land in T2–T7.
  * SDKs (`@alicloud/openapi-core`, `@alicloud/tea-util`, `ali-oss`) must be loaded
  * lazily (`await import()`) so the default AWS path never loads them.
  * Multi-account (Resource Directory ListAccounts + STS AssumeRole) is reserved:
@@ -29,6 +29,9 @@ import { AliIdleResourcesScanner } from "./scanners/idle-resources.js";
 import { AliTagComplianceScanner } from "./scanners/tag-compliance.js";
 import { AliNetworkReachabilityScanner } from "./scanners/network-reachability.js";
 import { AliRamPrivilegeScanner } from "./scanners/ram-privilege.js";
+import { AliSasAlertsScanner } from "./scanners/sas-alerts.js";
+import { AliSasVulnsScanner } from "./scanners/sas-vulns.js";
+import { AliSasPatchScanner } from "./scanners/sas-patch.js";
 
 export * from "./api-catalog.js";
 export * from "./client.js";
@@ -46,6 +49,9 @@ export { AliIdleResourcesScanner } from "./scanners/idle-resources.js";
 export { AliTagComplianceScanner } from "./scanners/tag-compliance.js";
 export { AliNetworkReachabilityScanner } from "./scanners/network-reachability.js";
 export { AliRamPrivilegeScanner } from "./scanners/ram-privilege.js";
+export { AliSasAlertsScanner } from "./scanners/sas-alerts.js";
+export { AliSasVulnsScanner } from "./scanners/sas-vulns.js";
+export { AliSasPatchScanner } from "./scanners/sas-patch.js";
 
 export const ALICLOUD_PARTITION = "alicloud";
 export const DEFAULT_ALICLOUD_REGION = "cn-hangzhou";
@@ -155,7 +161,7 @@ export const alibabaCloudProvider: CloudProvider = {
   // T2: Config recorder / compliance + service detection; T3: public access (OSS + RDS);
   // T4: secret exposure (ECS user data + FC3 env), ECS metadata hardening, CAS certificates;
   // T5: idle resources, tag compliance, network reachability; T6: RAM privilege escalation (global);
-  // remaining scanners land in T7.
+  // T7: SAS alerts / vulnerabilities / patch compliance (global, centralised tds endpoint).
   scanners(): Scanner[] {
     return [
       new AliConfigRecorderScanner(),
@@ -169,6 +175,9 @@ export const alibabaCloudProvider: CloudProvider = {
       new AliTagComplianceScanner(),
       new AliNetworkReachabilityScanner(),
       new AliRamPrivilegeScanner(),
+      new AliSasAlertsScanner(),
+      new AliSasVulnsScanner(),
+      new AliSasPatchScanner(),
     ];
   },
 
