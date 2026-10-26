@@ -23,6 +23,11 @@
  * `resourceArn`: `acs:<svc>:<region>:<uid>:<type>/<id>` with `ResourceType` mapped through
  * {@link ALI_CONFIG_RESOURCE_TYPE_MAP} (fallback `ACS::Svc::Type` → `svc:type`).
  *
+ * Untrusted text: every Config-sourced string (resource / rule IDs and names, descriptions,
+ * annotations, pack names, …) is server-controlled and may echo credential material
+ * (e.g. a `server string to sign is: …AccessKeyId%3DLTAI…` annotation). It passes through
+ * {@link aliUntrusted} (→ `redactAliDiagnostic`) before it reaches any Finding / warning field.
+ *
  * Errors: auth_failed / api_misuse anywhere → `status: "error"`; Config not enabled /
  * access denied on the rule listing → warning + success; a per-rule evaluation failure
  * (access denied, throttled, …) → warning, the other rules are still reported.
@@ -33,7 +38,7 @@ import { runWithConcurrency } from "../../../utils/concurrency.js";
 import { priorityFromSeverity, severityFromScore } from "../../../utils/risk-scoring.js";
 import { ALI_API } from "../api-catalog.js";
 import { aliCall, aliPaginate } from "../client.js";
-import { classifyAliError, degradeAliError, describeAliError } from "../errors.js";
+import { classifyAliError, degradeAliError, describeAliError, redactAliDiagnostic } from "../errors.js";
 import { ALI_GLOBAL_URN_SERVICES, toAliUrn } from "../urn.js";
 import {
   aliCallCtx,
@@ -166,6 +171,16 @@ export function isAliNonCompliant(complianceType: unknown): boolean {
   return typeof complianceType === "string" && complianceType.replace(/[^a-z]/gi, "").toUpperCase() === "NONCOMPLIANT";
 }
 
+/**
+ * Server-sourced (untrusted) Config value → trimmed, credential-redacted string; undefined
+ * when absent. Ordinary IDs / names pass through unchanged (only credential-looking
+ * patterns are rewritten). Use for EVERY Config value emitted in a Finding or warning.
+ */
+export function aliUntrusted(v: unknown): string | undefined {
+  const s = aliString(v);
+  return s === undefined ? undefined : redactAliDiagnostic(s);
+}
+
 /** RiskLevel 1/2/3 → 7.5 / 5.0 / 3.0 (HIGH / MEDIUM / LOW); anything else → MEDIUM. */
 export function aliConfigRiskScore(riskLevel: unknown): number {
   const n = aliNumber(riskLevel);
@@ -213,19 +228,21 @@ export function evaluationToFinding(
   ctx: { accountId: string; module: string; packs: ReadonlyMap<string, AliCompliancePackInfo> },
 ): Finding {
   const q = result.EvaluationResultIdentifier?.EvaluationResultQualifier ?? {};
-  const ruleId = aliString(q.ConfigRuleId) ?? aliString(rule.ConfigRuleId) ?? "unknown";
-  const ruleName = aliString(rule.ConfigRuleName) ?? aliString(q.ConfigRuleName) ?? ruleId;
-  const resourceId = aliString(q.ResourceId) ?? "unknown";
-  const resourceName = aliString(q.ResourceName);
-  const resourceType = aliString(q.ResourceType) ?? "ACS::Config::Resource";
-  const regionRaw = aliString(q.RegionId);
+  // Every server-sourced string is redacted here, before it is used anywhere below.
+  const ruleId = aliUntrusted(q.ConfigRuleId) ?? aliUntrusted(rule.ConfigRuleId) ?? "unknown";
+  const ruleName = aliUntrusted(rule.ConfigRuleName) ?? aliUntrusted(q.ConfigRuleName) ?? ruleId;
+  const resourceId = aliUntrusted(q.ResourceId) ?? "unknown";
+  const resourceName = aliUntrusted(q.ResourceName);
+  const resourceType = aliUntrusted(q.ResourceType) ?? "ACS::Config::Resource";
+  const regionRaw = aliUntrusted(q.RegionId);
   const region = urnRegion(regionRaw) || "global";
-  const uid = aliString(q.ResourceOwnerId) ?? ctx.accountId;
-  const identifier = aliString(rule.SourceIdentifier);
+  const uid = aliUntrusted(q.ResourceOwnerId) ?? ctx.accountId;
+  const identifier = aliUntrusted(rule.SourceIdentifier);
 
+  // Pack lookup uses the raw id (map key); the emitted name is redacted (loadPacks redacts too).
   const packId = aliString(rule.CreateBy?.CompliancePackId) ?? aliString(q.CompliancePackId);
   const pack = packId ? ctx.packs.get(packId) : undefined;
-  const packName = pack?.name ?? aliString(rule.CreateBy?.CompliancePackName);
+  const packName = pack?.name ?? aliUntrusted(rule.CreateBy?.CompliancePackName);
   const mlps = pack ? pack.mlps : isAliMlpsPack(packName);
   const source = mlps && packName ? `${ALI_CONFIG_COMPLIANCE_SOURCE}:${packName}` : ALI_CONFIG_COMPLIANCE_SOURCE;
 
@@ -235,9 +252,9 @@ export function evaluationToFinding(
 
   const desc: string[] = [`${resourceType} ${display} in ${region} is NON_COMPLIANT with Config rule "${ruleName}".`];
   if (packName) desc.push(`Compliance pack: ${packName}.`);
-  const description = aliString(rule.Description);
+  const description = aliUntrusted(rule.Description);
   if (description) desc.push(description);
-  const annotation = aliString(result.Annotation);
+  const annotation = aliUntrusted(result.Annotation);
   if (annotation) desc.push(`Evaluation detail: ${annotation}`);
 
   const remediationSteps: string[] = [
@@ -365,7 +382,8 @@ export class AliConfigComplianceScanner implements Scanner {
       return {
         module: this.moduleName,
         status: "success",
-        warnings: warnings.length > 0 ? warnings : undefined,
+        // Defence in depth: every warning is already built from redacted parts (idempotent).
+        warnings: warnings.length > 0 ? warnings.map(redactAliDiagnostic) : undefined,
         resourcesScanned,
         findingsCount: findings.length,
         scanTimeMs: Date.now() - startMs,
@@ -379,7 +397,9 @@ export class AliConfigComplianceScanner implements Scanner {
   /** Non-compliant evaluation results of one rule; non-fatal failures become warnings. */
   private async loadEvaluations(env: AliScanEnv, rule: AliConfigRule): Promise<RuleEvaluations> {
     const ruleId = aliString(rule.ConfigRuleId) as string;
-    const label = `Config ListConfigRuleEvaluationResults (rule ${ruleId})`;
+    // Raw id for the request; redacted id for every label / warning.
+    const shownId = redactAliDiagnostic(ruleId);
+    const label = `Config ListConfigRuleEvaluationResults (rule ${shownId})`;
     try {
       const page = await aliPaginate<unknown, AliEvaluationResult>({
         style: "token",
@@ -398,7 +418,8 @@ export class AliConfigComplianceScanner implements Scanner {
       return { rule, results: page.items, warnings: page.warnings };
     } catch (err) {
       if (isAliFatal(err)) throw err;
-      const degraded = degradeAliError(`Config rule ${ruleId}`, err) ?? `Config rule ${ruleId}: could not list evaluation results (${describeAliError(err)}); skipped`;
+      const degraded =
+        degradeAliError(`Config rule ${shownId}`, err) ?? `Config rule ${shownId}: could not list evaluation results (${describeAliError(err)}); skipped`;
       return { rule, results: [], warnings: [degraded] };
     }
   }
@@ -419,8 +440,8 @@ export class AliConfigComplianceScanner implements Scanner {
       for (const p of page.items) {
         const id = aliString(p.CompliancePackId);
         if (!id) continue;
-        const name = aliString(p.CompliancePackName);
-        const templateId = aliString(p.CompliancePackTemplateId);
+        const name = aliUntrusted(p.CompliancePackName);
+        const templateId = aliUntrusted(p.CompliancePackTemplateId);
         const status = aliString(p.Status);
         // Only ACTIVE (or status-less) packs count as "enabled" for the MLPS annotation.
         const active = status === undefined || status.toUpperCase() === "ACTIVE";

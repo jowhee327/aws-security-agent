@@ -137,6 +137,8 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
     "Checks if AWS Config Rules are configured. Findings are aggregated via Security Hub.",
   rms_compliance_findings:
     "Huawei Cloud only: aggregates NonCompliant RMS (Config) policy states into findings — the Security Hub-like compliance aggregation for Huawei Cloud.",
+  config_compliance_findings:
+    "Alibaba Cloud only: Config compliance findings (NON_COMPLIANT resources of Config rules / compliance packs; experimental).",
   access_analyzer_findings:
     "Checks if IAM Access Analyzer is configured. Findings are aggregated via Security Hub.",
   patch_compliance_findings:
@@ -359,7 +361,11 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
   );
 
   // Individual scanner tools
-  const individualScanners: Array<{ toolName: string; moduleName: string; label: string }> = [
+  /**
+   * `providerSpecific` tools are registered only when some registered provider ships the
+   * module; their `provider` defaults to that provider via {@link defaultProviderFor}.
+   */
+  const individualScanners: Array<{ toolName: string; moduleName: string; label: string; providerSpecific?: boolean }> = [
     { toolName: "detect_services", moduleName: "service_detection", label: "Security Service Detection" },
     { toolName: "scan_secret_exposure", moduleName: "secret_exposure", label: "Secret Exposure" },
     { toolName: "scan_ssl_certificate", moduleName: "ssl_certificate", label: "SSL Certificate" },
@@ -380,10 +386,13 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
     { toolName: "scan_imdsv2_enforcement", moduleName: "imdsv2_enforcement", label: "IMDSv2 Enforcement" },
     { toolName: "scan_waf_coverage", moduleName: "waf_coverage", label: "WAF Coverage" },
     // Huawei Cloud only (provider defaults to huaweicloud because no other provider has the module).
-    { toolName: "scan_rms_compliance_findings", moduleName: "rms_compliance_findings", label: "RMS Compliance Findings (Huawei Cloud)" },
+    { toolName: "scan_rms_compliance_findings", moduleName: "rms_compliance_findings", label: "RMS Compliance Findings (Huawei Cloud)", providerSpecific: true },
+    // Alibaba Cloud only (experimental; provider defaults to alicloud for the same reason).
+    { toolName: "scan_config_compliance_findings", moduleName: "config_compliance_findings", label: "Config Compliance Findings (Alibaba Cloud, experimental)", providerSpecific: true },
   ];
 
-  for (const { toolName, moduleName, label } of individualScanners) {
+  for (const { toolName, moduleName, label, providerSpecific } of individualScanners) {
+    if (providerSpecific && !listProviderIds(ALL_PROVIDERS).some((id) => scannerMapFor(id).has(moduleName))) continue;
     server.tool(
       toolName,
       `Run ${label} security scanner only. Read-only. Does not modify any AWS resources.`,

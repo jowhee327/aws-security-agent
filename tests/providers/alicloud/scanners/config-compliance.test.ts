@@ -445,4 +445,62 @@ describe("AliConfigComplianceScanner", () => {
     expect(r.status).toBe("error");
     expect(r.error).toContain("MissingParameter");
   });
+
+  it("redacts credential echoes in every Config-sourced field (resourceId / URN / description / remediation / warnings)", async () => {
+    const leakAk = "LTAI5tFAKE000000000000";
+    const echo = `server string to sign is:POST&%2F&AccessKeyId%3D${leakAk}`;
+    const leakyAnnotation = `evaluation failed accessKeySecret=${FAKE_SK} ${echo}`;
+    const leakyRuleId = `cr-${leakAk}`;
+    route({
+      rules: rulesPage([
+        { ...rule("cr-leak", { risk: 1 }), Description: `Check failed: accessKeySecret=${FAKE_SK}` },
+        rule(leakyRuleId),
+      ]),
+      evals: (q) => {
+        if (q.ConfigRuleId === leakyRuleId) throw deniedError("config:ListConfigRuleEvaluationResults");
+        const e = evaluation("cr-leak", leakAk, { annotation: leakyAnnotation });
+        e.EvaluationResultIdentifier.EvaluationResultQualifier.ResourceName = `AccessKeyId=${leakAk}`;
+        return evalPage([e]);
+      },
+    });
+    const r = await scanner.scan(aliCtx());
+    expect(r.status).toBe("success");
+    expect(r.findings).toHaveLength(1);
+    const [f] = r.findings;
+    // The raw request still used the real rule id (redaction is output-only).
+    expect(callsFor(mocks.aliCall, EVALS).map(([, , q]) => q.ConfigRuleId)).toContain(leakyRuleId);
+
+    const forbidden = [leakAk, "LTAI5tFAKE", FAKE_SK, "AccessKeyId%3DLTAI", "POST&%2F&AccessKeyId", "%3DLTAI"];
+    const emitted: Array<[string, string]> = [
+      ["resourceId", f.resourceId],
+      ["resourceArn", f.resourceArn],
+      ["title", f.title],
+      ["description", f.description],
+      ["impact", f.impact],
+      ...f.remediationSteps.map((s, i): [string, string] => [`remediationSteps[${i}]`, s]),
+      ...(r.warnings ?? []).map((w, i): [string, string] => [`warnings[${i}]`, w]),
+      ["json", JSON.stringify(r)],
+    ];
+    for (const [field, text] of emitted) {
+      for (const bad of forbidden) expect(text, `${field} leaks ${bad}`).not.toContain(bad);
+    }
+    expect(f.resourceId).toContain("[REDACTED]");
+    expect(f.resourceArn).toBe(`acs:ecs:cn-hangzhou:${UID}:instance/[REDACTED]`);
+    expect(f.description).toContain("server string to sign is: [REDACTED]");
+    expect(r.warnings?.some((w) => w.startsWith("Config rule cr-[REDACTED]: insufficient permissions"))).toBe(true);
+  });
+
+  it("leaves ordinary Config IDs / names untouched by the redaction", async () => {
+    route({
+      rules: rulesPage([rule("cr-0a1b2c3d4e5f", { name: "oss-bucket-public-read-prohibited" })]),
+      evals: { "cr-0a1b2c3d4e5f": [evaluation("cr-0a1b2c3d4e5f", "i-bp1abcdefghijklmnop", { annotation: "ACL is public-read" })] },
+    });
+    const r = await scanner.scan(aliCtx());
+    const [f] = r.findings;
+    expect(f.resourceId).toBe("i-bp1abcdefghijklmnop");
+    expect(f.resourceArn).toBe(`acs:ecs:cn-hangzhou:${UID}:instance/i-bp1abcdefghijklmnop`);
+    expect(f.title).toBe("Config rule non-compliance: oss-bucket-public-read-prohibited");
+    expect(f.description).toContain("Evaluation detail: ACL is public-read");
+    expect(f.description).not.toContain("[REDACTED]");
+  });
 });
