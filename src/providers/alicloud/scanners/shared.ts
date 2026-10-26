@@ -4,7 +4,8 @@
  * canonical error result. Nothing here logs or serialises secret material.
  */
 import type { AlibabaCloudCredentials, ScanContext, ScanResult } from "../../../types.js";
-import { resolveAliSite, type AliCallContext, type AliSite } from "../client.js";
+import { ALI_API } from "../api-catalog.js";
+import { aliCall, aliPaginate, resolveAliSite, type AliCallContext, type AliSite } from "../client.js";
 import { aliCredentialsFromContext } from "../credentials.js";
 import { aliModuleErrorText, classifyAliError } from "../errors.js";
 
@@ -90,4 +91,48 @@ export function aliString(v: unknown): string | undefined {
   if (typeof v === "string" && v.trim()) return v.trim();
   if (typeof v === "number" && Number.isFinite(v)) return String(v);
   return undefined;
+}
+
+/** Array from an array, a single value, or nothing (RPC lists are `{ Items: { Item: [...] } }`). */
+export function aliArray<T = unknown>(v: unknown): T[] {
+  if (Array.isArray(v)) return v as T[];
+  return v === undefined || v === null ? [] : [v as T];
+}
+
+/* ------------------------------------------------------------------------ */
+/* ECS DescribeInstances (shared by secret_exposure / imdsv2_enforcement)   */
+/* ------------------------------------------------------------------------ */
+
+/** DescribeInstances page size (ECS maximum 100) and listing cap. */
+export const ECS_PAGE_SIZE = 100;
+export const ECS_MAX_INSTANCES = 1000;
+
+export interface AliEcsInstanceList {
+  /** Raw `Instances.Instance[]` entries (loosely typed). */
+  instances: Record<string, unknown>[];
+  warnings: string[];
+}
+
+/**
+ * List the ECS instances of `region` (PageNumber / PageSize, `TotalCount`), capped at
+ * {@link ECS_MAX_INSTANCES}. `extra` is merged into every request (e.g. `Status`).
+ * Throws the (redacted) AliCloudError from aliCall.
+ */
+export async function listAliEcsInstances(
+  env: AliScanEnv,
+  region: string,
+  extra: Record<string, unknown> = {},
+  maxItems: number = ECS_MAX_INSTANCES,
+): Promise<AliEcsInstanceList> {
+  const page = await aliPaginate<unknown, Record<string, unknown>>({
+    style: "page",
+    label: "ECS DescribeInstances",
+    pageSize: ECS_PAGE_SIZE,
+    maxItems,
+    fetch: (q) => aliCall(ALI_API.ecs.DescribeInstances, aliCallCtx(env, region), { RegionId: region, ...extra, ...q }),
+    items: (body) =>
+      aliArray<Record<string, unknown>>(aliField(aliField(body, "Instances"), "Instance")).filter((i) => i && typeof i === "object"),
+    totalCount: (body) => aliNumber(aliField(body, "TotalCount")),
+  });
+  return { instances: page.items, warnings: page.warnings };
 }
