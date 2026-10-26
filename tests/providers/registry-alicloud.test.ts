@@ -66,7 +66,7 @@ describe("provider registry — alicloud", () => {
     expect(DEFAULT_ALICLOUD_REGION).toBe("cn-hangzhou");
     expect(p.partitionFor?.("cn-shanghai")).toBe("alicloud");
     expect(p.supportsMultiAccount).toBe(false);
-    expect(p.scanners()).toEqual([]);
+    expect(p.scanners().map((s) => s.moduleName)).toEqual(["config_rules_findings", "config_compliance_findings", "service_detection"]);
     expect(p.redactDiagnostic?.("plain text")).toBe("plain text");
     expect(p.contextFor?.({ region: "cn-hangzhou" }, "1234567890123456")).toEqual({});
     expect(p.globalModules).toBe(ALICLOUD_GLOBAL_MODULES);

@@ -793,8 +793,19 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
         // Provider-specific tables. AWS values are unchanged; Huawei Cloud uses the
         // service names emitted by providers/huaweicloud/scanners/service-detection.ts
         // (CTS / RMS (Config) / HSS / SecMaster; 4 services → top maturity level "advanced").
+        // Alibaba Cloud (EXPERIMENTAL) uses providers/alicloud/scanners/service-detection.ts
+        // (ActionTrail / Config / Security Center (SAS) / WAF / KMS; 5 services → "comprehensive").
         const isHuawei = parsed.provider === "huaweicloud";
-        const serviceImpacts: Record<string, string> = isHuawei
+        const isAli = parsed.provider === "alicloud";
+        const serviceImpacts: Record<string, string> = isAli
+          ? {
+              "ActionTrail": "API activity audit logging",
+              "Config": "Configuration tracking + compliance rules",
+              "Security Center (SAS)": "Threat detection + vulnerability scanning",
+              "WAF": "Web application firewall",
+              "KMS": "Customer-managed encryption keys",
+            }
+          : isHuawei
           ? {
               "CTS": "API activity audit logging",
               "RMS (Config)": "Configuration tracking + compliance rules",
@@ -809,7 +820,13 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
               "AWS Config": "Configuration tracking",
             };
         // Suffix appended to a recommendation line ("" = none).
-        const serviceTrialNotes: Record<string, string> = isHuawei
+        const serviceTrialNotes: Record<string, string> = isAli
+          ? {
+              "ActionTrail": " \u2014 a basic trail is free of charge (storage billed separately)",
+              "Config": " \u2014 the resource recorder is free of charge",
+              "Security Center (SAS)": " \u2014 check the console for the current free-trial offer",
+            }
+          : isHuawei
           ? {
               "CTS": " \u2014 management tracker is free of charge",
               "RMS (Config)": " \u2014 resource recorder is free of charge",
@@ -821,10 +838,18 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
               "GuardDuty": " \u2014 free trial available",
               "Inspector": " \u2014 free trial available",
             };
-        const priorityOrder = isHuawei
+        const priorityOrder = isAli
+          ? ["ActionTrail", "Config", "Security Center (SAS)", "WAF", "KMS"]
+          : isHuawei
           ? ["CTS", "RMS (Config)", "HSS", "SecMaster"]
           : ["Security Hub", "GuardDuty", "Inspector", "AWS Config", "CloudTrail"];
-        const nextMilestones: Record<string, { level: string; target: number; suggestions: string[] }> = isHuawei
+        const nextMilestones: Record<string, { level: string; target: number; suggestions: string[] }> = isAli
+          ? {
+              basic: { level: "Intermediate", target: 2, suggestions: ["ActionTrail", "Config"] },
+              intermediate: { level: "Advanced", target: 4, suggestions: ["Security Center (SAS)", "WAF"] },
+              advanced: { level: "Comprehensive", target: 5, suggestions: ["KMS"] },
+            }
+          : isHuawei
           ? {
               basic: { level: "Intermediate", target: 2, suggestions: ["CTS", "RMS (Config)"] },
               intermediate: { level: "Advanced", target: 4, suggestions: ["HSS", "SecMaster"] },
