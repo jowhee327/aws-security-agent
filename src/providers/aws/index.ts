@@ -37,6 +37,15 @@ const DEFAULT_ROLE_NAME = "SecurityAuditRole";
  */
 export const awsProvider: CloudProvider = {
   id: "aws",
+  displayName: "AWS",
+  partitionFor: getPartition,
+  defaultRegion: DEFAULT_AWS_REGION,
+  // AWS scans one region per call; org-mode aggregation modules stay in runner.ts (AGGREGATION_MODULES).
+  globalModules: new Set<string>(),
+  // AWS messages are passed through verbatim (byte-identical to the pre-multicloud behaviour).
+  redactDiagnostic: (text: string) => text,
+  contextFor: () => ({}),
+  supportsMultiAccount: true,
 
   async getAccountId(scope: RegionScope): Promise<string> {
     return getAccountId(scope.region);

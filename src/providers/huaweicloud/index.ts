@@ -12,6 +12,7 @@ import { isHuaweiCloudCredentials } from "../../types.js";
 import type { AccountRef, AssumeCrossAccountOptions, CloudCredentials, CloudProvider, RegionScope } from "../types.js";
 import { loadHuaweiCredentials, resolveProjects, resolveRegionScope } from "./credentials.js";
 import { toResourceUrn as toHwsUrn } from "./urn.js";
+import { huaweiCloudHooks, HUAWEI_PARTITION, DEFAULT_HUAWEI_REGION } from "./hooks.js";
 import { RmsTrackerScanner } from "./scanners/rms-tracker.js";
 import { ObsPublicAccessScanner } from "./scanners/obs-public-access.js";
 import { HuaweiSecretExposureScanner } from "./scanners/secret-exposure.js";
@@ -26,8 +27,7 @@ import { HuaweiEcsImdsv2Scanner } from "./scanners/ecs-imdsv2.js";
 // Importing client.ts silences log4js at provider load (P0 mitigation, see client.ts).
 import "./client.js";
 
-export const HUAWEI_PARTITION = "huaweicloud";
-export const DEFAULT_HUAWEI_REGION = "cn-north-4";
+export { HUAWEI_PARTITION, DEFAULT_HUAWEI_REGION };
 
 /** Resolve the global credentials to use: explicit HW creds on the call, else the credential chain. */
 function globalCreds(creds?: CloudCredentials): HuaweiCloudCredentials {
@@ -37,6 +37,7 @@ function globalCreds(creds?: CloudCredentials): HuaweiCloudCredentials {
 
 export const huaweiCloudProvider: CloudProvider = {
   id: "huaweicloud",
+  ...huaweiCloudHooks,
 
   /** Account identifier = IAM domain ID (from credentials or IAM project listing). */
   async getAccountId(scope: RegionScope, creds?: CloudCredentials): Promise<string> {
@@ -119,6 +120,7 @@ export const huaweiCloudProvider: CloudProvider = {
 
 export { toResourceUrn, parseResourceUrn } from "./urn.js";
 export * from "./errors.js";
+export { huaweiCloudHooks, HUAWEI_GLOBAL_MODULES, HUAWEI_MULTI_ACCOUNT_WARNING } from "./hooks.js";
 export {
   parseHuaweiCredentialsIni,
   loadHuaweiCredentials,

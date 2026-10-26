@@ -7,7 +7,7 @@ import type { Scanner } from "./scanners/base.js";
 import { runAllScanners, runMultiAccountScanners, buildScanContext, HUAWEI_ALL_REGIONS } from "./scanners/runner.js";
 import { getProvider, isProviderId, listProviderIds, DEFAULT_PROVIDER_ID } from "./providers/registry.js";
 import { resolveModuleAlias } from "./providers/module-aliases.js";
-import { redactHwDiagnostic } from "./providers/huaweicloud/errors.js";
+import { redactProviderDiagnostic } from "./providers/hooks.js";
 import { ServiceDetectionScanner } from "./scanners/service-detection.js";
 import type { ServiceDetectionResult } from "./scanners/service-detection.js";
 import { SecretExposureScanner } from "./scanners/secret-exposure.js";
@@ -90,11 +90,19 @@ export interface CreateServerOptions {
   defaultProvider?: ProviderId;
 }
 
+/** Registry listing used by the server: experimental providers (alicloud) are selectable too. */
+const ALL_PROVIDERS = { includeExperimental: true } as const;
+
 const PROVIDER_PARAM_DESCRIPTION =
   "Cloud provider to scan (default: aws). With huaweicloud, `region` is a Huawei Cloud region ID (e.g. cn-north-4); omit it or pass \"all\" to scan every region project of the account. Huawei Cloud Phase 1 is single-account (org_mode falls back to the current account with a warning).";
 
-/** Zod schema shared by every scan tool; optional so existing (AWS) callers are unaffected. */
-const providerParam = () => z.enum(["aws", "huaweicloud"]).optional().describe(PROVIDER_PARAM_DESCRIPTION);
+/**
+ * Zod schema shared by every scan tool; optional so existing (AWS) callers are unaffected.
+ * The enum is every registered provider (`PROVIDER_IDS`, experimental ones included),
+ * read from the registry when the server is built.
+ */
+const providerParam = () =>
+  z.enum(listProviderIds(ALL_PROVIDERS) as [ProviderId, ...ProviderId[]]).optional().describe(PROVIDER_PARAM_DESCRIPTION);
 
 const MODULE_DESCRIPTIONS: Record<string, string> = {
   service_detection:
@@ -265,7 +273,7 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
   // scanners import their SDKs lazily, so this costs nothing on the AWS path).
   const providerScanners = new Map<ProviderId, Scanner[]>([["aws", allScanners]]);
   const providerScannerMaps = new Map<ProviderId, Map<string, Scanner>>([["aws", scannerMap]]);
-  for (const id of listProviderIds()) {
+  for (const id of listProviderIds(ALL_PROVIDERS)) {
     if (id === "aws") continue;
     const list = getProvider(id).scanners();
     providerScanners.set(id, list);
@@ -279,13 +287,14 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
   const regionFor = (region: string | undefined, provider: ProviderId): string =>
     provider === "aws" ? (region ?? defaultRegion) : (region ?? HUAWEI_ALL_REGIONS);
   /**
-   * Tool-level error text. AWS messages are returned verbatim (byte-identical to the
-   * pre-multicloud behaviour); Huawei Cloud messages go through the diagnostic redactor
-   * because SDK / proxy errors may echo the signed request (Authorization header, AK).
+   * Tool-level error text, passed through the provider's `redactDiagnostic` hook. AWS
+   * messages are returned verbatim (identity hook; byte-identical to the pre-multicloud
+   * behaviour); Huawei Cloud / Alibaba Cloud SDK / proxy errors may echo the signed
+   * request (Authorization header, AK).
    */
   const toolErrorText = (err: unknown, provider: ProviderId | undefined): string => {
     const msg = err instanceof Error ? err.message : String(err);
-    return `Error: ${provider === "huaweicloud" ? redactHwDiagnostic(msg) : msg}`;
+    return `Error: ${redactProviderDiagnostic(provider, msg)}`;
   };
   const moduleUnavailableError = (moduleName: string, provider: ProviderId) => ({
     content: [{
@@ -301,7 +310,7 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
    */
   const defaultProviderFor = (moduleName: string): ProviderId => {
     if (scannerMapFor(defaultProvider).has(moduleName)) return defaultProvider;
-    const owners = listProviderIds().filter((id) => scannerMapFor(id).has(moduleName));
+    const owners = listProviderIds(ALL_PROVIDERS).filter((id) => scannerMapFor(id).has(moduleName));
     return owners.length === 1 ? owners[0] : defaultProvider;
   };
 

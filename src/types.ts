@@ -35,7 +35,7 @@ export interface ScanResult {
 }
 
 /** Cloud provider identifier. Default (and legacy) is "aws". */
-export type ProviderId = "aws" | "huaweicloud";
+export type ProviderId = "aws" | "huaweicloud" | "alicloud";
 
 export interface AwsCredentials {
   accessKeyId: string;
@@ -59,11 +59,37 @@ export interface HuaweiCloudCredentials {
   domainId?: string;
 }
 
-/** Provider-agnostic credentials carried on a ScanContext. */
-export type CloudCredentials = AwsCredentials | HuaweiCloudCredentials;
+/**
+ * Alibaba Cloud access key pair (optionally an STS temporary credential).
+ * `accessKeyId` overlaps with {@link AwsCredentials}, so the `kind` discriminator
+ * is mandatory — always narrow with {@link isAlibabaCloudCredentials}.
+ *
+ * NEVER log or serialize instances of this type.
+ */
+export interface AlibabaCloudCredentials {
+  accessKeyId: string;
+  accessKeySecret: string;
+  /** STS temporary credentials only. */
+  securityToken?: string;
+  kind: "alicloud";
+  source?: "explicit" | "env" | "file";
+}
 
+/** Provider-agnostic credentials carried on a ScanContext. */
+export type CloudCredentials = AwsCredentials | HuaweiCloudCredentials | AlibabaCloudCredentials;
+
+/** AWS credentials: `accessKeyId` + `secretAccessKey` and no provider `kind` discriminator. */
 export function isAwsCredentials(c: CloudCredentials | undefined): c is AwsCredentials {
-  return !!c && typeof (c as AwsCredentials).accessKeyId === "string";
+  return (
+    !!c &&
+    typeof (c as AwsCredentials).accessKeyId === "string" &&
+    typeof (c as AwsCredentials).secretAccessKey === "string" &&
+    (c as { kind?: unknown }).kind === undefined
+  );
+}
+
+export function isAlibabaCloudCredentials(c: CloudCredentials | undefined): c is AlibabaCloudCredentials {
+  return !!c && (c as AlibabaCloudCredentials).kind === "alicloud";
 }
 
 export function isHuaweiCloudCredentials(c: CloudCredentials | undefined): c is HuaweiCloudCredentials {
@@ -72,9 +98,9 @@ export function isHuaweiCloudCredentials(c: CloudCredentials | undefined): c is 
 
 export interface ScanContext {
   region: string;
-  /** AWS partition (aws / aws-cn / aws-us-gov). Huawei Cloud contexts use "huaweicloud". */
+  /** AWS partition (aws / aws-cn / aws-us-gov). Huawei Cloud contexts use "huaweicloud"; Alibaba Cloud "alicloud". */
   partition: string;
-  /** AWS account ID; for Huawei Cloud this is the domain ID. */
+  /** AWS account ID; for Huawei Cloud this is the domain ID; for Alibaba Cloud the account UID. */
   accountId: string;
   accountAlias?: string;
   credentials?: CloudCredentials;
