@@ -94,7 +94,8 @@ export interface CreateServerOptions {
 const ALL_PROVIDERS = { includeExperimental: true } as const;
 
 const PROVIDER_PARAM_DESCRIPTION =
-  "Cloud provider to scan (default: aws). With huaweicloud, `region` is a Huawei Cloud region ID (e.g. cn-north-4); omit it or pass \"all\" to scan every region project of the account. Huawei Cloud Phase 1 is single-account (org_mode falls back to the current account with a warning).";
+  "Cloud provider to scan (default: aws). With huaweicloud, `region` is a Huawei Cloud region ID (e.g. cn-north-4); omit it or pass \"all\" to scan every region project of the account. Huawei Cloud Phase 1 is single-account (org_mode falls back to the current account with a warning). " +
+  "With alicloud (EXPERIMENTAL — not yet validated against a live account), region is an Alibaba Cloud region ID (e.g. cn-hangzhou); omit or \"all\" to scan every region; single-account only in this phase.";
 
 /**
  * Zod schema shared by every scan tool; optional so existing (AWS) callers are unaffected.

@@ -278,7 +278,7 @@ This uploads the dashboard files (including your latest `data.json`) to the buck
 | `save_results` | Save scan results for the dashboard |
 | `get_setup_template` | Get CloudFormation StackSet template for cross-account audit role |
 
-All tools accept an optional `region` parameter (defaults to the server's configured region). Scan tools also accept an optional `provider` parameter (`aws` by default, or `huaweicloud` — see [Multi-cloud](#multi-cloud-huawei-cloud-phase-1)).
+All tools accept an optional `region` parameter (defaults to the server's configured region). Scan tools also accept an optional `provider` parameter (`aws` by default, `huaweicloud`, or the experimental `alicloud` — see [Multi-cloud](#multi-cloud-huawei-cloud-phase-1) and [Alibaba Cloud](#multi-cloud-alibaba-cloud-experimental)).
 
 ## Recommended IAM Policy
 
@@ -530,6 +530,62 @@ Findings use the URN `hws:<region>:<domainId>:<service>:<type>:<id>` in `resourc
 - Single account only. `org_mode` / `role_name` emit a warning and scan the current account; multi-account via Organizations + STS `assumeAgency` is reserved for Phase 2 (`list_org_accounts` returns an error for `huaweicloud`).
 - No IAM privilege-escalation scanner yet (requires `IAM ReadOnlyAccess`, which the reference test account lacks); `dns_dangling`, `network_reachability`, `disaster_recovery`, `waf_coverage`, `guardduty_findings`, `trusted_advisor_findings`, `access_analyzer_findings` and `scan_ecr_image_cve` are AWS-only for now (requesting them with `provider: "huaweicloud"` returns a clear error; scan groups list them as unavailable).
 - No enterprise-project (EPS) splitting; results cover the whole account.
+
+## Multi-cloud (Alibaba Cloud, experimental)
+
+> **EXPERIMENTAL.** The Alibaba Cloud provider is mock-tested only — it has **not yet been validated against a live Alibaba Cloud account**. API field names follow the official API docs; expect rough edges until live validation.
+
+The same tools and report formats work against an **Alibaba Cloud** (阿里云) account. AWS remains the default; nothing changes unless you pass `provider`.
+
+**Selecting the provider**
+
+- Every scan tool accepts `provider: "alicloud"` (same tool list as Huawei Cloud above). Server-wide default: `CLOUD_PROVIDER=alicloud`.
+- Region semantics with `provider: "alicloud"`: `region` is an Alibaba Cloud region ID (e.g. `cn-hangzhou`). Omit it, or pass `"all"`, to scan every region (discovered via ECS `DescribeRegions`). Account-wide modules (RAM, Config, Security Center, CAS) run once; regional modules run once per region.
+- Site: `ALIBABA_CLOUD_SITE=cn` (default, China site) or `intl` (international site). It selects the centralised endpoints (Config `config.cn-shanghai` vs `config.ap-southeast-1`, Security Center `tds` vs `tds.ap-southeast-1`).
+
+**Credentials** (read-only AccessKey; the server parses them itself and never probes the ECS metadata service)
+
+1. Environment: `ALIBABA_CLOUD_ACCESS_KEY_ID` / `ALIBABA_CLOUD_ACCESS_KEY_SECRET` (optional `ALIBABA_CLOUD_SECURITY_TOKEN` for STS credentials).
+2. File: `~/.alibabacloud/credentials` (override with `ALIBABA_CLOUD_CREDENTIALS_FILE`), profile `ALIBABA_CLOUD_PROFILE` (default `default`):
+
+```ini
+[default]
+type = access_key            ; or sts (+ security_token)
+access_key_id = <access key id>
+access_key_secret = <access key secret>
+```
+
+The account ID (UID) is resolved via STS `GetCallerIdentity`. Credential values are never logged, and error text is redacted (Alibaba Cloud error responses can echo the AccessKey ID). An invalid AccessKey is reported as `Alibaba Cloud authentication failed` (module status `error`), never as "service not enabled".
+
+**Recommended RAM permissions** (attach to the audit RAM user / role)
+
+Simplest: the system policy `ReadOnlyAccess`. Fine-grained alternative: `AliyunRAMReadOnlyAccess`, `AliyunConfigReadOnlyAccess`, `AliyunActionTrailReadOnlyAccess`, `AliyunECSReadOnlyAccess` (`ecs:DescribeUserData` may need an explicit grant), `AliyunVPCReadOnlyAccess`, `AliyunSLBReadOnlyAccess`, `AliyunRDSReadOnlyAccess`, `AliyunOSSReadOnlyAccess`, `AliyunYundunSASReadOnlyAccess`, `AliyunYundunWAFReadOnlyAccess`, `AliyunYundunCertReadOnlyAccess`, `AliyunKMSReadOnlyAccess`, `AliyunFCReadOnlyAccess`. Policy names are still to be confirmed on a live account. Missing permissions degrade per sub-service: the module reports a warning and stays `success`.
+
+**Module maturity (14)** — all modules: *experimental — mock-tested only, NOT validated against a live account*
+
+| Module | Alibaba Cloud services | Maturity |
+|--------|------------------------|----------|
+| `service_detection` | ActionTrail, Config, Security Center (SAS), WAF 3.0, KMS | experimental — mock-tested only, NOT validated against a live account |
+| `config_rules_findings` | Config resource recorder | experimental — mock-tested only, NOT validated against a live account |
+| `config_compliance_findings` | Config rules / compliance packs (NON_COMPLIANT evaluations) — substitutes `security_hub_findings` (`scan_config_compliance_findings`) | experimental — mock-tested only, NOT validated against a live account |
+| `public_access_verify` | OSS (ACL / bucket policy / Block Public Access), RDS public endpoints + IP whitelist | experimental — mock-tested only, NOT validated against a live account |
+| `secret_exposure` | ECS user data, Function Compute 3.0 env vars | experimental — mock-tested only, NOT validated against a live account |
+| `ssl_certificate` | Certificate Management Service (CAS) | experimental — mock-tested only, NOT validated against a live account |
+| `imdsv2_enforcement` | ECS metadata options (hardened mode, `HttpTokens`) | experimental — mock-tested only, NOT validated against a live account |
+| `idle_resources` | ECS disks / stopped instances / security groups, VPC EIPs | experimental — mock-tested only, NOT validated against a live account |
+| `tag_compliance` | ECS, SLB, RDS, OSS tags | experimental — mock-tested only, NOT validated against a live account |
+| `network_reachability` | ECS public instances + security group ingress rules | experimental — mock-tested only, NOT validated against a live account |
+| `iam_privilege_escalation` | RAM users / groups / roles / policies, IMS (root AccessKey, MFA, password policy) | experimental — mock-tested only, NOT validated against a live account |
+| `guardduty_findings` | Security Center (SAS) alerts | experimental — mock-tested only, NOT validated against a live account |
+| `inspector_findings` | Security Center (SAS) vulnerabilities (cve / app / emg) | experimental — mock-tested only, NOT validated against a live account |
+| `patch_compliance_findings` | Security Center (SAS) OS vulnerabilities per host | experimental — mock-tested only, NOT validated against a live account |
+
+Findings use Alibaba Cloud ARNs `acs:<service>:<region>:<uid>:<type>/<id>` (global services leave the region empty, e.g. `acs:ram::<uid>:user/<name>`) in `resourceArn`. Report generators (Markdown / HTML / MLPS Level 3 / HW Defense) accept Alibaba Cloud results; MLPS "cloud provider" items are worded for Alibaba Cloud and Security Hub control IDs are mapped to Config managed-rule identifiers where known (e.g. `ram-user-mfa-check`, `actiontrail-enabled`, `sg-public-access-check` — identifiers still to be confirmed with a live `ListManagedRules`).
+
+**Known limitations (experimental phase)**
+
+- Single account only. `org_mode` / `role_name` emit a warning and scan the current account; multi-account via Resource Directory + STS `AssumeRole` is reserved for a later phase.
+- `dns_dangling`, `disaster_recovery`, `waf_coverage` are deferred; `trusted_advisor_findings`, `access_analyzer_findings` and `scan_ecr_image_cve` have no Alibaba Cloud equivalent.
 
 ## Output Format
 

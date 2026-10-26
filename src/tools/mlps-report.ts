@@ -4,6 +4,7 @@ import {
   MLPS3_FULL_CHECKLIST,
   MLPS3_CATEGORY_ORDER,
   getMappingById,
+  cloudProviderNote,
   type MlpsChecklistItem,
   type MlpsCheckMapping,
 } from "../data/mlps3-check-mapping.js";
@@ -35,6 +36,15 @@ export interface FullCheckResult {
 }
 
 /**
+ * Per-provider Security Hub substitute: the aggregation module (see module-aliases)
+ * and the mapping field naming the provider rules that satisfy a check.
+ */
+const PROVIDER_AGGREGATION: Partial<Record<ProviderId, { module: string; ruleNames: (m: MlpsCheckMapping) => string[] | undefined }>> = {
+  huaweicloud: { module: "rms_compliance_findings", ruleNames: (m) => m.rmsPolicyAssignmentNames },
+  alicloud: { module: "config_compliance_findings", ruleNames: (m) => m.alicloudConfigRuleIdentifiers },
+};
+
+/**
  * Evaluate a single checklist item against scan results.
  */
 export function evaluateFullCheck(
@@ -56,9 +66,11 @@ export function evaluateFullCheck(
 
   // Type "auto" — check modules present and evaluate findings.
   // For non-AWS providers the aggregation module is substituted
-  // (huaweicloud: security_hub_findings → rms_compliance_findings).
+  // (huaweicloud: security_hub_findings → rms_compliance_findings;
+  //  alicloud: security_hub_findings → config_compliance_findings).
   const mods = (mapping.modules ?? []).map((mod) => resolveModuleAlias(mod, provider));
-  const isHuawei = provider === "huaweicloud";
+  const aggregation = provider ? PROVIDER_AGGREGATION[provider] : undefined;
+  const aggregationNames = aggregation?.ruleNames(mapping);
 
   const allModulesPresent = mods.every((mod) =>
     scanModules.some((m) => m.module === mod && m.status === "success"),
@@ -68,10 +80,10 @@ export function evaluateFullCheck(
     return { item, mapping, status: "unknown", relatedFindings: [] };
   }
 
-  if (isHuawei && mapping.securityHubControlIds?.length && !mapping.rmsPolicyAssignmentNames?.length) {
-    // The check is only defined through AWS Security Hub control IDs; without an
-    // RMS policy mapping the aggregation module cannot be evaluated on Huawei Cloud.
-    const nonAggregation = mods.filter((mod) => mod !== "rms_compliance_findings");
+  if (aggregation && mapping.securityHubControlIds?.length && !aggregationNames?.length) {
+    // The check is only defined through AWS Security Hub control IDs; without a
+    // provider rule mapping the aggregation module cannot be evaluated on this cloud.
+    const nonAggregation = mods.filter((mod) => mod !== aggregation.module);
     if (nonAggregation.length === 0) {
       return { item, mapping, status: "unknown", relatedFindings: [] };
     }
@@ -79,13 +91,14 @@ export function evaluateFullCheck(
 
   let relatedFindings: Finding[];
 
-  if (isHuawei && mods.includes("rms_compliance_findings") && (mapping.securityHubControlIds?.length || mapping.rmsPolicyAssignmentNames?.length)) {
-    // Hybrid (Huawei Cloud): rms_compliance_findings filtered by RMS policy assignment
-    // names, other scanner modules matched at module level (all findings count)
-    const names = (mapping.rmsPolicyAssignmentNames ?? []).map((n) => n.toLowerCase());
+  if (aggregation && mods.includes(aggregation.module) && (mapping.securityHubControlIds?.length || aggregationNames?.length)) {
+    // Hybrid (non-AWS): the aggregation module filtered by provider rule names
+    // (Huawei RMS policy assignments / Alibaba Config managed-rule identifiers),
+    // other scanner modules matched at module level (all findings count)
+    const names = (aggregationNames ?? []).map((n) => n.toLowerCase());
     relatedFindings = allFindings.filter((f) => {
       if (!mods.includes(f.module ?? "")) return false;
-      if (f.module === "rms_compliance_findings") {
+      if (f.module === aggregation.module) {
         if (names.length === 0) return false;
         const text = `${f.title} ${f.impact}`.toLowerCase();
         return names.some((n) => text.includes(n));
@@ -366,6 +379,11 @@ export function generateMlps3Report(scanResults: FullScanResult, lang?: Lang): s
   // Helpers for language-aware item text
   const itemControl = (r: FullCheckResult) => isEn ? r.item.controlEn : r.item.controlCn;
   const itemReq = (r: FullCheckResult) => isEn ? r.item.requirementEn : r.item.requirementCn;
+  // Provider wording for cloud_provider items. The Markdown report has always printed the
+  // AWS `note` for huaweicloud (the HTML report uses noteHuawei); that output is kept
+  // byte-identical here, newer providers get their own wording.
+  const noteProvider = scanResults.provider === "huaweicloud" ? undefined : scanResults.provider;
+  const cloudNote = (r: FullCheckResult) => cloudProviderNote(r.mapping, noteProvider);
 
   const lines: string[] = [];
 
@@ -432,7 +450,7 @@ export function generateMlps3Report(scanResults: FullScanResult, lang?: Lang): s
           : "\ud83c\udfe2";
         const suffix = r.status === "unknown" ? ` \u2014 ${t.notChecked}`
           : r.status === "manual" ? ` \u2014 ${r.mapping.guidance ?? t.manualReview}`
-          : r.status === "cloud_provider" ? ` \u2014 ${r.mapping.note ?? t.cloudProvider}`
+          : r.status === "cloud_provider" ? ` \u2014 ${cloudNote(r) ?? t.cloudProvider}`
           : r.status === "clean" ? ` ${t.noIssues}`
           : ` ${t.issuesFound}`;
 

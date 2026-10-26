@@ -183,6 +183,7 @@ export const enI18n: I18n = {
     trusted_advisor_findings: "Trusted Advisor",
     config_rules_findings: "Config Rules",
     rms_compliance_findings: "RMS Compliance",
+    config_compliance_findings: "Config Compliance",
     access_analyzer_findings: "Access Analyzer",
     patch_compliance_findings: "Patch Compliance",
     imdsv2_enforcement: "IMDSv2 Enforcement",

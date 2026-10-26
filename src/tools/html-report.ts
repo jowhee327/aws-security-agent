@@ -91,8 +91,10 @@ const SEVERITY_ORDER: Severity[] = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 
 /**
  * Normalize a recommendation by replacing resource-specific identifiers with placeholders.
- * Resource identifiers: AWS ARNs (`arn:aws...`, `arn:aws-cn...`) and Huawei Cloud URNs
- * (`hws:<region>:<domainId>:<svc>:<type>:<id>`) both collapse to `{arn}`.
+ * Resource identifiers: AWS ARNs (`arn:aws...`, `arn:aws-cn...`), Huawei Cloud URNs
+ * (`hws:<region>:<domainId>:<svc>:<type>:<id>`) and Alibaba Cloud ARNs
+ * (`acs:<svc>:<region>:<uid>:<type>/<id>`, incl. the global `acs:ram::<uid>:...` form)
+ * all collapse to `{arn}`.
  */
 export function getRecommendationTemplate(rem: string): string {
   return rem
@@ -100,7 +102,7 @@ export function getRecommendationTemplate(rem: string): string {
     .replace(/\b(vol-[0-9a-f]+)\b/g, '{volume}')
     .replace(/\b(sg-[0-9a-f]+)\b/g, '{sg}')
     .replace(/\b(eipalloc-[0-9a-f]+)\b/g, '{eip}')
-    .replace(/\b((?:arn:aws[-\w]*|hws):[^"\s]+)\b/g, '{arn}')
+    .replace(/\b((?:arn:aws[-\w]*|hws|acs):[^"\s]+)\b/g, '{arn}')
     .replace(/"[^"]+"/g, '{name}')
     .replace(/bucket \S+/g, 'bucket {name}')
     .replace(/instance \S+/g, 'instance {id}')

@@ -158,11 +158,21 @@ const translations: Record<Lang, I18n> = {
   en: enI18n,
 };
 
+const PROVIDER_NAMES: Record<ProviderId, Record<Lang, string>> = {
+  aws: { zh: "AWS", en: "AWS" },
+  huaweicloud: { zh: "\u534e\u4e3a\u4e91", en: "Huawei Cloud" },
+  alicloud: { zh: "\u963f\u91cc\u4e91", en: "Alibaba Cloud" },
+};
+
 /** Human-readable cloud provider name for report titles / notes. Absent provider means AWS. */
 export function providerName(provider: ProviderId | undefined, lang: Lang = "zh"): string {
-  if (provider === "huaweicloud") return lang === "en" ? "Huawei Cloud" : "\u534e\u4e3a\u4e91";
-  return "AWS";
+  const names = provider ? PROVIDER_NAMES[provider] : undefined;
+  if (!names) return "AWS";
+  return lang === "en" ? names.en : names.zh;
 }
+
+/** Alias of {@link providerName}: display name of a provider ("Alibaba Cloud" / "阿里云" for alicloud). */
+export const providerDisplayName = providerName;
 
 /**
  * Text overrides applied on top of the AWS strings when the report describes a
@@ -222,26 +232,116 @@ const HUAWEI_OVERRIDES: Record<Lang, Partial<I18n>> = {
   },
 };
 
-const huaweiI18nCache: Partial<Record<Lang, I18n>> = {};
+/**
+ * Alibaba Cloud overrides (EXPERIMENTAL provider). Same rule as Huawei: only labels
+ * where "AWS" would be wrong. Config (配置审计) replaces AWS Config / Security Hub,
+ * Security Center (SAS, 云安全中心) replaces GuardDuty / Inspector / SSM Patch Manager.
+ */
+const ALICLOUD_OVERRIDES: Record<Lang, Partial<I18n>> = {
+  zh: {
+    securityReportTitle: "阿里云安全扫描报告",
+    cloudItemsNote: (n: number) =>
+      `以下 ${n} 项由阿里云平台负责，根据安全责任共担模型不在本报告检查范围内。`,
+    serviceRecommendations: {
+      config_rules_findings: {
+        icon: "\ud83d\udfe1",
+        service: "阿里云配置审计（Config）",
+        impact: "无法检查资源配置合规状态",
+        action: "开通阿里云配置审计（Config）并启用规则（可选用“等保三级预检合规包”）",
+      },
+      config_compliance_findings: {
+        icon: "\ud83d\udd34",
+        service: "阿里云配置审计（Config）合规包",
+        impact: "无法获取托管规则 / 合规包的不合规资源评估结果",
+        action: "开通阿里云配置审计（Config），启用托管规则或“等保三级预检合规包”",
+      },
+      guardduty_findings: {
+        icon: "\ud83d\udd34",
+        service: "阿里云云安全中心（SAS）告警",
+        impact: "无法检测威胁活动（异常登录、恶意进程、挖矿程序等）",
+        action: "开通云安全中心付费版本并在 ECS 安装安全中心 Agent，启用安全告警",
+      },
+      inspector_findings: {
+        icon: "\ud83d\udfe1",
+        service: "阿里云云安全中心（SAS）漏洞管理",
+        impact: "无法扫描 ECS 主机的软件漏洞（CVE）",
+        action: "开通云安全中心付费版本并在 ECS 安装安全中心 Agent，启用漏洞检测",
+      },
+      patch_compliance_findings: {
+        icon: "\ud83d\udfe1",
+        service: "阿里云云安全中心（SAS）漏洞管理",
+        impact: "无法检查主机操作系统补丁合规状态",
+        action: "开通云安全中心付费版本并在 ECS 安装安全中心 Agent，通过漏洞管理修复 Linux / Windows 系统漏洞",
+      },
+    },
+  },
+  en: {
+    securityReportTitle: "Alibaba Cloud Security Scan Report",
+    cloudItemsNote: (n: number) =>
+      `The following ${n} items are the responsibility of the Alibaba Cloud platform and are outside the scope of this report per the shared responsibility model.`,
+    serviceRecommendations: {
+      config_rules_findings: {
+        icon: "\ud83d\udfe1",
+        service: "Alibaba Cloud Config",
+        impact: "Cannot check resource configuration compliance status",
+        action: "Activate Alibaba Cloud Config and enable rules (e.g. the MLPS Level 3 pre-check compliance pack)",
+      },
+      config_compliance_findings: {
+        icon: "\ud83d\udd34",
+        service: "Alibaba Cloud Config compliance packs",
+        impact: "Cannot obtain non-compliant resource evaluations from managed rules / compliance packs",
+        action: "Activate Alibaba Cloud Config and enable managed rules or the MLPS Level 3 pre-check compliance pack",
+      },
+      guardduty_findings: {
+        icon: "\ud83d\udd34",
+        service: "Alibaba Cloud Security Center (SAS) alerts",
+        impact: "Cannot detect threat activity (unusual logins, malicious processes, crypto mining, etc.)",
+        action: "Purchase a paid Security Center edition, install the Security Center agent on ECS instances and enable security alerts",
+      },
+      inspector_findings: {
+        icon: "\ud83d\udfe1",
+        service: "Alibaba Cloud Security Center (SAS) vulnerability management",
+        impact: "Cannot scan ECS hosts for software vulnerabilities (CVEs)",
+        action: "Purchase a paid Security Center edition, install the Security Center agent on ECS instances and enable vulnerability detection",
+      },
+      patch_compliance_findings: {
+        icon: "\ud83d\udfe1",
+        service: "Alibaba Cloud Security Center (SAS) vulnerability management",
+        impact: "Cannot check host operating system patch compliance status",
+        action: "Purchase a paid Security Center edition, install the Security Center agent on ECS instances and fix Linux / Windows OS vulnerabilities via vulnerability management",
+      },
+    },
+  },
+};
+
+/** Per-provider overrides; providers without an entry (aws) use the base tables as-is. */
+const PROVIDER_OVERRIDES: Partial<Record<ProviderId, Record<Lang, Partial<I18n>>>> = {
+  huaweicloud: HUAWEI_OVERRIDES,
+  alicloud: ALICLOUD_OVERRIDES,
+};
+
+const derivedI18nCache = new Map<string, I18n>();
 
 /**
- * Translations for `lang`. When `provider` is "huaweicloud" a derived table with
- * Huawei-specific labels is returned; for aws / undefined the original object is
- * returned unchanged (identity-preserving, so AWS output is byte-identical).
+ * Translations for `lang`. For providers with overrides (huaweicloud, alicloud) a
+ * derived table with provider-specific labels is returned (cached); for aws /
+ * undefined the original object is returned unchanged (identity-preserving, so
+ * AWS output is byte-identical).
  */
 export function getI18n(lang: Lang = "zh", provider?: ProviderId): I18n {
   const key: Lang = translations[lang] ? lang : "zh";
   const base = translations[key];
-  if (provider !== "huaweicloud") return base;
-  let derived = huaweiI18nCache[key];
+  const overrides = provider ? PROVIDER_OVERRIDES[provider]?.[key] : undefined;
+  if (!overrides) return base;
+  const cacheKey = `${provider}:${key}`;
+  let derived = derivedI18nCache.get(cacheKey);
   if (!derived) {
-    const overrides = HUAWEI_OVERRIDES[key];
     derived = {
       ...base,
       ...overrides,
       serviceRecommendations: { ...base.serviceRecommendations, ...(overrides.serviceRecommendations ?? {}) },
     };
-    huaweiI18nCache[key] = derived;
+    derivedI18nCache.set(cacheKey, derived);
   }
   return derived;
 }
