@@ -4,10 +4,10 @@
  * canonical error result. Nothing here logs or serialises secret material.
  */
 import type { AlibabaCloudCredentials, ScanContext, ScanResult } from "../../../types.js";
-import { ALI_API } from "../api-catalog.js";
+import { ALI_API, type AliApiSpec } from "../api-catalog.js";
 import { aliCall, aliPaginate, resolveAliSite, type AliCallContext, type AliSite } from "../client.js";
 import { aliCredentialsFromContext } from "../credentials.js";
-import { aliModuleErrorText, classifyAliError } from "../errors.js";
+import { AliCloudError, aliModuleErrorText, classifyAliError, degradeAliError, describeAliError, redactAliDiagnostic } from "../errors.js";
 
 /** Credentials + site + account UID resolved once per scan. */
 export interface AliScanEnv {
@@ -97,6 +97,68 @@ export function aliString(v: unknown): string | undefined {
 export function aliArray<T = unknown>(v: unknown): T[] {
   if (Array.isArray(v)) return v as T[];
   return v === undefined || v === null ? [] : [v as T];
+}
+
+/**
+ * Server-sourced (untrusted) value → trimmed, credential-redacted string; undefined when
+ * absent. Ordinary IDs / names pass through unchanged (only credential-looking patterns are
+ * rewritten). Use for EVERY cloud-sourced value (id, name, tag, description) emitted in a
+ * Finding or warning.
+ */
+export function aliUntrusted(v: unknown): string | undefined {
+  const s = aliString(v);
+  return s === undefined ? undefined : redactAliDiagnostic(s);
+}
+
+/** Re-wrap any error (ali-oss / SDK / other) as a redacted AliCloudError — never keep the raw object. */
+export function toAliError(err: unknown, api: string): AliCloudError {
+  return err instanceof AliCloudError ? err : new AliCloudError(classifyAliError(err), api);
+}
+
+/** Warning for a non-fatal sub-service failure (degradeAliError, or a generic redacted line). */
+export function aliSoftWarning(service: string, err: unknown): string {
+  return degradeAliError(service, err) ?? redactAliDiagnostic(`${service}: failed (${describeAliError(err)}); skipped`);
+}
+
+/* ------------------------------------------------------------------------ */
+/* Generic PageNumber / PageSize listing                                    */
+/* ------------------------------------------------------------------------ */
+
+export interface AliPagedListOptions {
+  /** Warning label, e.g. "ECS DescribeDisks". */
+  label: string;
+  /** Response list container + item key: `{ Disks: { Disk: [...] } }` → ["Disks", "Disk"]. */
+  listKey: string;
+  itemKey: string;
+  pageSize: number;
+  maxItems: number;
+  /** Merged into every request (e.g. `Status`). */
+  extra?: Record<string, unknown>;
+  /** Total-count field (default `TotalCount`; RDS uses `TotalRecordCount`). */
+  totalKey?: string;
+}
+
+/**
+ * List a regional RPC collection with PageNumber / PageSize pagination (`RegionId` = region).
+ * Throws the (redacted) AliCloudError from aliCall.
+ */
+export async function listAliPaged(
+  spec: AliApiSpec,
+  env: AliScanEnv,
+  region: string,
+  opts: AliPagedListOptions,
+): Promise<{ items: Record<string, unknown>[]; warnings: string[] }> {
+  const page = await aliPaginate<unknown, Record<string, unknown>>({
+    style: "page",
+    label: opts.label,
+    pageSize: opts.pageSize,
+    maxItems: opts.maxItems,
+    fetch: (q) => aliCall(spec, aliCallCtx(env, region), { RegionId: region, ...(opts.extra ?? {}), ...q }),
+    items: (body) =>
+      aliArray<Record<string, unknown>>(aliField(aliField(body, opts.listKey), opts.itemKey)).filter((i) => i && typeof i === "object"),
+    totalCount: (body) => aliNumber(aliField(body, opts.totalKey ?? "TotalCount")),
+  });
+  return { items: page.items, warnings: page.warnings };
 }
 
 /* ------------------------------------------------------------------------ */

@@ -184,7 +184,7 @@ interface OssLike {
   getBucketPolicy(name: string): Promise<unknown>;
 }
 
-interface OssBucketRef {
+export interface OssBucketRef {
   name: string;
   region?: string;
 }
@@ -197,7 +197,8 @@ interface SubResult {
   fatal?: AliCloudError;
 }
 
-async function listOssBuckets(oss: OssLike, warnings: string[]): Promise<OssBucketRef[]> {
+/** All buckets of the account (marker pagination, page cap); also used by tag_compliance. */
+export async function listOssBuckets(oss: Pick<OssLike, "listBuckets">, warnings: string[]): Promise<OssBucketRef[]> {
   const buckets: OssBucketRef[] = [];
   const seen = new Set<string>();
   let marker: string | undefined;

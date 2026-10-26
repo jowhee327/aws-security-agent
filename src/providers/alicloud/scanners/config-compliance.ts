@@ -43,6 +43,7 @@ import { ALI_GLOBAL_URN_SERVICES, toAliUrn } from "../urn.js";
 import {
   aliCallCtx,
   aliErrorResult,
+  aliUntrusted,
   aliField,
   aliNumber,
   aliScanEnv,
@@ -171,15 +172,8 @@ export function isAliNonCompliant(complianceType: unknown): boolean {
   return typeof complianceType === "string" && complianceType.replace(/[^a-z]/gi, "").toUpperCase() === "NONCOMPLIANT";
 }
 
-/**
- * Server-sourced (untrusted) Config value → trimmed, credential-redacted string; undefined
- * when absent. Ordinary IDs / names pass through unchanged (only credential-looking
- * patterns are rewritten). Use for EVERY Config value emitted in a Finding or warning.
- */
-export function aliUntrusted(v: unknown): string | undefined {
-  const s = aliString(v);
-  return s === undefined ? undefined : redactAliDiagnostic(s);
-}
+/** Re-exported for existing importers; defined in shared.ts (used by every scanner). */
+export { aliUntrusted };
 
 /** RiskLevel 1/2/3 → 7.5 / 5.0 / 3.0 (HIGH / MEDIUM / LOW); anything else → MEDIUM. */
 export function aliConfigRiskScore(riskLevel: unknown): number {

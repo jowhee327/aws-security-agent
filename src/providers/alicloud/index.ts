@@ -4,7 +4,7 @@
  *
  * T0 wired the provider into the registry / runner; T1 adds credentials (§3.2),
  * the openapi-core client factory + API catalog (§3.5), error classification /
- * redaction (§3.6) and URNs (§3.4). Scanners land in T2–T7 (T2–T4 done).
+ * redaction (§3.6) and URNs (§3.4). Scanners land in T2–T7 (T2–T5 done).
  * SDKs (`@alicloud/openapi-core`, `@alicloud/tea-util`, `ali-oss`) must be loaded
  * lazily (`await import()`) so the default AWS path never loads them.
  * Multi-account (Resource Directory ListAccounts + STS AssumeRole) is reserved:
@@ -25,6 +25,9 @@ import { AliPublicAccessScanner } from "./scanners/public-access.js";
 import { AliSecretExposureScanner } from "./scanners/secret-exposure.js";
 import { AliEcsMetadataScanner } from "./scanners/ecs-metadata.js";
 import { AliSslCertificateScanner } from "./scanners/ssl-certificate.js";
+import { AliIdleResourcesScanner } from "./scanners/idle-resources.js";
+import { AliTagComplianceScanner } from "./scanners/tag-compliance.js";
+import { AliNetworkReachabilityScanner } from "./scanners/network-reachability.js";
 
 export * from "./api-catalog.js";
 export * from "./client.js";
@@ -38,6 +41,9 @@ export { AliPublicAccessScanner } from "./scanners/public-access.js";
 export { AliSecretExposureScanner } from "./scanners/secret-exposure.js";
 export { AliEcsMetadataScanner } from "./scanners/ecs-metadata.js";
 export { AliSslCertificateScanner } from "./scanners/ssl-certificate.js";
+export { AliIdleResourcesScanner } from "./scanners/idle-resources.js";
+export { AliTagComplianceScanner } from "./scanners/tag-compliance.js";
+export { AliNetworkReachabilityScanner } from "./scanners/network-reachability.js";
 
 export const ALICLOUD_PARTITION = "alicloud";
 export const DEFAULT_ALICLOUD_REGION = "cn-hangzhou";
@@ -146,7 +152,7 @@ export const alibabaCloudProvider: CloudProvider = {
 
   // T2: Config recorder / compliance + service detection; T3: public access (OSS + RDS);
   // T4: secret exposure (ECS user data + FC3 env), ECS metadata hardening, CAS certificates;
-  // remaining scanners land in T5–T7.
+  // T5: idle resources, tag compliance, network reachability; remaining scanners land in T6–T7.
   scanners(): Scanner[] {
     return [
       new AliConfigRecorderScanner(),
@@ -156,6 +162,9 @@ export const alibabaCloudProvider: CloudProvider = {
       new AliSecretExposureScanner(),
       new AliEcsMetadataScanner(),
       new AliSslCertificateScanner(),
+      new AliIdleResourcesScanner(),
+      new AliTagComplianceScanner(),
+      new AliNetworkReachabilityScanner(),
     ];
   },
 
