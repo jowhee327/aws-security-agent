@@ -2,9 +2,9 @@
  * Alibaba Cloud provider (Phase 2 skeleton — EXPERIMENTAL, not yet validated
  * against a live account).
  *
- * T0 only wires the provider into the registry / runner: no scanners, no SDK
- * calls. Credentials (§3.2), the openapi-core client factory (§3.5), error
- * classification / redaction (§3.6) and URNs (§3.4) land in T1; scanners in T2–T7.
+ * T0 wired the provider into the registry / runner; T1 adds credentials (§3.2),
+ * the openapi-core client factory + API catalog (§3.5), error classification /
+ * redaction (§3.6) and URNs (§3.4). Scanners land in T2–T7.
  * SDKs (`@alicloud/openapi-core`, `@alicloud/tea-util`, `ali-oss`) must be loaded
  * lazily (`await import()`) so the default AWS path never loads them.
  * Multi-account (Resource Directory ListAccounts + STS AssumeRole) is reserved:
@@ -12,6 +12,18 @@
  */
 import type { Scanner } from "../../scanners/base.js";
 import type { AccountRef, AssumeCrossAccountOptions, CloudCredentials, CloudProvider, RegionScope } from "../types.js";
+import type { AlibabaCloudCredentials } from "../../types.js";
+import { isAlibabaCloudCredentials } from "../../types.js";
+import { listAliRegions } from "./client.js";
+import { AlibabaCloudCredentialsNotFoundError, loadAliCredentials, resolveAliAccountId } from "./credentials.js";
+import { isAliAuthFailure, redactAliDiagnostic } from "./errors.js";
+import { ALI_GLOBAL_URN_SERVICES, toAliUrn } from "./urn.js";
+
+export * from "./api-catalog.js";
+export * from "./client.js";
+export * from "./credentials.js";
+export * from "./errors.js";
+export * from "./urn.js";
 
 export const ALICLOUD_PARTITION = "alicloud";
 export const DEFAULT_ALICLOUD_REGION = "cn-hangzhou";
@@ -34,30 +46,66 @@ export const ALICLOUD_GLOBAL_MODULES: ReadonlySet<string> = new Set([
 export const ALICLOUD_MULTI_ACCOUNT_WARNING =
   "org_mode requested but multi-account scanning (Resource Directory ListAccounts + STS AssumeRole) is not yet supported for alicloud (Phase 2). Scanning the current account only.";
 
+/**
+ * Credentials for provider-level calls: explicit Alibaba credentials when given, else the
+ * chain (env → INI file). Returns undefined when no source yields credentials (no network).
+ */
+function tryResolveCredentials(creds?: CloudCredentials): AlibabaCloudCredentials | undefined {
+  try {
+    return loadAliCredentials({ explicit: isAlibabaCloudCredentials(creds) ? creds : undefined });
+  } catch (err) {
+    if (err instanceof AlibabaCloudCredentialsNotFoundError) return undefined;
+    throw err;
+  }
+}
+
 export const alibabaCloudProvider: CloudProvider = {
   id: "alicloud",
   displayName: "Alibaba Cloud",
   partitionFor: () => ALICLOUD_PARTITION,
   defaultRegion: DEFAULT_ALICLOUD_REGION,
   globalModules: ALICLOUD_GLOBAL_MODULES,
-  // TODO(T1): replace with redactAliDiagnostic (src/providers/alicloud/errors.ts, plan §3.6).
-  redactDiagnostic: (text: string) => text,
+  redactDiagnostic: redactAliDiagnostic,
   contextFor: () => ({}),
   supportsMultiAccount: false,
   regionalMessages: {
     multiAccountUnsupported: ALICLOUD_MULTI_ACCOUNT_WARNING,
   },
 
-  // TODO(T1): STS GetCallerIdentity → AccountId (16-digit UID), cached per credentials;
+  // STS GetCallerIdentity → AccountId (16-digit UID), cached per credentials;
   // best-effort "unknown" on failure (same posture as AWS).
-  async getAccountId(_scope: RegionScope, _creds?: CloudCredentials): Promise<string> {
-    return "unknown";
+  async getAccountId(_scope: RegionScope, creds?: CloudCredentials): Promise<string> {
+    try {
+      const resolved = tryResolveCredentials(creds);
+      if (!resolved) return "unknown";
+      return await resolveAliAccountId(resolved);
+    } catch {
+      return "unknown";
+    }
   },
 
-  // TODO(T1): ECS DescribeRegions (ecs.aliyuncs.com, AcceptLanguage=en-US) → Regions.Region[].RegionId,
-  // sorted, requested region first. Until then only the requested / default region is returned.
-  async listRegions(_creds?: CloudCredentials, defaultRegion?: string): Promise<RegionScope[]> {
-    return [{ region: defaultRegion ?? DEFAULT_ALICLOUD_REGION }];
+  // ECS DescribeRegions (ecs.aliyuncs.com, AcceptLanguage=en-US) → RegionIds, sorted, requested
+  // region first. Without credentials (or on a non-auth failure) only the requested / default
+  // region is returned; authentication failures propagate so the scan reports them.
+  async listRegions(creds?: CloudCredentials, defaultRegion?: string): Promise<RegionScope[]> {
+    const fallback = defaultRegion ?? DEFAULT_ALICLOUD_REGION;
+    let resolved: AlibabaCloudCredentials | undefined;
+    try {
+      resolved = tryResolveCredentials(creds);
+    } catch {
+      resolved = undefined;
+    }
+    if (!resolved) return [{ region: fallback }];
+    let regions: string[];
+    try {
+      regions = await listAliRegions(resolved);
+    } catch (err) {
+      if (isAliAuthFailure(err)) throw err;
+      return [{ region: fallback }];
+    }
+    if (regions.length === 0) return [{ region: fallback }];
+    const ordered = regions.includes(fallback) ? [fallback, ...regions.filter((r) => r !== fallback)] : regions;
+    return ordered.map((region) => ({ region }));
   },
 
   // TODO(Phase 3 — multi-account, plan §3.8): Resource Directory `ResourceManager ListAccounts`
@@ -87,10 +135,11 @@ export const alibabaCloudProvider: CloudProvider = {
     return [];
   },
 
-  // TODO(T1): move to urn.ts (plan §3.4) — global services (RAM / CAS / Config / SAS …) use an empty region segment.
+  // plan §3.4 — global services (RAM / CAS / Config / SAS …) use an empty region segment.
   toResourceUrn(resourceType: string, resourceId: string, scope: RegionScope, accountId: string): string {
     const [svc, ...rest] = resourceType.split(":");
     const type = rest.length > 0 ? rest.join(":") : "resource";
-    return `acs:${svc}:${scope.region}:${accountId}:${type}/${resourceId}`;
+    const region = ALI_GLOBAL_URN_SERVICES.has(svc) ? "" : scope.region;
+    return toAliUrn(svc, type, resourceId, region, accountId);
   },
 };
