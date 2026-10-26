@@ -116,8 +116,9 @@ describe("provider registry — azure", () => {
     const p = getProvider("azure");
     const id = `/subscriptions/${FAKE_SUB}/resourceGroups/rg1/providers/Microsoft.Storage/storageAccounts/sa1`;
     expect(p.toResourceUrn("storage:account", id, { region: FAKE_SUB }, FAKE_TENANT)).toBe(id);
-    expect(p.toResourceUrn("storage:account", "sa1", { region: FAKE_SUB }, FAKE_TENANT)).toBe(
-      `azure:${FAKE_SUB}:storage:account:sa1`,
+    // T1: the template fallback is the ARM-ID form (plan §3.6, toAzureUrn).
+    expect(p.toResourceUrn("Microsoft.Storage/storageAccounts", "sa1", { region: FAKE_SUB }, FAKE_TENANT)).toBe(
+      `/subscriptions/${FAKE_SUB}/providers/Microsoft.Storage/storageAccounts/sa1`,
     );
   });
 

@@ -9,21 +9,24 @@
  * run once. A single service principal sees many subscriptions, so no cross-account
  * assume is needed — `listAccounts` / `assumeCrossAccount` throw.
  *
- * T0 wires the provider into the registry / runner. T1 adds credentials (§3.2), the
- * ARM / Graph client factory (§3.4), error classification + redaction (§3.5) and URNs
- * (§3.6). Scanners land in T2–T7. `@azure/*` SDKs must be loaded lazily
- * (`await import()`) so the default AWS path never loads them — this file imports none.
+ * Credentials (§3.2) live in ./credentials.ts, the ARM / Graph client factory (§3.4) in
+ * ./client.ts, error classification + redaction (§3.5) in ./errors.ts and URNs (§3.6) in
+ * ./urn.ts. Scanners land in T2–T7. `@azure/*` SDKs are loaded lazily (`await import()`)
+ * so the default AWS path never loads them — no module here imports one at runtime.
  */
 import type { Scanner } from "../../scanners/base.js";
 import type { AccountRef, AssumeCrossAccountOptions, CloudCredentials, CloudProvider, RegionScope } from "../types.js";
-import type { AzureCloud, AzureCredentials, ScanContext } from "../../types.js";
+import type { AzureCredentials, ScanContext } from "../../types.js";
 import { isAzureCredentials } from "../../types.js";
+import { loadAzureCredentials, pinnedAzureSubscriptionId, resolveAzureCloud } from "./credentials.js";
+import { isAzureAuthFailure, redactAzureDiagnostic } from "./errors.js";
 import { listAzureSubscriptions, type AzureSubscriptionRef } from "./subscriptions.js";
+import { toAzureUrn } from "./urn.js";
 
 export * from "./subscriptions.js";
+export { DEFAULT_AZURE_CLOUD, resolveAzureCloud } from "./credentials.js";
 
 export const AZURE_PARTITION = "azure";
-export const DEFAULT_AZURE_CLOUD: AzureCloud = "china";
 
 /**
  * Placeholder scope used when no subscription could be determined (Azure has no
@@ -44,32 +47,17 @@ const AZURE_NO_SUBSCRIPTION_HINT = "set AZURE_SUBSCRIPTION_ID or pass a subscrip
 /** Subscription states that cannot be scanned. */
 const INACTIVE_SUBSCRIPTION_STATES = new Set(["disabled", "deleted"]);
 
-/** `AZURE_CLOUD` → national cloud; anything other than a Global alias means China (the default). */
-export function resolveAzureCloud(value: string | undefined = process.env.AZURE_CLOUD): AzureCloud {
-  const v = value?.trim().toLowerCase();
-  return v === "global" || v === "public" || v === "azurecloud" || v === "azurepubliccloud" ? "global" : DEFAULT_AZURE_CLOUD;
-}
-
-function envValue(name: string): string | undefined {
-  const v = process.env[name]?.trim();
-  return v ? v : undefined;
-}
-
 /**
  * Credentials for provider-level calls: explicit Azure credentials when given, else the
- * service principal from env (`AZURE_TENANT_ID` + `AZURE_CLIENT_ID` + `AZURE_CLIENT_SECRET`,
- * `AZURE_CLOUD`). Returns undefined when neither yields credentials (no network).
- *
- * TODO(T1): replace with `loadAzureCredentials` from ./credentials.ts (§3.2), which also
- * registers the secret with the redactor.
+ * env service principal (`loadAzureCredentials`, which also registers the secret with the
+ * redactor). Returns undefined when nothing yields credentials (no network, never throws).
  */
 function tryResolveCredentials(creds?: CloudCredentials): AzureCredentials | undefined {
-  if (isAzureCredentials(creds)) return creds;
-  const tenantId = envValue("AZURE_TENANT_ID");
-  const clientId = envValue("AZURE_CLIENT_ID");
-  const clientSecret = envValue("AZURE_CLIENT_SECRET");
-  if (!tenantId || !clientId || !clientSecret) return undefined;
-  return { kind: "azure", tenantId, clientId, clientSecret, cloud: resolveAzureCloud(), source: "env" };
+  try {
+    return loadAzureCredentials({ explicit: isAzureCredentials(creds) ? creds : undefined });
+  } catch {
+    return undefined;
+  }
 }
 
 export const azureProvider: CloudProvider = {
@@ -78,8 +66,7 @@ export const azureProvider: CloudProvider = {
   partitionFor: () => AZURE_PARTITION,
   defaultRegion: AZURE_NO_SUBSCRIPTION,
   globalModules: AZURE_GLOBAL_MODULES,
-  // TODO(T1): wire to redactAzureDiagnostic (Bearer / JWT / client_secret / SAS / storage key).
-  redactDiagnostic: (text: string) => text,
+  redactDiagnostic: redactAzureDiagnostic,
   supportsMultiAccount: false,
   regionalMessages: {
     noRegions: () =>
@@ -111,9 +98,11 @@ export const azureProvider: CloudProvider = {
   // is matched by the runner against the returned list; without one, AZURE_SUBSCRIPTION_ID
   // pins the scan to a single subscription. When enumeration fails, the requested / pinned
   // subscription is scanned alone; with neither, the failure propagates (the runner reports
-  // it, redacted, as a warning).
+  // it, redacted, as a warning). Authentication failures with a requested subscription also
+  // propagate, so the runner's warning names the auth failure (it still scans the requested
+  // subscription, whose modules then report `Azure authentication failed`).
   async listRegions(creds?: CloudCredentials, requested?: string): Promise<RegionScope[]> {
-    const pinned = envValue("AZURE_SUBSCRIPTION_ID");
+    const pinned = pinnedAzureSubscriptionId();
     const fallback = requested ?? pinned;
     const resolved = tryResolveCredentials(creds);
     if (!resolved) return fallback ? [{ region: fallback }] : [];
@@ -122,7 +111,7 @@ export const azureProvider: CloudProvider = {
     try {
       subs = await listAzureSubscriptions(resolved);
     } catch (err) {
-      // TODO(T1): rethrow authentication failures (isAzureAuthFailure) so the scan reports them.
+      if (requested && isAzureAuthFailure(err)) throw err;
       if (fallback) return [{ region: fallback, domainId: resolved.tenantId }];
       throw err;
     }
@@ -163,10 +152,11 @@ export const azureProvider: CloudProvider = {
     return [];
   },
 
-  // ARM resource IDs are already globally unique: pass them through.
-  // TODO(T1): replace the fallback with toAzureUrn (plan §3.6).
-  toResourceUrn(resourceType: string, resourceId: string, scope: RegionScope, _accountId: string): string {
-    if (resourceId.startsWith("/")) return resourceId;
-    return `azure:${scope.region}:${resourceType}:${resourceId}`;
+  // ARM resource IDs are already globally unique: pass them through; otherwise build
+  // `/subscriptions/<sub>/providers/<resourceType>/<name>` (tenant-level: `/tenants/<tenant>/…`).
+  toResourceUrn(resourceType: string, resourceId: string, scope: RegionScope, accountId: string): string {
+    const subscriptionId = scope.region && scope.region !== AZURE_NO_SUBSCRIPTION ? scope.region : undefined;
+    const tenantId = scope.domainId ?? (accountId && accountId !== "unknown" ? accountId : undefined);
+    return toAzureUrn({ id: resourceId, subscriptionId, tenantId, resourceType, name: resourceId });
   },
 };

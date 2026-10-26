@@ -152,14 +152,14 @@ describe("azure listRegions — subscription scopes", () => {
     expect(mocks.listAzureSubscriptions).not.toHaveBeenCalled();
   });
 
-  it("the T0 seam stub throws a clear not-implemented error", async () => {
+  it("the seam re-exports the SubscriptionClient implementation from client.ts (T1)", async () => {
     const actual = await vi.importActual<typeof import("../../../src/providers/azure/subscriptions.js")>(
       "../../../src/providers/azure/subscriptions.js",
     );
-    await expect(actual.listAzureSubscriptions(FAKE_AZ)).rejects.toBeInstanceOf(
-      actual.AzureSubscriptionEnumerationUnavailableError,
+    const client = await vi.importActual<typeof import("../../../src/providers/azure/client.js")>(
+      "../../../src/providers/azure/client.js",
     );
-    await expect(actual.listAzureSubscriptions(FAKE_AZ)).rejects.toThrow(/AZURE_SUBSCRIPTION_ID/);
+    expect(actual.listAzureSubscriptions).toBe(client.listAzureSubscriptions);
   });
 });
 
