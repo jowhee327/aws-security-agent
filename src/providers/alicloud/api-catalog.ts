@@ -123,6 +123,11 @@ export const ALI_API = Object.freeze({
     GetPolicyVersion: rpc("ram", "GetPolicyVersion"),
     GetRole: rpc("ram", "GetRole"),
     ListAccessKeys: rpc("ram", "ListAccessKeys"),
+    // UserName-keyed per-user posture APIs (the IMS equivalents take UserPrincipalName,
+    // which RAM ListUsers does not return). POST / RPC per @alicloud/ram20150501.
+    GetLoginProfile: rpc("ram", "GetLoginProfile"),
+    GetUserMFAInfo: rpc("ram", "GetUserMFAInfo"),
+    ListVirtualMFADevices: rpc("ram", "ListVirtualMFADevices"),
   }),
   ims: Object.freeze({
     GetPasswordPolicy: rpc("ims", "GetPasswordPolicy"),

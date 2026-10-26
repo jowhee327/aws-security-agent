@@ -77,6 +77,7 @@ describe("provider registry — alicloud", () => {
       "idle_resources",
       "tag_compliance",
       "network_reachability",
+      "iam_privilege_escalation",
     ]);
     expect(p.redactDiagnostic?.("plain text")).toBe("plain text");
     expect(p.contextFor?.({ region: "cn-hangzhou" }, "1234567890123456")).toEqual({});
