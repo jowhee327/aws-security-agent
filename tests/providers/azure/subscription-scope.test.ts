@@ -145,7 +145,8 @@ describe("azure listRegions — subscription scopes", () => {
 
   it("without credentials returns only the requested / pinned subscription (no enumeration)", async () => {
     const p = getProvider("azure");
-    await expect(p.listRegions()).resolves.toEqual([]);
+    // No requested / pinned subscription: the credentials-not-found error propagates (FIX-FINAL-R1b).
+    await expect(p.listRegions()).rejects.toThrow(/^Azure credentials not found\./);
     await expect(p.listRegions(undefined, SUB_A)).resolves.toEqual([{ region: SUB_A }]);
     vi.stubEnv("AZURE_SUBSCRIPTION_ID", SUB_B);
     await expect(p.listRegions()).resolves.toEqual([{ region: SUB_B }]);
@@ -392,5 +393,67 @@ describe("azure runner — enumeration failure with no subscription fallback (re
 
     expect(ctxOf(regional)).toMatchObject({ subscriptionId: SUB_C });
     expect(ctxOf(regional).azureScopeError).toBeUndefined();
+  });
+});
+
+describe("azure runner — no credentials (real subscription-scoped scanners)", () => {
+  const subscriptionScanners = () =>
+    getProvider("azure")
+      .scanners()
+      .filter((s) => s.moduleName !== "iam_privilege_escalation");
+  // beforeEach above blanks every AZURE_* variable: no service principal is resolvable.
+
+  it.each([undefined, "all"])(
+    "region=%j: every subscription-scoped module status error with the credentials-not-found text",
+    async (region) => {
+      const result = await runAllScanners(subscriptionScanners(), region as string, { provider: "azure" });
+
+      expect(mocks.listAzureSubscriptions).not.toHaveBeenCalled();
+      expect(result.modules).toHaveLength(11);
+      for (const m of result.modules) {
+        expect(m.status, m.module).toBe("error");
+        expect(m.error, m.module).toMatch(/^Azure credentials not found\. /);
+        expect(m.error).toContain("Missing: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET.");
+        expect(m.findings).toEqual([]);
+      }
+      expect(result.summary.modulesError).toBe(11);
+      expect(result.summary.modulesSuccess).toBe(0);
+      const warning = result.modules[0].warnings?.[0];
+      expect(warning).toMatch(/^Azure subscription enumeration failed: Azure credentials not found\./);
+      expect(JSON.stringify(result)).not.toContain("no subscriptions visible to the service principal");
+    },
+  );
+
+  it("explicit subscription as region → every subscription-scoped module status error", async () => {
+    const result = await runAllScanners(subscriptionScanners(), SUB_A, { provider: "azure" });
+
+    expect(mocks.listAzureSubscriptions).not.toHaveBeenCalled();
+    expect(result.modules).toHaveLength(11);
+    for (const m of result.modules) {
+      expect(m.status, m.module).toBe("error");
+      expect(m.error, m.module).toContain("Azure credentials not found.");
+      expect(m.findings).toEqual([]);
+    }
+    expect(result.summary.modulesSuccess).toBe(0);
+    expect(JSON.stringify(result)).not.toContain("no subscriptions visible to the service principal");
+  });
+
+  it("valid credentials + empty subscription list right after a no-credentials run → success + warning (unchanged)", async () => {
+    const failed = await runAllScanners(subscriptionScanners(), "all", { provider: "azure" });
+    expect(failed.modules.every((m) => m.status === "error")).toBe(true);
+
+    stubServicePrincipalEnv();
+    mocks.listAzureSubscriptions.mockResolvedValue([]);
+    const result = await runAllScanners(subscriptionScanners(), "all", { provider: "azure" });
+
+    for (const m of result.modules) {
+      expect(m.status, m.module).toBe("success");
+      expect(m.error).toBeUndefined();
+      expect(m.warnings!.some((w) => w.includes("no Azure subscription in scope")), m.module).toBe(true);
+    }
+    expect(result.modules[0].warnings?.[0]).toBe(
+      "Azure subscription enumeration returned no subscriptions visible to the service principal; set AZURE_SUBSCRIPTION_ID or pass a subscription ID as region.",
+    );
+    expect(JSON.stringify(result)).not.toContain(FAKE_SECRET);
   });
 });

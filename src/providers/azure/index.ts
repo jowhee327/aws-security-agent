@@ -53,15 +53,19 @@ const INACTIVE_SUBSCRIPTION_STATES = new Set(["disabled", "deleted"]);
 
 /**
  * Last fatal (auth_failed / api_misuse) subscription enumeration failure that left the scan
- * with no subscription, keyed by the service principal identity. `listRegions` records it
+ * with no subscription, keyed by the service principal identity ({@link NO_CREDENTIALS_KEY}
+ * when no credentials resolved, text = the credentials-not-found message, env var names only). `listRegions` records it
  * (the runner then scans the no-subscription placeholder scope) and `contextFor` hands its
  * redacted text to that scope, so subscription-scoped modules report `status: "error"`
  * rather than a clean "nothing to scan" (plan §6.1: never disguise an auth failure).
  */
 let fatalEnumerationFailure: { key: string; text: string } | undefined;
 
-function principalKey(creds: AzureCredentials): string {
-  return `${creds.cloud}|${creds.tenantId}|${creds.clientId}`;
+/** Key of {@link fatalEnumerationFailure} when no credentials could be resolved at all. */
+const NO_CREDENTIALS_KEY = "no-credentials";
+
+function principalKey(creds: AzureCredentials | undefined): string {
+  return creds ? `${creds.cloud}|${creds.tenantId}|${creds.clientId}` : NO_CREDENTIALS_KEY;
 }
 
 /**
@@ -74,6 +78,15 @@ function tryResolveCredentials(creds?: CloudCredentials): AzureCredentials | und
     return loadAzureCredentials({ explicit: isAzureCredentials(creds) ? creds : undefined });
   } catch {
     return undefined;
+  }
+}
+
+/** Like {@link tryResolveCredentials}, but hands back the credential-chain error (names only). */
+function resolveCredentialsOrError(creds?: CloudCredentials): { creds: AzureCredentials } | { error: unknown } {
+  try {
+    return { creds: loadAzureCredentials({ explicit: isAzureCredentials(creds) ? creds : undefined }) };
+  } catch (err) {
+    return { error: err };
   }
 }
 
@@ -102,7 +115,7 @@ export const azureProvider: CloudProvider = {
     const creds = tryResolveCredentials();
     const extra: Partial<ScanContext> = { cloud: creds?.cloud ?? resolveAzureCloud() };
     if (scope.region && scope.region !== AZURE_NO_SUBSCRIPTION) extra.subscriptionId = scope.region;
-    else if (creds && fatalEnumerationFailure?.key === principalKey(creds)) extra.azureScopeError = fatalEnumerationFailure.text;
+    else if (fatalEnumerationFailure?.key === principalKey(creds)) extra.azureScopeError = fatalEnumerationFailure.text;
     const tenantId = scope.domainId ?? (accountId && accountId !== "unknown" ? accountId : undefined);
     if (tenantId) extra.tenantId = tenantId;
     return extra;
@@ -121,12 +134,24 @@ export const azureProvider: CloudProvider = {
   // propagate, so the runner's warning names the auth failure (it still scans the requested
   // subscription, whose modules then report `Azure authentication failed`). A fatal
   // (auth_failed / api_misuse) failure with no fallback is also recorded for `contextFor`,
-  // so the placeholder scope's subscription-scoped modules report it as an error.
+  // so the placeholder scope's subscription-scoped modules report it as an error. Missing
+  // credentials are handled the same way: with a requested / pinned subscription that one is
+  // scanned (its modules then fail on the credential chain); without one the
+  // credentials-not-found error is recorded and propagated (never reported as "no subscriptions").
   async listRegions(creds?: CloudCredentials, requested?: string): Promise<RegionScope[]> {
     const pinned = pinnedAzureSubscriptionId();
     const fallback = requested ?? pinned;
-    const resolved = tryResolveCredentials(creds);
-    if (!resolved) return fallback ? [{ region: fallback }] : [];
+    const resolution = resolveCredentialsOrError(creds);
+    if ("error" in resolution) {
+      if (fallback) return [{ region: fallback }];
+      const err = resolution.error;
+      fatalEnumerationFailure = {
+        key: NO_CREDENTIALS_KEY,
+        text: redactAzureDiagnostic(err instanceof Error ? err.message : String(err)),
+      };
+      throw err;
+    }
+    const resolved = resolution.creds;
 
     const key = principalKey(resolved);
     if (fatalEnumerationFailure?.key === key) fatalEnumerationFailure = undefined;
