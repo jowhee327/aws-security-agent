@@ -42,6 +42,7 @@ export interface FullCheckResult {
 const PROVIDER_AGGREGATION: Partial<Record<ProviderId, { module: string; ruleNames: (m: MlpsCheckMapping) => string[] | undefined }>> = {
   huaweicloud: { module: "rms_compliance_findings", ruleNames: (m) => m.rmsPolicyAssignmentNames },
   alicloud: { module: "config_compliance_findings", ruleNames: (m) => m.alicloudConfigRuleIdentifiers },
+  azure: { module: "defender_assessment_findings", ruleNames: (m) => m.azurePolicyDefinitionNames },
 };
 
 /**
@@ -67,7 +68,8 @@ export function evaluateFullCheck(
   // Type "auto" — check modules present and evaluate findings.
   // For non-AWS providers the aggregation module is substituted
   // (huaweicloud: security_hub_findings → rms_compliance_findings;
-  //  alicloud: security_hub_findings → config_compliance_findings).
+  //  alicloud: security_hub_findings → config_compliance_findings;
+  //  azure: security_hub_findings → defender_assessment_findings).
   const mods = (mapping.modules ?? []).map((mod) => resolveModuleAlias(mod, provider));
   const aggregation = provider ? PROVIDER_AGGREGATION[provider] : undefined;
   const aggregationNames = aggregation?.ruleNames(mapping);
@@ -93,7 +95,8 @@ export function evaluateFullCheck(
 
   if (aggregation && mods.includes(aggregation.module) && (mapping.securityHubControlIds?.length || aggregationNames?.length)) {
     // Hybrid (non-AWS): the aggregation module filtered by provider rule names
-    // (Huawei RMS policy assignments / Alibaba Config managed-rule identifiers),
+    // (Huawei RMS policy assignments / Alibaba Config managed-rule identifiers /
+    // Azure Policy / Defender recommendation names),
     // other scanner modules matched at module level (all findings count)
     const names = (aggregationNames ?? []).map((n) => n.toLowerCase());
     relatedFindings = allFindings.filter((f) => {

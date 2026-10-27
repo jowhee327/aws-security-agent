@@ -90,12 +90,13 @@ export interface CreateServerOptions {
   defaultProvider?: ProviderId;
 }
 
-/** Registry listing used by the server: experimental providers (alicloud) are selectable too. */
+/** Registry listing used by the server: experimental providers (alicloud, azure) are selectable too. */
 const ALL_PROVIDERS = { includeExperimental: true } as const;
 
 const PROVIDER_PARAM_DESCRIPTION =
   "Cloud provider to scan (default: aws). With huaweicloud, `region` is a Huawei Cloud region ID (e.g. cn-north-4); omit it or pass \"all\" to scan every region project of the account. Huawei Cloud Phase 1 is single-account (org_mode falls back to the current account with a warning). " +
-  "With alicloud (EXPERIMENTAL — not yet validated against a live account), region is an Alibaba Cloud region ID (e.g. cn-hangzhou); omit or \"all\" to scan every region; single-account only in this phase.";
+  "With alicloud (EXPERIMENTAL — not yet validated against a live account), region is an Alibaba Cloud region ID (e.g. cn-hangzhou); omit or \"all\" to scan every region; single-account only in this phase. " +
+  "With azure (EXPERIMENTAL — not yet validated against a live account), the China cloud (21Vianet) is the default; set AZURE_CLOUD=global for public cloud. region is an Azure subscription ID; omit or \"all\" to scan every visible subscription.";
 
 /**
  * Zod schema shared by every scan tool; optional so existing (AWS) callers are unaffected.
@@ -140,6 +141,10 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
     "Huawei Cloud only: aggregates NonCompliant RMS (Config) policy states into findings — the Security Hub-like compliance aggregation for Huawei Cloud.",
   config_compliance_findings:
     "Alibaba Cloud only: Config compliance findings (NON_COMPLIANT resources of Config rules / compliance packs; experimental).",
+  defender_assessment_findings:
+    "Azure only: Microsoft Defender for Cloud assessments (Unhealthy recommendations) — the Security Hub-like compliance aggregation for Azure (experimental).",
+  disk_encryption_findings:
+    "Azure only: unencrypted managed disks, unmanaged (VHD) VM disks without Azure Disk Encryption, and VMs without encryption at host (experimental).",
   access_analyzer_findings:
     "Checks if IAM Access Analyzer is configured. Findings are aggregated via Security Hub.",
   patch_compliance_findings:
@@ -390,6 +395,8 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
     { toolName: "scan_rms_compliance_findings", moduleName: "rms_compliance_findings", label: "RMS Compliance Findings (Huawei Cloud)", providerSpecific: true },
     // Alibaba Cloud only (experimental; provider defaults to alicloud for the same reason).
     { toolName: "scan_config_compliance_findings", moduleName: "config_compliance_findings", label: "Config Compliance Findings (Alibaba Cloud, experimental)", providerSpecific: true },
+    // Azure only (experimental; provider defaults to azure for the same reason).
+    { toolName: "scan_defender_assessment_findings", moduleName: "defender_assessment_findings", label: "Defender for Cloud Assessment Findings (Azure, experimental)", providerSpecific: true },
   ];
 
   for (const { toolName, moduleName, label, providerSpecific } of individualScanners) {
