@@ -98,7 +98,7 @@ describe("provider registry — azure", () => {
     expect(p.partitionFor?.(FAKE_SUB)).toBe("azure");
     expect(p.defaultRegion).toBe(AZURE_NO_SUBSCRIPTION);
     expect(p.supportsMultiAccount).toBe(false);
-    expect(p.scanners().map((s) => s.moduleName)).toEqual(["config_rules_findings", "service_detection", "defender_assessment_findings"]);
+    expect(p.scanners().map((s) => s.moduleName)).toEqual(["config_rules_findings", "service_detection", "defender_assessment_findings", "public_access_verify"]);
     expect(p.redactDiagnostic?.("plain text")).toBe("plain text");
     expect(p.globalModules).toBe(AZURE_GLOBAL_MODULES);
     expect([...AZURE_GLOBAL_MODULES]).toEqual(["iam_privilege_escalation"]);

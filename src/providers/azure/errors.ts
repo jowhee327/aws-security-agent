@@ -106,9 +106,11 @@ const QUERY_SECRET_RE = new RegExp(
 const SAS_PARAM_RE = new RegExp(String.raw`(?<![0-9A-Za-z_-])((?:sig|sv)=)${ALREADY}[^&\s"'<>,;]+`, "gi");
 /**
  * (f) Storage account keys (512-bit → 88 base64 chars ending `==`) and 256-bit shared
- * access keys (44 base64 chars ending `=`, the form named in plan §3.5).
+ * access keys (44 base64 chars ending `=`, the form named in plan §3.5). A preceding `/`
+ * is allowed so a key injected as a resource-ID path segment (`…/storageAccounts/<key>`) is
+ * still caught (a trailing `/` after the `=` padding likewise).
  */
-const STORAGE_KEY_RE = /(?<![A-Za-z0-9+/])(?:[A-Za-z0-9+/]{86}==|[A-Za-z0-9+/]{43}=)(?![A-Za-z0-9+/=])/g;
+const STORAGE_KEY_RE = /(?<![A-Za-z0-9+])(?:[A-Za-z0-9+/]{86}==|[A-Za-z0-9+/]{43}=)(?![A-Za-z0-9+=])/g;
 
 /**
  * Central redactor for any Azure-side diagnostic text (SDK error messages, scanner

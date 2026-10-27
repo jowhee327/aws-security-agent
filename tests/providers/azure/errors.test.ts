@@ -296,6 +296,14 @@ describe("redactAzureDiagnostic — plan §3.5 (a)–(f)", () => {
     );
   });
 
+  it("redacts a storage / shared access key used as a resource-ID path segment (T3)", () => {
+    expect(redactAzureDiagnostic(`/subscriptions/s/storageAccounts/${FAKE_SAS_KEY}`)).toBe(`/subscriptions/s/storageAccounts/${AZURE_REDACTED}`);
+    expect(redactAzureDiagnostic(`/providers/x/${FAKE_STORAGE_KEY}/child`)).toBe(`/providers/x/${AZURE_REDACTED}/child`);
+    // Ordinary ARM IDs are untouched.
+    const id = "/subscriptions/aaaaaaaa-0000-0000-0000-00000000fake/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/sa1";
+    expect(redactAzureDiagnostic(id)).toBe(id);
+  });
+
   it("is idempotent", () => {
     const inputs = [
       `Authorization: Bearer ${FAKE_JWT}`,

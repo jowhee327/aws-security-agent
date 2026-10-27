@@ -24,6 +24,7 @@ import { AZURE_NO_SUBSCRIPTION, listAzureSubscriptions, type AzureSubscriptionRe
 import { toAzureUrn } from "./urn.js";
 import { AzureDefenderAssessmentsScanner } from "./scanners/defender-assessments.js";
 import { AzurePolicyComplianceScanner } from "./scanners/policy-compliance.js";
+import { AzurePublicAccessScanner } from "./scanners/public-access.js";
 import { AzureServiceDetectionScanner } from "./scanners/service-detection.js";
 
 export * from "./subscriptions.js";
@@ -144,7 +145,12 @@ export const azureProvider: CloudProvider = {
 
   // Subscription-scoped scanners (plan §4.1); T3–T7 add the rest.
   scanners(): Scanner[] {
-    return [new AzurePolicyComplianceScanner(), new AzureServiceDetectionScanner(), new AzureDefenderAssessmentsScanner()];
+    return [
+      new AzurePolicyComplianceScanner(),
+      new AzureServiceDetectionScanner(),
+      new AzureDefenderAssessmentsScanner(),
+      new AzurePublicAccessScanner(),
+    ];
   },
 
   // ARM resource IDs are already globally unique: pass them through; otherwise build
