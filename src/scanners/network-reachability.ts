@@ -15,7 +15,7 @@ import { ScanResult, ScanContext, Finding } from "../types.js";
 import { createClient } from "../utils/aws-client.js";
 import { severityFromScore, priorityFromSeverity } from "../utils/risk-scoring.js";
 
-const HIGH_RISK_PORTS: Record<number, string> = {
+export const HIGH_RISK_PORTS: Record<number, string> = {
   22: "SSH",
   3389: "RDP",
   3306: "MySQL",

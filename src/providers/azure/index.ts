@@ -24,6 +24,8 @@ import { AZURE_NO_SUBSCRIPTION, listAzureSubscriptions, type AzureSubscriptionRe
 import { toAzureUrn } from "./urn.js";
 import { AzureDefenderAssessmentsScanner } from "./scanners/defender-assessments.js";
 import { AzureDiskEncryptionScanner } from "./scanners/disk-encryption.js";
+import { AzureIdleResourcesScanner } from "./scanners/idle-resources.js";
+import { AzureNetworkReachabilityScanner } from "./scanners/nsg-reachability.js";
 import { AzurePolicyComplianceScanner } from "./scanners/policy-compliance.js";
 import { AzurePublicAccessScanner } from "./scanners/public-access.js";
 import { AzureSecretExposureScanner } from "./scanners/secret-exposure.js";
@@ -154,6 +156,8 @@ export const azureProvider: CloudProvider = {
       new AzurePublicAccessScanner(),
       new AzureSecretExposureScanner(),
       new AzureDiskEncryptionScanner(),
+      new AzureNetworkReachabilityScanner(),
+      new AzureIdleResourcesScanner(),
     ];
   },
 
