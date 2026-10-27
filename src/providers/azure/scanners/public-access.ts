@@ -37,9 +37,8 @@ import {
   azString,
   aztUntrusted,
   aztUntrustedOpt,
-  azureEmptyResult,
   azureErrorResult,
-  azureNoSubscriptionWarning,
+  azureNoSubscriptionResult,
   azureSafeFinding,
   azureScanEnv,
   azureSoftWarning,
@@ -220,7 +219,7 @@ export class AzurePublicAccessScanner implements Scanner {
     } catch (err) {
       return azureErrorResult(this.moduleName, startMs, "Azure public access scan failed", err);
     }
-    if (!env) return azureEmptyResult(this.moduleName, startMs, { warnings: [azureNoSubscriptionWarning(this.moduleName)] });
+    if (!env) return azureNoSubscriptionResult(this.moduleName, startMs, ctx);
 
     const parts = await Promise.all([this.scanStorage(env), this.scanKeyVaults(env)]);
     const warnings = parts.flatMap((p) => p.warnings);

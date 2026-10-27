@@ -43,7 +43,7 @@ import {
   aztUntrustedOpt,
   azureEmptyResult,
   azureErrorResult,
-  azureNoSubscriptionWarning,
+  azureNoSubscriptionResult,
   azureSafeFinding,
   azureScanEnv,
   azureSoftWarning,
@@ -208,7 +208,7 @@ export class AzurePolicyComplianceScanner implements Scanner {
     let summary: unknown;
     try {
       env = azureScanEnv(ctx);
-      if (!env) return azureEmptyResult(this.moduleName, startMs, { warnings: [azureNoSubscriptionWarning(this.moduleName)] });
+      if (!env) return azureNoSubscriptionResult(this.moduleName, startMs, ctx);
       const { PolicyInsightsClient } = await import("@azure/arm-policyinsights");
       const client = await armClient(PolicyInsightsClient, env.credentials, env.subscriptionId);
       states = client.policyStates as unknown as PolicyStatesApi;

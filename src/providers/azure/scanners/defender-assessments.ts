@@ -45,7 +45,7 @@ import {
   aztUntrustedOpt,
   azureEmptyResult,
   azureErrorResult,
-  azureNoSubscriptionWarning,
+  azureNoSubscriptionResult,
   azureSafeFinding,
   azureScanEnv,
   azureSoftWarning,
@@ -205,7 +205,7 @@ export class AzureDefenderAssessmentsScanner implements Scanner {
     let scanned = 0;
     try {
       env = azureScanEnv(ctx);
-      if (!env) return azureEmptyResult(this.moduleName, startMs, { warnings: [azureNoSubscriptionWarning(this.moduleName)] });
+      if (!env) return azureNoSubscriptionResult(this.moduleName, startMs, ctx);
       const { SecurityCenter } = await import("@azure/arm-security");
       client = (await armClient(SecurityCenter, env.credentials, env.subscriptionId)) as unknown as SecurityCenterApi;
       unhealthy = [];

@@ -42,9 +42,8 @@ import {
   azString,
   aztUntrusted,
   aztUntrustedOpt,
-  azureEmptyResult,
   azureErrorResult,
-  azureNoSubscriptionWarning,
+  azureNoSubscriptionResult,
   azureSafeFinding,
   azureSafeWarnings,
   azureScanEnv,
@@ -235,7 +234,7 @@ export class AzureDiskEncryptionScanner implements Scanner {
     } catch (err) {
       return azureErrorResult(this.moduleName, startMs, "Azure disk encryption scan failed", err);
     }
-    if (!env) return azureEmptyResult(this.moduleName, startMs, { warnings: [azureNoSubscriptionWarning(this.moduleName)] });
+    if (!env) return azureNoSubscriptionResult(this.moduleName, startMs, ctx);
 
     let client: ComputeManagementClient;
     try {

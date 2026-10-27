@@ -148,6 +148,12 @@ export interface ScanContext {
   tenantId?: string;
   /** Azure: national cloud of the credentials. */
   cloud?: AzureCloud;
+  /**
+   * Azure, no-subscription placeholder scope only: redacted module error text of a fatal
+   * (auth_failed / api_misuse) subscription enumeration failure. Subscription-scoped
+   * modules report it as `status: "error"` instead of "nothing to scan".
+   */
+  azureScopeError?: string;
 }
 
 export interface FullScanResult {

@@ -690,13 +690,60 @@ describe("AzureRbacPrivilegeScanner — degrade and errors", () => {
     expect(r.error!.startsWith(AZURE_AUTH_FAILED_PREFIX)).toBe(true);
   });
 
-  it("auth_failed on Graph (401 InvalidAuthenticationToken) → status error", async () => {
+  it("auth_failed on Graph (401 InvalidAuthenticationToken) after ARM RBAC succeeded → success, RBAC findings kept + Graph warning", async () => {
     routeArm({ assignments: [assignment({ scope: `/subscriptions/${SUB}`, role: AZURE_ROLE_OWNER, principal: guid(1) })] });
-    azureSdk.on(GRAPH_POST, () => { throw graphError(401, "InvalidAuthenticationToken", "Access token validation failure."); });
-    azureSdk.on(GRAPH_GET, () => ({ value: [] }));
+    azureSdk.on(GRAPH_POST, () => { throw graphError(401, "InvalidAuthenticationToken", `Access token validation failure. ${hostile("token")}`); });
+    azureSdk.on(GRAPH_GET, () => ({ value: [{ id: GA_ROLE, roleTemplateId: ENTRA_GLOBAL_ADMIN_TEMPLATE }] }));
+    const r = await scanner.scan(azCtx());
+    expect(r.status).toBe("success");
+    expect(r.error).toBeUndefined();
+    expect(r.findings.length).toBeGreaterThan(0);
+    expect(r.findings.every((f) => f.resourceArn.includes("roleAssignments"))).toBe(true);
+    const w = r.warnings!.find((x) => x.startsWith("Entra (Microsoft Graph) checks skipped: Azure authentication to Microsoft Graph failed ("));
+    expect(w).toBeDefined();
+    expect(w).toContain("InvalidAuthenticationToken");
+    // Entra enrichment abandoned: no directory role calls after the auth failure.
+    expect(azureSdk.callsFor(GRAPH_GET)).toHaveLength(0);
+    expectNoLeak(r);
+  });
+
+  it("auth_failed on Graph directoryRoles after ARM RBAC succeeded → success + warning (Entra skipped)", async () => {
+    routeArm({ assignments: [] });
+    azureSdk.on(GRAPH_POST, () => ({ value: [] }));
+    azureSdk.on(GRAPH_GET, () => { throw authError(); });
+    const r = await scanner.scan(azCtx());
+    expect(r.status).toBe("success");
+    expect(r.warnings!.some((x) => x.includes("Azure authentication to Microsoft Graph failed (AADSTS900023)"))).toBe(true);
+    expectNoLeak(r);
+  });
+
+  it("auth_failed on Graph with NO successful ARM RBAC call (zero subscriptions) → still status error", async () => {
+    routeArm({ subs: [[]] });
+    azureSdk.on(GRAPH_POST, () => ({ value: [] }));
+    azureSdk.on(GRAPH_GET, () => { throw graphError(401, "InvalidAuthenticationToken", "Access token validation failure."); });
+    const r = await scanner.scan(azCtx({ subscriptionId: undefined, region: "no-subscription" }));
+    expect(r.status).toBe("error");
+    expect(r.error!.startsWith(AZURE_AUTH_FAILED_PREFIX)).toBe(true);
+    expect(azureSdk.callsFor(ASSIGNMENTS)).toHaveLength(0);
+    expectNoLeak(r);
+  });
+
+  it("auth_failed on Graph when every ARM RBAC call was denied → still status error", async () => {
+    routeArm({ assignments: () => failingPages(deniedError()), customRoles: () => failingPages(deniedError()), classic: () => failingPages(deniedError()) });
+    azureSdk.on(GRAPH_POST, () => ({ value: [] }));
+    azureSdk.on(GRAPH_GET, () => { throw graphError(401, "InvalidAuthenticationToken", "Access token validation failure."); });
     const r = await scanner.scan(azCtx());
     expect(r.status).toBe("error");
     expect(r.error!.startsWith(AZURE_AUTH_FAILED_PREFIX)).toBe(true);
+  });
+
+  it("api_misuse on Graph after ARM RBAC succeeded → still status error", async () => {
+    routeArm({ assignments: [] });
+    azureSdk.on(GRAPH_POST, () => ({ value: [] }));
+    azureSdk.on(GRAPH_GET, () => { throw misuseError(); });
+    const r = await scanner.scan(azCtx());
+    expect(r.status).toBe("error");
+    expect(r.error).toContain("InvalidApiVersionParameter");
   });
 
   it("api_misuse on role assignments → status error", async () => {

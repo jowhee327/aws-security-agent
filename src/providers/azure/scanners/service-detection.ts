@@ -46,7 +46,7 @@ import {
   aztUntrusted,
   azureEmptyResult,
   azureErrorResult,
-  azureNoSubscriptionWarning,
+  azureNoSubscriptionResult,
   azureSafeFinding,
   azureScanEnv,
   type AzureScanEnv,
@@ -120,7 +120,7 @@ export class AzureServiceDetectionScanner implements Scanner {
     } catch (err) {
       return azureErrorResult(this.moduleName, startMs, "Azure service detection failed", err);
     }
-    if (!env) return azureEmptyResult(this.moduleName, startMs, { warnings: [azureNoSubscriptionWarning(this.moduleName)] });
+    if (!env) return azureNoSubscriptionResult(this.moduleName, startMs, ctx);
     const scanEnv = env;
 
     const outcomes = await Promise.all([

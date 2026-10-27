@@ -41,7 +41,7 @@ import {
   aztUntrustedOpt,
   azureEmptyResult,
   azureErrorResult,
-  azureNoSubscriptionWarning,
+  azureNoSubscriptionResult,
   azureSafeFinding,
   azureSafeWarnings,
   azureScanEnv,
@@ -291,7 +291,7 @@ export class AzureDefenderSubAssessmentsScanner implements Scanner {
     let scanned = 0;
     try {
       env = azureScanEnv(ctx);
-      if (!env) return azureEmptyResult(this.moduleName, startMs, { warnings: [azureNoSubscriptionWarning(this.moduleName)] });
+      if (!env) return azureNoSubscriptionResult(this.moduleName, startMs, ctx);
       const { SecurityCenter } = await import("@azure/arm-security");
       const client = (await armClient(SecurityCenter, env.credentials, env.subscriptionId)) as unknown as SecurityCenterSubAssessmentsApi;
       const page = await azurePaginate(client.subAssessments.listAll(`/subscriptions/${env.subscriptionId}`), {

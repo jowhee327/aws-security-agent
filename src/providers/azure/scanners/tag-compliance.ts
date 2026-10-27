@@ -27,9 +27,8 @@ import {
   azString,
   aztUntrusted,
   aztUntrustedOpt,
-  azureEmptyResult,
   azureErrorResult,
-  azureNoSubscriptionWarning,
+  azureNoSubscriptionResult,
   azureSafeFinding,
   azureSafeWarnings,
   azureScanEnv,
@@ -130,7 +129,7 @@ export class AzureTagComplianceScanner implements Scanner {
     let client: ResourceManagementClient;
     try {
       env = azureScanEnv(ctx);
-      if (!env) return azureEmptyResult(this.moduleName, startMs, { warnings: [azureNoSubscriptionWarning(this.moduleName)] });
+      if (!env) return azureNoSubscriptionResult(this.moduleName, startMs, ctx);
       const { ResourceManagementClient } = await import("@azure/arm-resources");
       client = await armClient(ResourceManagementClient, env.credentials, env.subscriptionId);
     } catch (err) {

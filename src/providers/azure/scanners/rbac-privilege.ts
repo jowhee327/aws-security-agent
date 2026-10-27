@@ -55,7 +55,8 @@
  * Every server-sourced string (names, UPNs, scopes, actions, e-mail addresses) passes through
  * aztUntrusted. Server IDs are only interpolated into Graph paths after a GUID check, and
  * `@odata.nextLink` is only followed on the cloud's own Graph host. Errors: auth_failed /
- * api_misuse (outside classic administrators) → module `status: "error"`.
+ * api_misuse (outside classic administrators) → module `status: "error"`, except a Graph
+ * auth_failed after some ARM RBAC call succeeded → Entra checks skipped with a warning.
  */
 import type { AuthorizationManagementClient } from "@azure/arm-authorization";
 import type { Client as GraphClient } from "@microsoft/microsoft-graph-client";
@@ -65,7 +66,7 @@ import { runWithConcurrency } from "../../../utils/concurrency.js";
 import { priorityFromSeverity, severityFromScore } from "../../../utils/risk-scoring.js";
 import { armClient, azureCloudConfig, azurePaginate, graphClient } from "../client.js";
 import { azureCredentialFromContext, pinnedAzureSubscriptionId } from "../credentials.js";
-import { classifyAzureError } from "../errors.js";
+import { classifyAzureError, extractAzureError } from "../errors.js";
 import { listAzureSubscriptions } from "../subscriptions.js";
 import { toAzureUrn } from "../urn.js";
 import {
@@ -262,11 +263,16 @@ interface IamState {
   scannedSubscriptions: string[];
   /** A client of a subscription whose RBAC calls worked (for getById lookups). */
   lookupClient?: AuthorizationManagementClient;
+  /** Some subscription RBAC (ARM) call succeeded: the credentials are proven valid. */
+  armVerified: boolean;
 }
 
 class FatalError {
   constructor(readonly err: unknown) {}
 }
+
+/** Graph auth failure after ARM RBAC succeeded: Entra enrichment is abandoned (warning already recorded). */
+class GraphSkipped {}
 
 function roleDefInfo(raw: unknown): RoleDefInfo {
   return {
@@ -300,7 +306,7 @@ export class AzureRbacPrivilegeScanner implements Scanner {
       return azureErrorResult(this.moduleName, startMs, errorContext, err);
     }
     const tenantId = ctx.tenantId?.trim() || creds.tenantId;
-    const state: IamState = { assignments: new Map(), roleDefs: new Map(), classicAdmins: [], warnings: [], scanned: 0, scannedSubscriptions: [] };
+    const state: IamState = { assignments: new Map(), roleDefs: new Map(), classicAdmins: [], warnings: [], scanned: 0, scannedSubscriptions: [], armVerified: false };
 
     try {
       const subs = await this.subscriptions(ctx, creds, state);
@@ -317,11 +323,18 @@ export class AzureRbacPrivilegeScanner implements Scanner {
       const principals = new Map<string, PrincipalInfo>();
       const mfa = new Map<string, boolean>();
       let directoryFindings: Finding[] = [];
-      const graph = await this.graph(creds, state);
-      if (graph) {
-        await this.expandPrincipals(graph, state, principals);
-        await this.mfaRegistration(graph, state, principals, mfa);
-        directoryFindings = await this.directoryRoles(graph, creds, tenantId, state);
+      try {
+        const graph = await this.graph(creds, state);
+        if (graph) {
+          await this.expandPrincipals(graph, state, principals);
+          await this.mfaRegistration(graph, state, principals, mfa);
+          directoryFindings = await this.directoryRoles(graph, creds, tenantId, state);
+        }
+      } catch (err) {
+        if (!(err instanceof GraphSkipped)) throw err;
+        principals.clear();
+        mfa.clear();
+        directoryFindings = [];
       }
 
       const findings = [
@@ -406,6 +419,7 @@ export class AzureRbacPrivilegeScanner implements Scanner {
       state.scanned += page.count;
       state.scannedSubscriptions.push(sub);
       state.lookupClient ??= client;
+      state.armVerified = true;
       if (page.truncated) state.warnings.push(azureTruncationWarning(label("roleAssignments.listForSubscription"), AZURE_IAM_MAX_ASSIGNMENTS));
     } catch (err) {
       if (isAzureFatal(err)) throw new FatalError(err);
@@ -425,6 +439,7 @@ export class AzureRbacPrivilegeScanner implements Scanner {
           }
         },
       });
+      state.armVerified = true;
       if (page.truncated) state.warnings.push(azureTruncationWarning(label("roleDefinitions.list"), AZURE_IAM_MAX_CUSTOM_ROLES));
     } catch (err) {
       if (isAzureFatal(err)) throw new FatalError(err);
@@ -437,6 +452,7 @@ export class AzureRbacPrivilegeScanner implements Scanner {
         state.classicAdmins.push({ raw: c, subscriptionId: sub });
       } });
       state.scanned += page.count;
+      state.armVerified = true;
       if (page.truncated) state.warnings.push(azureTruncationWarning(label("classicAdministrators.list"), AZURE_IAM_MAX_CLASSIC_ADMINS));
     } catch (err) {
       if (classifyAzureError(err).kind === "auth_failed") throw new FatalError(err);
@@ -485,15 +501,32 @@ export class AzureRbacPrivilegeScanner implements Scanner {
     try {
       return await graphClient(creds);
     } catch (err) {
-      if (isAzureFatal(err)) throw new FatalError(err);
+      this.graphFatal(state, err);
       state.warnings.push(`${azureSoftWarning("Microsoft Graph", err)} — Entra ID checks skipped; RBAC results only.`);
       return undefined;
     }
   }
 
-  /** Graph errors: auth_failed / api_misuse propagate; anything else → warning with the consequence. */
+  /**
+   * Fatal Graph errors. api_misuse always propagates; auth_failed propagates unless ARM RBAC
+   * already succeeded (credentials proven valid — e.g. wrong Graph audience in China or a
+   * Graph-scope AADSTS): then the Entra checks are skipped with a warning (plan §4.2 / §6.4 Q2)
+   * and the RBAC findings are still reported.
+   */
+  private graphFatal(state: IamState, err: unknown): void {
+    if (!isAzureFatal(err)) return;
+    if (!state.armVerified || classifyAzureError(err).kind !== "auth_failed") throw new FatalError(err);
+    const info = extractAzureError(err);
+    const code = aztUntrusted(info.aadsts ?? info.code ?? (info.status !== undefined ? `HTTP ${info.status}` : "unknown"));
+    state.warnings.push(
+      `Entra (Microsoft Graph) checks skipped: Azure authentication to Microsoft Graph failed (${code}) — RBAC results only (guest / MFA / directory role checks not run); check the Graph application permissions and the AZURE_CLOUD Graph endpoint.`,
+    );
+    throw new GraphSkipped();
+  }
+
+  /** Graph errors: fatal ones go through {@link graphFatal}; anything else → warning with the consequence. */
   private graphSoft(state: IamState, service: string, err: unknown, consequence: string): void {
-    if (isAzureFatal(err)) throw new FatalError(err);
+    this.graphFatal(state, err);
     state.warnings.push(`${azureSoftWarning(`Microsoft Graph ${service}`, err)} — ${consequence}.`);
   }
 
@@ -585,7 +618,7 @@ export class AzureRbacPrivilegeScanner implements Scanner {
     );
     const failures = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
     const fatal = failures.find((f) => isAzureFatal(f.reason));
-    if (fatal) throw new FatalError(fatal.reason);
+    if (fatal) this.graphFatal(state, fatal.reason);
     if (failures.length > 0) {
       this.graphSoft(
         state,

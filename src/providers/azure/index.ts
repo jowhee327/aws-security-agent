@@ -19,7 +19,7 @@ import type { AccountRef, AssumeCrossAccountOptions, CloudCredentials, CloudProv
 import type { AzureCredentials, ScanContext } from "../../types.js";
 import { isAzureCredentials } from "../../types.js";
 import { loadAzureCredentials, pinnedAzureSubscriptionId, resolveAzureCloud } from "./credentials.js";
-import { isAzureAuthFailure, redactAzureDiagnostic } from "./errors.js";
+import { azureModuleErrorText, classifyAzureError, isAzureAuthFailure, redactAzureDiagnostic } from "./errors.js";
 import { AZURE_NO_SUBSCRIPTION, listAzureSubscriptions, type AzureSubscriptionRef } from "./subscriptions.js";
 import { toAzureUrn } from "./urn.js";
 import { AzureDefenderAlertsScanner } from "./scanners/defender-alerts.js";
@@ -50,6 +50,19 @@ const AZURE_NO_SUBSCRIPTION_HINT = "set AZURE_SUBSCRIPTION_ID or pass a subscrip
 
 /** Subscription states that cannot be scanned. */
 const INACTIVE_SUBSCRIPTION_STATES = new Set(["disabled", "deleted"]);
+
+/**
+ * Last fatal (auth_failed / api_misuse) subscription enumeration failure that left the scan
+ * with no subscription, keyed by the service principal identity. `listRegions` records it
+ * (the runner then scans the no-subscription placeholder scope) and `contextFor` hands its
+ * redacted text to that scope, so subscription-scoped modules report `status: "error"`
+ * rather than a clean "nothing to scan" (plan §6.1: never disguise an auth failure).
+ */
+let fatalEnumerationFailure: { key: string; text: string } | undefined;
+
+function principalKey(creds: AzureCredentials): string {
+  return `${creds.cloud}|${creds.tenantId}|${creds.clientId}`;
+}
 
 /**
  * Credentials for provider-level calls: explicit Azure credentials when given, else the
@@ -86,8 +99,10 @@ export const azureProvider: CloudProvider = {
 
   // Subscription scope → subscriptionId / tenantId / cloud on the ScanContext.
   contextFor(scope: RegionScope, accountId: string): Partial<ScanContext> {
-    const extra: Partial<ScanContext> = { cloud: tryResolveCredentials()?.cloud ?? resolveAzureCloud() };
+    const creds = tryResolveCredentials();
+    const extra: Partial<ScanContext> = { cloud: creds?.cloud ?? resolveAzureCloud() };
     if (scope.region && scope.region !== AZURE_NO_SUBSCRIPTION) extra.subscriptionId = scope.region;
+    else if (creds && fatalEnumerationFailure?.key === principalKey(creds)) extra.azureScopeError = fatalEnumerationFailure.text;
     const tenantId = scope.domainId ?? (accountId && accountId !== "unknown" ? accountId : undefined);
     if (tenantId) extra.tenantId = tenantId;
     return extra;
@@ -104,19 +119,31 @@ export const azureProvider: CloudProvider = {
   // subscription is scanned alone; with neither, the failure propagates (the runner reports
   // it, redacted, as a warning). Authentication failures with a requested subscription also
   // propagate, so the runner's warning names the auth failure (it still scans the requested
-  // subscription, whose modules then report `Azure authentication failed`).
+  // subscription, whose modules then report `Azure authentication failed`). A fatal
+  // (auth_failed / api_misuse) failure with no fallback is also recorded for `contextFor`,
+  // so the placeholder scope's subscription-scoped modules report it as an error.
   async listRegions(creds?: CloudCredentials, requested?: string): Promise<RegionScope[]> {
     const pinned = pinnedAzureSubscriptionId();
     const fallback = requested ?? pinned;
     const resolved = tryResolveCredentials(creds);
     if (!resolved) return fallback ? [{ region: fallback }] : [];
 
+    const key = principalKey(resolved);
+    if (fatalEnumerationFailure?.key === key) fatalEnumerationFailure = undefined;
     let subs: AzureSubscriptionRef[];
     try {
       subs = await listAzureSubscriptions(resolved);
     } catch (err) {
       if (requested && isAzureAuthFailure(err)) throw err;
       if (fallback) return [{ region: fallback, domainId: resolved.tenantId }];
+      const { kind } = classifyAzureError(err);
+      if (kind === "auth_failed" || kind === "api_misuse") {
+        const text = azureModuleErrorText(err);
+        fatalEnumerationFailure = {
+          key,
+          text: kind === "auth_failed" ? text : redactAzureDiagnostic(`Azure subscription enumeration failed: ${text}`),
+        };
+      }
       throw err;
     }
 

@@ -63,9 +63,8 @@ import {
   azString,
   aztUntrusted,
   aztUntrustedOpt,
-  azureEmptyResult,
   azureErrorResult,
-  azureNoSubscriptionWarning,
+  azureNoSubscriptionResult,
   azureSafeFinding,
   azureSafeWarnings,
   azureScanEnv,
@@ -354,7 +353,7 @@ export class AzureNetworkReachabilityScanner implements Scanner {
     } catch (err) {
       return azureErrorResult(this.moduleName, startMs, "Azure network reachability scan failed", err);
     }
-    if (!env) return azureEmptyResult(this.moduleName, startMs, { warnings: [azureNoSubscriptionWarning(this.moduleName)] });
+    if (!env) return azureNoSubscriptionResult(this.moduleName, startMs, ctx);
 
     let client: NetworkManagementClient;
     try {

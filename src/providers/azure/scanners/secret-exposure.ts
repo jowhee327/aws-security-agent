@@ -55,9 +55,8 @@ import {
   azString,
   aztUntrusted,
   aztUntrustedOpt,
-  azureEmptyResult,
   azureErrorResult,
-  azureNoSubscriptionWarning,
+  azureNoSubscriptionResult,
   azureSafeFinding,
   azureSafeWarnings,
   azureScanEnv,
@@ -539,7 +538,7 @@ export class AzureSecretExposureScanner implements Scanner {
     } catch (err) {
       return azureErrorResult(this.moduleName, startMs, "Azure secret exposure scan failed", err);
     }
-    if (!env) return azureEmptyResult(this.moduleName, startMs, { warnings: [azureNoSubscriptionWarning(this.moduleName)] });
+    if (!env) return azureNoSubscriptionResult(this.moduleName, startMs, ctx);
 
     const warnings: string[] = [];
     const findings: Finding[] = [];

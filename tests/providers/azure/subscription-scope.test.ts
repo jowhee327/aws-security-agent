@@ -291,3 +291,106 @@ describe("azure runner — multi-subscription scan", () => {
     });
   });
 });
+
+describe("azure runner — enumeration failure with no subscription fallback (real subscription-scoped scanners)", () => {
+  // The 11 subscription-scoped modules; with no subscription in scope they return before
+  // touching any SDK (iam_privilege_escalation enumerates subscriptions itself — excluded).
+  const subscriptionScanners = () =>
+    getProvider("azure")
+      .scanners()
+      .filter((s) => s.moduleName !== "iam_privilege_escalation");
+
+  beforeEach(() => {
+    stubServicePrincipalEnv();
+  });
+
+  it("covers all 11 subscription-scoped modules", () => {
+    expect(subscriptionScanners()).toHaveLength(11);
+  });
+
+  it.each([undefined, "all"])(
+    "region=%j: auth_failed enumeration → every subscription-scoped module status error with the auth text",
+    async (region) => {
+      const { toAzureError, AZURE_AUTH_FAILED_PREFIX } = await import("../../../src/providers/azure/errors.js");
+      const { authError } = await import("./scanners/helpers.js");
+      mocks.listAzureSubscriptions.mockRejectedValue(toAzureError(authError(), "subscriptions.list"));
+
+      const result = await runAllScanners(subscriptionScanners(), region as string, { provider: "azure" });
+
+      expect(result.modules).toHaveLength(11);
+      for (const m of result.modules) {
+        expect(m.status, m.module).toBe("error");
+        expect(m.error!.startsWith(AZURE_AUTH_FAILED_PREFIX), m.module).toBe(true);
+        expect(m.error).toContain("AADSTS900023");
+        expect(m.findings).toEqual([]);
+      }
+      expect(result.summary.modulesError).toBe(11);
+      expect(result.summary.modulesSuccess).toBe(0);
+      // The runner's enumeration-failure warning is kept.
+      expect(result.modules[0].warnings?.[0]).toMatch(/^Azure subscription enumeration failed: Azure authentication failed \(AADSTS900023/);
+      expect(JSON.stringify(result)).not.toContain(FAKE_SECRET);
+    },
+  );
+
+  it("api_misuse enumeration → status error (not a clean skip)", async () => {
+    const { toAzureError } = await import("../../../src/providers/azure/errors.js");
+    const { misuseError } = await import("./scanners/helpers.js");
+    mocks.listAzureSubscriptions.mockRejectedValue(toAzureError(misuseError(), "subscriptions.list"));
+
+    const result = await runAllScanners(subscriptionScanners(), "all", { provider: "azure" });
+
+    for (const m of result.modules) {
+      expect(m.status, m.module).toBe("error");
+      expect(m.error).toContain("Azure subscription enumeration failed");
+      expect(m.error).toContain("InvalidApiVersionParameter");
+    }
+  });
+
+  it("access_denied enumeration → success + skip warning (unchanged)", async () => {
+    const { toAzureError } = await import("../../../src/providers/azure/errors.js");
+    const { deniedError } = await import("./scanners/helpers.js");
+    mocks.listAzureSubscriptions.mockRejectedValue(toAzureError(deniedError(), "subscriptions.list"));
+
+    const result = await runAllScanners(subscriptionScanners(), "all", { provider: "azure" });
+
+    expect(result.modules).toHaveLength(11);
+    for (const m of result.modules) {
+      expect(m.status, m.module).toBe("success");
+      expect(m.error).toBeUndefined();
+      expect(m.warnings!.some((w) => w.includes("no Azure subscription in scope")), m.module).toBe(true);
+    }
+    expect(result.modules[0].warnings?.[0]).toMatch(/^Azure subscription enumeration failed: /);
+  });
+
+  it("empty subscription list → success + skip warning (unchanged), also right after an auth failure", async () => {
+    const { toAzureError } = await import("../../../src/providers/azure/errors.js");
+    const { authError } = await import("./scanners/helpers.js");
+    mocks.listAzureSubscriptions.mockRejectedValueOnce(toAzureError(authError(), "subscriptions.list"));
+    const failed = await runAllScanners(subscriptionScanners(), "all", { provider: "azure" });
+    expect(failed.modules.every((m) => m.status === "error")).toBe(true);
+
+    mocks.listAzureSubscriptions.mockResolvedValue([]);
+    const result = await runAllScanners(subscriptionScanners(), "all", { provider: "azure" });
+
+    for (const m of result.modules) {
+      expect(m.status, m.module).toBe("success");
+      expect(m.warnings!.some((w) => w.includes("no Azure subscription in scope")), m.module).toBe(true);
+    }
+    expect(result.modules[0].warnings?.[0]).toBe(
+      "Azure subscription enumeration returned no subscriptions visible to the service principal; set AZURE_SUBSCRIPTION_ID or pass a subscription ID as region.",
+    );
+  });
+
+  it("auth_failed enumeration + AZURE_SUBSCRIPTION_ID fallback: the placeholder error is not attached", async () => {
+    const { toAzureError } = await import("../../../src/providers/azure/errors.js");
+    const { authError } = await import("./scanners/helpers.js");
+    mocks.listAzureSubscriptions.mockRejectedValue(toAzureError(authError(), "subscriptions.list"));
+    vi.stubEnv("AZURE_SUBSCRIPTION_ID", SUB_C);
+    const regional = mockScanner("public_access_verify");
+
+    await runAllScanners([regional], "all", { provider: "azure" });
+
+    expect(ctxOf(regional)).toMatchObject({ subscriptionId: SUB_C });
+    expect(ctxOf(regional).azureScopeError).toBeUndefined();
+  });
+});

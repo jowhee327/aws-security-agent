@@ -33,6 +33,16 @@ export function azureNoSubscriptionWarning(module: string): string {
   return `${module}: no Azure subscription in scope (subscription enumeration failed or returned nothing); set AZURE_SUBSCRIPTION_ID or pass a subscription ID as region. Skipped.`;
 }
 
+/**
+ * Result for a subscription-scoped module run without a subscription in scope: `status:
+ * "error"` carrying the fatal enumeration failure (`ctx.azureScopeError`, e.g. `Azure
+ * authentication failed (AADSTS…)`) when there was one, else success + the skip warning.
+ */
+export function azureNoSubscriptionResult(module: string, startMs: number, ctx: ScanContext): ScanResult {
+  if (ctx.azureScopeError) return azureEmptyResult(module, startMs, { status: "error", error: ctx.azureScopeError });
+  return azureEmptyResult(module, startMs, { warnings: [azureNoSubscriptionWarning(module)] });
+}
+
 /** Subscription of the scan context (`undefined` for the no-subscription placeholder scope). */
 export function azureSubscriptionFromContext(ctx: ScanContext): string | undefined {
   const sub = ctx.subscriptionId?.trim();
