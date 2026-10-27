@@ -23,8 +23,10 @@ import { isAzureAuthFailure, redactAzureDiagnostic } from "./errors.js";
 import { AZURE_NO_SUBSCRIPTION, listAzureSubscriptions, type AzureSubscriptionRef } from "./subscriptions.js";
 import { toAzureUrn } from "./urn.js";
 import { AzureDefenderAssessmentsScanner } from "./scanners/defender-assessments.js";
+import { AzureDiskEncryptionScanner } from "./scanners/disk-encryption.js";
 import { AzurePolicyComplianceScanner } from "./scanners/policy-compliance.js";
 import { AzurePublicAccessScanner } from "./scanners/public-access.js";
+import { AzureSecretExposureScanner } from "./scanners/secret-exposure.js";
 import { AzureServiceDetectionScanner } from "./scanners/service-detection.js";
 
 export * from "./subscriptions.js";
@@ -150,6 +152,8 @@ export const azureProvider: CloudProvider = {
       new AzureServiceDetectionScanner(),
       new AzureDefenderAssessmentsScanner(),
       new AzurePublicAccessScanner(),
+      new AzureSecretExposureScanner(),
+      new AzureDiskEncryptionScanner(),
     ];
   },
 
