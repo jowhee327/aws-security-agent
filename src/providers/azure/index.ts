@@ -22,7 +22,9 @@ import { loadAzureCredentials, pinnedAzureSubscriptionId, resolveAzureCloud } fr
 import { isAzureAuthFailure, redactAzureDiagnostic } from "./errors.js";
 import { AZURE_NO_SUBSCRIPTION, listAzureSubscriptions, type AzureSubscriptionRef } from "./subscriptions.js";
 import { toAzureUrn } from "./urn.js";
+import { AzureDefenderAlertsScanner } from "./scanners/defender-alerts.js";
 import { AzureDefenderAssessmentsScanner } from "./scanners/defender-assessments.js";
+import { AzureDefenderSubAssessmentsScanner } from "./scanners/defender-subassessments.js";
 import { AzureDiskEncryptionScanner } from "./scanners/disk-encryption.js";
 import { AzureIdleResourcesScanner } from "./scanners/idle-resources.js";
 import { AzureNetworkReachabilityScanner } from "./scanners/nsg-reachability.js";
@@ -31,6 +33,7 @@ import { AzurePublicAccessScanner } from "./scanners/public-access.js";
 import { AzureRbacPrivilegeScanner } from "./scanners/rbac-privilege.js";
 import { AzureSecretExposureScanner } from "./scanners/secret-exposure.js";
 import { AzureServiceDetectionScanner } from "./scanners/service-detection.js";
+import { AzureTagComplianceScanner } from "./scanners/tag-compliance.js";
 
 export * from "./subscriptions.js";
 export { DEFAULT_AZURE_CLOUD, resolveAzureCloud } from "./credentials.js";
@@ -148,7 +151,7 @@ export const azureProvider: CloudProvider = {
     );
   },
 
-  // Subscription-scoped scanners (plan §4.1); T3–T7 add the rest.
+  // The 12 Phase 2 modules (plan §4.1); all but iam_privilege_escalation are subscription-scoped.
   scanners(): Scanner[] {
     return [
       new AzurePolicyComplianceScanner(),
@@ -159,6 +162,9 @@ export const azureProvider: CloudProvider = {
       new AzureDiskEncryptionScanner(),
       new AzureNetworkReachabilityScanner(),
       new AzureIdleResourcesScanner(),
+      new AzureTagComplianceScanner(),
+      new AzureDefenderAlertsScanner(),
+      new AzureDefenderSubAssessmentsScanner(),
       // Tenant-level (AZURE_GLOBAL_MODULES): enumerates every visible subscription itself.
       new AzureRbacPrivilegeScanner(),
     ];
