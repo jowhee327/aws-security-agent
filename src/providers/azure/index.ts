@@ -28,6 +28,7 @@ import { AzureIdleResourcesScanner } from "./scanners/idle-resources.js";
 import { AzureNetworkReachabilityScanner } from "./scanners/nsg-reachability.js";
 import { AzurePolicyComplianceScanner } from "./scanners/policy-compliance.js";
 import { AzurePublicAccessScanner } from "./scanners/public-access.js";
+import { AzureRbacPrivilegeScanner } from "./scanners/rbac-privilege.js";
 import { AzureSecretExposureScanner } from "./scanners/secret-exposure.js";
 import { AzureServiceDetectionScanner } from "./scanners/service-detection.js";
 
@@ -158,6 +159,8 @@ export const azureProvider: CloudProvider = {
       new AzureDiskEncryptionScanner(),
       new AzureNetworkReachabilityScanner(),
       new AzureIdleResourcesScanner(),
+      // Tenant-level (AZURE_GLOBAL_MODULES): enumerates every visible subscription itself.
+      new AzureRbacPrivilegeScanner(),
     ];
   },
 
