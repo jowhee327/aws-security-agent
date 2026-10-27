@@ -404,8 +404,10 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
       async ({ region, provider }) => {
         const p = provider ?? defaultProviderFor(moduleName);
         try {
-          const scanner = scannerMapFor(p).get(moduleName);
-          if (!scanner) return moduleUnavailableError(moduleName, p);
+          // Provider aliases (e.g. security_hub_findings -> defender_assessment_findings); identity for aws.
+          const resolvedModule = resolveModuleAlias(moduleName, p);
+          const scanner = scannerMapFor(p).get(resolvedModule);
+          if (!scanner) return moduleUnavailableError(resolvedModule, p);
           const r = regionFor(region, p);
           const ctx = await buildScanContext(r, p);
           const result: ScanResult = await scanner.scan(ctx);
@@ -1041,6 +1043,12 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
     async ({ region, provider }) => {
       try {
         const p = resolveProvider(provider);
+        if (p === "azure") {
+          return {
+            content: [{ type: "text", text: `Error: list_org_accounts is not supported for provider "azure". Azure has no Organizations / cross-account assume: scans enumerate every subscription visible to the service principal (multi-subscription). Pass region = a subscription ID to scan one subscription, or omit it / use "all" for every visible subscription.` }],
+            isError: true,
+          };
+        }
         if (p !== "aws") {
           return {
             content: [{ type: "text", text: `Error: list_org_accounts is not supported for provider "${p}" yet (Huawei Cloud multi-account via Organizations + STS assumeAgency is planned for Phase 2).` }],
