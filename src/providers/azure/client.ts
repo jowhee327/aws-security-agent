@@ -160,6 +160,25 @@ export function azureArmClientOptions(cloud: AzureCloud | undefined): AzureArmCl
   return { endpoint: cfg.armEndpoint, credentialScopes: [cfg.armScope], $host: cfg.armEndpoint };
 }
 
+/** {@link azureArmClientOptions} plus the token scope in the shape TypeSpec-generated clients read. */
+export interface AzureArmClientCtorOptions extends AzureArmClientOptions {
+  credentials: { scopes: string[] };
+}
+
+/**
+ * Options actually passed to ARM client constructors. Two generations of generated clients
+ * read the token scope from different places: AutoRest clients (`@azure/arm-security`,
+ * `arm-policyinsights`, `arm-authorization`) use `credentialScopes`; TypeSpec clients
+ * (`arm-monitor`, `arm-keyvault`, `arm-storage`, `arm-network`, `arm-compute`,
+ * `arm-appservice`, `arm-resources`, `arm-resources-subscriptions`) use `credentials.scopes`
+ * and otherwise default to the Global `management.azure.com/.default` audience — a
+ * wrong-audience token for the China endpoint. Both are set.
+ */
+export function azureArmClientCtorOptions(cloud: AzureCloud | undefined): AzureArmClientCtorOptions {
+  const base = azureArmClientOptions(cloud);
+  return { ...base, credentials: { scopes: [...base.credentialScopes] } };
+}
+
 /** Any generated `@azure/arm-*` client class (`StorageManagementClient`, `SecurityCenter`, …). */
 export type AzureArmClientCtor<T> = new (
   credential: TokenCredential,
@@ -169,13 +188,14 @@ export type AzureArmClientCtor<T> = new (
 ) => T;
 
 /**
- * `new Ctor(credential, subscriptionId, { endpoint: armEndpoint, credentialScopes: [armScope] })`.
+ * `new Ctor(credential, subscriptionId, { endpoint: armEndpoint, credentialScopes: [armScope], credentials: { scopes: [armScope] } })`
+ * (see {@link azureArmClientCtorOptions}).
  * The caller lazy-imports the client package (`const { StorageManagementClient } = await
  * import("@azure/arm-storage")`); the credential is resolved (and `@azure/identity` loaded) here.
  */
 export async function armClient<T>(Ctor: AzureArmClientCtor<T>, creds: AzureCredentials, subscriptionId: string): Promise<T> {
   const credential = await azureCredential(creds);
-  return new Ctor(credential, subscriptionId, azureArmClientOptions(creds.cloud));
+  return new Ctor(credential, subscriptionId, azureArmClientCtorOptions(creds.cloud));
 }
 
 /**
@@ -280,7 +300,7 @@ export async function listAzureSubscriptions(creds: AzureCredentials): Promise<A
   try {
     const credential = await azureCredential(creds);
     const { SubscriptionClient } = await import("@azure/arm-resources-subscriptions");
-    const client = new SubscriptionClient(credential, azureArmClientOptions(creds.cloud));
+    const client = new SubscriptionClient(credential, azureArmClientCtorOptions(creds.cloud));
     const { items } = await azurePaginate(client.subscriptions.list(), { max: AZURE_MAX_SUBSCRIPTIONS });
     const out: AzureSubscriptionRef[] = [];
     for (const s of items as unknown as Array<Record<string, unknown>>) {

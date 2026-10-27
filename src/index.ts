@@ -805,9 +805,19 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
         // (CTS / RMS (Config) / HSS / SecMaster; 4 services → top maturity level "advanced").
         // Alibaba Cloud (EXPERIMENTAL) uses providers/alicloud/scanners/service-detection.ts
         // (ActionTrail / Config / Security Center (SAS) / WAF / KMS; 5 services → "comprehensive").
+        // Azure (EXPERIMENTAL) uses providers/azure/scanners/service-detection.ts
+        // (Defender for Cloud / Azure Policy / Activity Log / Key Vault; 4 services → "advanced").
         const isHuawei = parsed.provider === "huaweicloud";
         const isAli = parsed.provider === "alicloud";
-        const serviceImpacts: Record<string, string> = isAli
+        const isAzure = parsed.provider === "azure";
+        const serviceImpacts: Record<string, string> = isAzure
+          ? {
+              "Defender for Cloud": "Threat detection + vulnerability assessment",
+              "Azure Policy": "Configuration compliance evaluation",
+              "Activity Log": "Subscription API activity audit logging",
+              "Key Vault": "Customer-managed secrets / keys",
+            }
+          : isAli
           ? {
               "ActionTrail": "API activity audit logging",
               "Config": "Configuration tracking + compliance rules",
@@ -830,7 +840,13 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
               "AWS Config": "Configuration tracking",
             };
         // Suffix appended to a recommendation line ("" = none).
-        const serviceTrialNotes: Record<string, string> = isAli
+        const serviceTrialNotes: Record<string, string> = isAzure
+          ? {
+              "Defender for Cloud": " \u2014 check the portal for the current free-trial offer (plan availability differs in Azure China)",
+              "Azure Policy": " \u2014 built-in policy evaluation is free of charge",
+              "Activity Log": " \u2014 the Activity Log is free; export destinations are billed separately",
+            }
+          : isAli
           ? {
               "ActionTrail": " \u2014 a basic trail is free of charge (storage billed separately)",
               "Config": " \u2014 the resource recorder is free of charge",
@@ -848,12 +864,19 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
               "GuardDuty": " \u2014 free trial available",
               "Inspector": " \u2014 free trial available",
             };
-        const priorityOrder = isAli
+        const priorityOrder = isAzure
+          ? ["Activity Log", "Azure Policy", "Defender for Cloud", "Key Vault"]
+          : isAli
           ? ["ActionTrail", "Config", "Security Center (SAS)", "WAF", "KMS"]
           : isHuawei
           ? ["CTS", "RMS (Config)", "HSS", "SecMaster"]
           : ["Security Hub", "GuardDuty", "Inspector", "AWS Config", "CloudTrail"];
-        const nextMilestones: Record<string, { level: string; target: number; suggestions: string[] }> = isAli
+        const nextMilestones: Record<string, { level: string; target: number; suggestions: string[] }> = isAzure
+          ? {
+              basic: { level: "Intermediate", target: 2, suggestions: ["Activity Log", "Azure Policy"] },
+              intermediate: { level: "Advanced", target: 4, suggestions: ["Defender for Cloud", "Key Vault"] },
+            }
+          : isAli
           ? {
               basic: { level: "Intermediate", target: 2, suggestions: ["ActionTrail", "Config"] },
               intermediate: { level: "Advanced", target: 4, suggestions: ["Security Center (SAS)", "WAF"] },
@@ -869,8 +892,8 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
               intermediate: { level: "Advanced", target: 4, suggestions: ["Inspector", "AWS Config"] },
               advanced: { level: "Comprehensive", target: 5, suggestions: ["CloudTrail"] },
             };
-        const topLevel = isHuawei ? "advanced" : "comprehensive";
-        const topLevelLabel = isHuawei ? "Advanced" : "Comprehensive";
+        const topLevel = isHuawei || isAzure ? "advanced" : "comprehensive";
+        const topLevelLabel = isHuawei || isAzure ? "Advanced" : "Comprehensive";
 
         const services = detection.services;
         const coveragePercent = detection.coveragePercent;

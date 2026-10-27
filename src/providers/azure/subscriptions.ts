@@ -10,6 +10,14 @@
  */
 export { listAzureSubscriptions } from "./client.js";
 
+/**
+ * Placeholder scope used when no subscription could be determined (Azure has no
+ * meaningful default "region"). `contextFor` leaves `subscriptionId` unset for it, so
+ * subscription-scoped scanners must treat a missing `ScanContext.subscriptionId` as
+ * "nothing to scan" and report it. Re-exported by ./index.ts.
+ */
+export const AZURE_NO_SUBSCRIPTION = "no-subscription";
+
 /** One subscription visible to the service principal. */
 export interface AzureSubscriptionRef {
   subscriptionId: string;

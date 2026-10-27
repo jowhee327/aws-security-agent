@@ -11,7 +11,7 @@
  *
  * Credentials (§3.2) live in ./credentials.ts, the ARM / Graph client factory (§3.4) in
  * ./client.ts, error classification + redaction (§3.5) in ./errors.ts and URNs (§3.6) in
- * ./urn.ts. Scanners land in T2–T7. `@azure/*` SDKs are loaded lazily (`await import()`)
+ * ./urn.ts. Scanners live in ./scanners/ (T2–T7). `@azure/*` SDKs are loaded lazily (`await import()`)
  * so the default AWS path never loads them — no module here imports one at runtime.
  */
 import type { Scanner } from "../../scanners/base.js";
@@ -20,21 +20,16 @@ import type { AzureCredentials, ScanContext } from "../../types.js";
 import { isAzureCredentials } from "../../types.js";
 import { loadAzureCredentials, pinnedAzureSubscriptionId, resolveAzureCloud } from "./credentials.js";
 import { isAzureAuthFailure, redactAzureDiagnostic } from "./errors.js";
-import { listAzureSubscriptions, type AzureSubscriptionRef } from "./subscriptions.js";
+import { AZURE_NO_SUBSCRIPTION, listAzureSubscriptions, type AzureSubscriptionRef } from "./subscriptions.js";
 import { toAzureUrn } from "./urn.js";
+import { AzureDefenderAssessmentsScanner } from "./scanners/defender-assessments.js";
+import { AzurePolicyComplianceScanner } from "./scanners/policy-compliance.js";
+import { AzureServiceDetectionScanner } from "./scanners/service-detection.js";
 
 export * from "./subscriptions.js";
 export { DEFAULT_AZURE_CLOUD, resolveAzureCloud } from "./credentials.js";
 
 export const AZURE_PARTITION = "azure";
-
-/**
- * Placeholder scope used when no subscription could be determined (Azure has no
- * meaningful default "region"). `contextFor` leaves `subscriptionId` unset for it, so
- * subscription-scoped scanners must treat a missing `ScanContext.subscriptionId` as
- * "nothing to scan" and report it.
- */
-export const AZURE_NO_SUBSCRIPTION = "no-subscription";
 
 /** Tenant-level modules (Entra directory roles): run once per scan, not once per subscription. */
 export const AZURE_GLOBAL_MODULES: ReadonlySet<string> = new Set(["iam_privilege_escalation"]);
@@ -147,9 +142,9 @@ export const azureProvider: CloudProvider = {
     );
   },
 
-  // T2–T7 add the scanners (plan §4.1).
+  // Subscription-scoped scanners (plan §4.1); T3–T7 add the rest.
   scanners(): Scanner[] {
-    return [];
+    return [new AzurePolicyComplianceScanner(), new AzureServiceDetectionScanner(), new AzureDefenderAssessmentsScanner()];
   },
 
   // ARM resource IDs are already globally unique: pass them through; otherwise build

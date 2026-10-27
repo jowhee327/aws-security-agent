@@ -58,6 +58,7 @@ import {
   AZURE_GRAPH_VERSION,
   armClient,
   azureArmClientOptions,
+  azureArmClientCtorOptions,
   azureCloudConfig,
   azureCredential,
   azurePaginate,
@@ -151,6 +152,33 @@ describe("AZURE_CLOUDS", () => {
       credentialScopes: ["https://management.chinacloudapi.cn/.default"],
       $host: "https://management.chinacloudapi.cn",
     });
+  });
+});
+
+describe("azureArmClientCtorOptions", () => {
+  it("adds credentials.scopes (TypeSpec clients ignore credentialScopes and default to the Global audience)", () => {
+    expect(azureArmClientCtorOptions("china")).toEqual({
+      endpoint: "https://management.chinacloudapi.cn",
+      credentialScopes: ["https://management.chinacloudapi.cn/.default"],
+      $host: "https://management.chinacloudapi.cn",
+      credentials: { scopes: ["https://management.chinacloudapi.cn/.default"] },
+    });
+    expect(azureArmClientCtorOptions("global").credentials.scopes).toEqual(["https://management.azure.com/.default"]);
+  });
+
+  it("armClient and SubscriptionClient receive both scope shapes", async () => {
+    const seen: unknown[][] = [];
+    class FakeArmClient {
+      constructor(...args: unknown[]) {
+        seen.push(args);
+      }
+    }
+    await armClient(FakeArmClient, CHINA, SUB_A);
+    expect(seen[0][2]).toMatchObject({ credentials: { scopes: ["https://management.chinacloudapi.cn/.default"] } });
+
+    mocks.subscriptionsList.mockReturnValue(pagedIterator([[]], { pages: 0 }));
+    await listAzureSubscriptions(CHINA);
+    expect(mocks.subscriptionClientArgs[0][1]).toMatchObject({ credentials: { scopes: ["https://management.chinacloudapi.cn/.default"] } });
   });
 });
 
