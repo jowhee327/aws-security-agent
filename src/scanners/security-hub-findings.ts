@@ -113,12 +113,14 @@ export class SecurityHubFindingsScanner implements Scanner {
           };
           finding.source = getSecurityHubSource(finding);
 
+          // Inspector-sourced findings (CVE, GHSA, ALAS, ...) carry sourceFindingId as the
+          // dedupe key against inspector_findings; non-Inspector findings keep their old shape.
+          if (finding.source === "Inspector" && f.Id) finding.sourceFindingId = f.Id;
+
           // Inspector CVEs: ASFF carries exploit/EPSS/fix signals, so exploitability
           // is available even when Inspector cannot be pulled directly.
           const vuln = f.Vulnerabilities?.[0];
           if (finding.source === "Inspector" && vuln?.Id && CVE_ID.test(vuln.Id)) {
-            // Only Inspector CVEs carry sourceFindingId (dedupe key); other findings keep their old shape.
-            if (f.Id) finding.sourceFindingId = f.Id;
             const fix = vuln.FixAvailable;
             const exploitability = buildExploitability({
               cveId: vuln.Id,

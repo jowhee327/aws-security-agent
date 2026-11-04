@@ -155,22 +155,31 @@ describe("SecurityHubFindingsScanner exploitability (Inspector CVEs)", () => {
     };
   }
 
-  // Intentional change (Codex fix round 1): this T2-added test used to assert
-  // sourceFindingId on every SH finding, including FSBP/S3. Plan §2.2 requires
-  // non-CVE findings to serialize exactly as before, so only Inspector CVEs get it.
-  it("stores sourceFindingId = SH finding Id only on Inspector CVE findings", async () => {
+  // Intentional change (Codex fix round 1, then round 1b): this T2-added test used to
+  // assert sourceFindingId on every SH finding, including FSBP/S3. Plan §2.2 requires
+  // non-Inspector findings to serialize exactly as before, so only Inspector-sourced
+  // findings get it — CVE and non-CVE (GHSA/ALAS) alike, so findingArn dedupe covers both.
+  it("stores sourceFindingId = SH finding Id only on Inspector-sourced findings", async () => {
     mockSend.mockResolvedValueOnce({
       Findings: [
         { Id: "fsbp-1", Title: "S3.1", Severity: { Label: "HIGH" }, Resources: [{ Id: "arn:aws:s3:::b", Type: "AwsS3Bucket" }], ProductName: "Security Hub" },
         inspectorFinding(),
         inspectorFinding({ Id: "ins-ghsa", Vulnerabilities: [{ Id: "GHSA-xxxx-yyyy-zzzz" }] }),
+        inspectorFinding({ Id: "ins-alas", Vulnerabilities: [{ Id: "ALAS2-2023-2001" }] }),
+        inspectorFinding({ Id: "gd-1", ProductName: "GuardDuty" }),
       ],
     });
     const result = await scanner.scan(ctx);
     expect(result.findings.map((f) => f.sourceFindingId)).toEqual([
       undefined,
       "arn:aws:inspector2:us-east-1:123456789012:finding/abc",
+      "ins-ghsa",
+      "ins-alas",
       undefined,
+    ]);
+    // exploitability stays CVE-only on the Security Hub path.
+    expect(result.findings.map((f) => f.exploitability?.cveId)).toEqual([
+      undefined, "CVE-2026-31431", undefined, undefined, undefined,
     ]);
   });
 
