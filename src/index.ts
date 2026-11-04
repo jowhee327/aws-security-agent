@@ -34,6 +34,12 @@ import { generateMlps3Report } from "./tools/mlps-report.js";
 import { generateHtmlReport, generateMlps3HtmlReport } from "./tools/html-report.js";
 import { generateHwDefenseHtmlReport } from "./tools/hw-report.js";
 import { buildAiSummaryPrompt } from "./tools/ai-summary-prompt.js";
+import {
+  prioritizeVulnerabilities,
+  summarizePrioritized,
+  DEFAULT_PRIORITIZE_LIMIT,
+  MAX_PRIORITIZE_LIMIT,
+} from "./tools/prioritize-vulnerabilities.js";
 import { saveResults } from "./tools/save-results.js";
 import { SCAN_GROUPS, applyFindingsFilter } from "./tools/scan-groups.js";
 import {
@@ -122,7 +128,7 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
   guardduty_findings:
     "Checks if GuardDuty is enabled. Findings are aggregated via Security Hub.",
   inspector_findings:
-    "Checks if Inspector is enabled. Findings are aggregated via Security Hub.",
+    "Checks if Inspector is enabled and pulls active package-vulnerability findings directly from Inspector2, prioritized by exploitability (public exploit, EPSS, CISA KEV, network reachability). Falls back to Security Hub when Inspector2 cannot be read.",
   trusted_advisor_findings:
     "Aggregates security checks from AWS Trusted Advisor — requires Business or Enterprise Support plan.",
   config_rules_findings:
@@ -462,6 +468,46 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
         };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    },
+  );
+
+  // prioritize_vulnerabilities — "what to fix first": Inspector CVEs ordered by exploitability priority
+  server.tool(
+    "prioritize_vulnerabilities",
+    "List CVE vulnerabilities ordered by exploitability priority (P0 first) using threat intel (public exploit, EPSS, CISA KEV) and configured exposure (public IP, security groups, NACLs, running state). Pulls Inspector2 findings directly, falling back to the Security Hub Inspector subset. Prioritization only — not penetration testing; read-only, no active probing. AWS only.",
+    {
+      region: z.string().optional().describe("AWS region to scan (default: server region)"),
+      priorities: z.array(z.enum(["P0", "P1", "P2", "P3"])).optional().describe("Exploitability priorities to return (default: [\"P0\",\"P1\"])"),
+      limit: z.number().int().positive().max(MAX_PRIORITIZE_LIMIT).optional().describe(`Maximum items to return (default: ${DEFAULT_PRIORITIZE_LIMIT}, max: ${MAX_PRIORITIZE_LIMIT})`),
+      resource_type: z.enum(["ec2", "ecr", "lambda"]).optional().describe("Only return findings on this resource type (default: all)"),
+      include_reachability: z.boolean().optional().describe("Resolve network reachability (EC2/ECS/Lambda, read-only API calls). false is faster and leaves reachability unknown (default: true)"),
+      provider: providerParam(),
+    },
+    async ({ region, priorities, limit, resource_type, include_reachability, provider }) => {
+      const p = resolveProvider(provider);
+      if (p !== "aws") {
+        return {
+          content: [{ type: "text", text: `Error: prioritize_vulnerabilities is AWS-only (Inspector / Security Hub); provider "${p}" is not supported.` }],
+          isError: true,
+        };
+      }
+      try {
+        const ctx = await buildScanContext(region ?? defaultRegion);
+        const result = await prioritizeVulnerabilities(ctx, {
+          priorities,
+          limit,
+          resourceType: resource_type,
+          includeReachability: include_reachability,
+        });
+        return {
+          content: [
+            { type: "text", text: summarizePrioritized(result) },
+            { type: "text", text: JSON.stringify(result, null, 2) },
+          ],
+        };
+      } catch (err) {
+        return { content: [{ type: "text", text: toolErrorText(err, p) }], isError: true };
       }
     },
   );

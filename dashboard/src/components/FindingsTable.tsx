@@ -1,6 +1,7 @@
 import { useState, useMemo, Fragment } from 'react';
 import { useI18n } from '../i18n';
 import type { Finding, Severity } from '../types';
+import { PRIORITIES, PRIORITY_BADGE } from '../exploitability';
 
 interface FindingsTableProps {
   findings: Finding[];
@@ -22,8 +23,15 @@ const SEVERITY_ORDER: Record<Severity, number> = {
 
 const ALL_SEVERITIES: Severity[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 const PAGE_SIZE = 20;
+const COLUMN_COUNT = 6;
 
-type SortKey = 'severity' | 'title' | 'module' | 'resourceId' | 'riskScore';
+/** Exploitability priority rank for sorting; findings without one sort after P3. */
+function priorityRank(f: Finding): number {
+  const p = f.exploitability?.priority;
+  return p ? PRIORITIES.indexOf(p) : PRIORITIES.length;
+}
+
+type SortKey = 'severity' | 'priority' | 'title' | 'module' | 'resourceId' | 'riskScore';
 type SortDir = 'asc' | 'desc';
 
 export default function FindingsTable({ findings }: FindingsTableProps) {
@@ -70,6 +78,10 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
       switch (sortKey) {
         case 'severity':
           cmp = SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity];
+          break;
+        case 'priority':
+          // Lower rank = more urgent; invert so "desc" puts P0 first like riskScore.
+          cmp = priorityRank(b) - priorityRank(a);
           break;
         case 'title':
           cmp = a.title.localeCompare(b.title);
@@ -136,6 +148,7 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
 
   const columns: [SortKey, string][] = [
     ['severity', t('findings.severity')],
+    ['priority', t('findings.priority')],
     ['title', t('findings.titleCol')],
     ['module', t('findings.module')],
     ['resourceId', t('findings.resource')],
@@ -218,7 +231,7 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
           <tbody>
             {paged.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={COLUMN_COUNT} className="px-4 py-8 text-center text-slate-500">
                   {t('findings.noFindings')}
                 </td>
               </tr>
@@ -240,6 +253,18 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
                           {f.severity}
                         </span>
                       </td>
+                      <td className="px-4 py-3">
+                        {f.exploitability ? (
+                          <span
+                            title={f.exploitability.rationale}
+                            className={`text-xs font-semibold px-2 py-0.5 rounded border ${PRIORITY_BADGE[f.exploitability.priority]}`}
+                          >
+                            {f.exploitability.priority}
+                          </span>
+                        ) : (
+                          <span className="text-slate-600">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-slate-200">{f.title}</td>
                       <td className="px-4 py-3 text-slate-400">{f.module}</td>
                       <td className="px-4 py-3 text-slate-400 font-mono text-xs">{f.resourceId}</td>
@@ -247,7 +272,7 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
                     </tr>
                     {expandedRow === globalIndex && (
                       <tr className="bg-slate-800/80">
-                        <td colSpan={5} className="px-6 py-4">
+                        <td colSpan={COLUMN_COUNT} className="px-6 py-4">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                             <div>
                               <h4 className="text-slate-400 text-xs font-semibold mb-1">{t('findings.description')}</h4>
@@ -265,6 +290,17 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
                                 ))}
                               </ol>
                             </div>
+                            {f.exploitability && (
+                              <div className="md:col-span-2">
+                                <h4 className="text-slate-400 text-xs font-semibold mb-1">{t('exploit.title')}</h4>
+                                <p className="text-slate-300">
+                                  {f.exploitability.cveId} · {f.exploitability.priority} · {t(`exploit.reach.${f.exploitability.reachability}`)}
+                                  {f.exploitability.kev ? ' · CISA KEV' : ''}
+                                  {f.exploitability.epss != null ? ` · EPSS ${f.exploitability.epss}` : ''}
+                                </p>
+                                <p className="text-slate-400 text-xs mt-1">{f.exploitability.rationale}</p>
+                              </div>
+                            )}
                             <div className="md:col-span-2">
                               <span className="text-xs text-slate-500 font-mono">{f.resourceArn}</span>
                             </div>

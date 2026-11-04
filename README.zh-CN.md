@@ -77,13 +77,14 @@ E2E 实测：在中等规模 AWS 中国区账号上一次 `scan_all` 返回 **83
 | **暴露面** | Public Endpoints | 跨服务聚合（EC2 + ELB + RDS + API Gateway 等公网可达资源） |
 | **治理** | Tag Compliance | Resource Groups Tagging API |
 | **容器 / 镜像** | ECR Image CVE（官方扫描差距分析：非包管理二进制、发行版 secdb 缺口、EOL 系统） | ECR `DescribeRepositories/DescribeImages/BatchGetImage/GetDownloadUrlForLayer/DescribeImageScanFindings`、Inspector2 `ListFindings/ListCoverage` |
+| **漏洞可利用性** | Inspector Findings（直拉 + [可利用性研判](#cve-可利用性研判)） | Inspector2 `BatchGetAccountStatus/ListFindings`、EC2 `DescribeInstances/SecurityGroups/NetworkAcls/NetworkInterfaces`、ECS `ListClusters/ListTasks/DescribeTasks/DescribeContainerInstances`、EKS `ListClusters`、Lambda `GetFunctionUrlConfig`、CISA KEV 离线快照 |
 
 **可选增强数据源**（如果客户启用了这些服务，Agent 会自动消费）：
 
 - **AWS Security Hub** — 拉取已有 findings 做交叉验证
 - **AWS Config** — 读取 compliance 状态做对照
 - **AWS Trusted Advisor** — 只对 Business / Enterprise Support 客户可见的检查项
-- **AWS Inspector**（EC2 / ECR / Lambda 漏洞） — 中国区已 GA，支持 **agentless 混合扫描**（没装 SSM Agent 的机器自动走 EBS 快照扫描）
+- **AWS Inspector**（EC2 / ECR / Lambda 漏洞） — 中国区已 GA，支持 **agentless 混合扫描**（没装 SSM Agent 的机器自动走 EBS 快照扫描）。`inspector_findings` 现在**直接从 Inspector2 拉取**漏洞（不再只是“探测是否开通”），并做可利用性研判；拉取失败时退回 Security Hub
 - **AWS GuardDuty** — 行为检测 findings
 
 > ⚠️ **不支持 Macie**：中国区未提供，相关扫描器在 `aws-cn` 下自动禁用。
@@ -303,6 +304,136 @@ bucket **保持私有**（不加公开策略、不开静态网站托管），访
 │  └─────────────────┘    │
 └─────────────────────────┘
 ```
+
+---
+
+## CVE 可利用性研判
+
+> **定位声明**：本功能是**基于威胁情报（exploit 可得性、EPSS、CISA KEV）与暴露面（公网 IP、安全组、NACL、运行状态）的可利用性优先级排序**，**不是渗透测试或漏洞验证**。工具全程只读，不对任何资源做主动探测（不发包、不扫端口、不连接目标 IP）。“internet_open（对全网开放）”表示配置上对全网开放，不代表已被证实可利用。
+
+只按 CVSS 排序时，几百条 CRITICAL + 几千条 HIGH 全挤在前面，真正“有公开 exploit / 在野利用 / 暴露在公网”的少数漏洞被淹没。现在每条 Inspector CVE finding 带一个 `exploitability` 对象，按四层信号定级 P0–P3：
+
+| 层 | 信号 | 来源 |
+|---|---|---|
+| L1 | 公开 exploit | Inspector `exploitAvailable` / ASFF `Vulnerabilities[].ExploitAvailable` |
+| L2 | 利用概率 EPSS | `epss.score`：高 ≥ 0.1，中 ≥ 0.01 |
+| L3 | 在野利用 | CISA KEV（随包离线快照） |
+| L4 | 可达性 | EC2 公网 IP + 安全组 + NACL；ECR 镜像 → 运行中 ECS task 的 ENI；Lambda Function URL |
+
+定级规则（按顺序首条命中；每条结果带机器可读的 `rationaleCode` 与英文 `rationale`，报告按 code 做中英文渲染）：
+
+| # | 条件 | 优先级 | `rationaleCode` |
+|---|---|---|---|
+| 1 | 在 KEV 且资源不是 `not_running` | **P0** | `KEV` |
+| 2 | 公开 exploit 且 `internet_open` | **P0** | `EXPLOIT_INTERNET` |
+| 3 | EPSS 高且 `internet_open` | **P0** | `EPSS_HIGH_INTERNET` |
+| 4 | 在 KEV 但镜像未运行 | P1 | `KEV_NOT_RUNNING` |
+| 5 | 公开 exploit 且 EPSS 高 | P1 | `EXPLOIT_EPSS_HIGH` |
+| 6 | 公开 exploit 且 `allowlist` | P1 | `EXPLOIT_ALLOWLIST` |
+| 7 | 公开 exploit（无公网暴露） | P2 | `EXPLOIT_LIMITED` |
+| 8 | EPSS 高 | P2 | `EPSS_HIGH` |
+| 9 | EPSS 中 | P2 | `EPSS_MEDIUM` |
+| 10 | 其他 | P3 | `BASELINE` |
+
+可达性 5 态：`internet_open`（有公网地址，且安全组有 `0.0.0.0/0` / `::/0` 入站、子网 NACL 也放行）、`allowlist`（有公网地址，但只对具体公网 CIDR / prefix list 开放——`/32` 白名单永远不会算成 internet_open）、`internal`、`not_running`（ECR 镜像未在运行中的 ECS task 里观察到）、`unknown`（未评估；除 KEV 外不会因此升到 P0）。
+
+**向后兼容**：`Finding.severity` 与按严重级别派生的 `Finding.priority` 不变；可利用性优先级放在 `exploitability.priority`。`riskScore` 按优先级分带（P0 9.0–10.0、P1 7.0–8.9、P2 4.0–6.9、P3 0.1–3.9，带内保持原顺序，原值存 `exploitability.originalRiskScore`），因此“按 riskScore 排序”即“按可利用性优先级排序”。没有 exploit 信号的 CRITICAL 漏洞仍显示 CRITICAL 徽章，只是排在 P0/P1 之后。不含 CVE 的 finding 输出逐字节不变。
+
+**数据源与去重**：`inspector_findings` 直接调用 `ListFindings`（ACTIVE、PACKAGE_VULNERABILITY），按资源类型分区、3 路并发，上限 20,000 条且保证 exploit/EPSS 信号子集完整。`scan_all` / `scan_group` 中会删除 Security Hub 里与之重复的 Inspector finding（先按 finding ARN，再按 CVE + 资源），并写 warning `Deduplicated N Inspector findings…`。Inspector2 不可读时退回“仅检测”，Security Hub 的 Inspector CVE 用 ASFF 自带信号做同样研判。
+
+**展示位置**：HTML 报告（Top 5 按可利用性优先级；“🎯 可利用性研判”区块：漏斗 + P0/P1 清单 + KEV 快照日期；Inspector 模块最多渲染 200 张卡片，其余按 CVE 汇总）、护网报告（“漏洞与补丁管理”先列 P0/P1）、Markdown 报告、AI 摘要 prompt、Dashboard（可利用性卡片、优先级列），以及下面的新工具。
+
+### 相关 MCP 工具
+
+| 工具 | 说明 |
+|---|---|
+| `prioritize_vulnerabilities` | **新增**。“先修哪几个”：按可利用性优先级（P0 在前）返回 CVE 清单 + 漏斗 + 研判依据 + 可达性。参数：`priorities`（默认 `["P0","P1"]`）、`limit`（默认 20，上限 200）、`resource_type`（`ec2`/`ecr`/`lambda`）、`include_reachability`（默认 true；false 时跳过 L4，全部 `unknown`，更快）。仅 AWS（`provider:"huaweicloud"` 返回明确错误） |
+| `scan_inspector_findings` | 检测 Inspector 开通状态，并**直接从 Inspector2 拉取**活跃的软件包漏洞，每条带可利用性研判（不再是“仅检测”）；无 `inspector2:ListFindings` 权限时退回“仅检测”+ Security Hub |
+
+返回 JSON 结构（示例，资源 ID 为占位符）：
+
+```text
+{
+  "dataSource": "inspector2",
+  "funnel": { "total": {...}, "exploitAvailable": {...}, "epssHigh": {...}, "kev": {...}, "reachable": {...}, "p0": {...}, "byPriority": {...} },
+  "kevSnapshotDate": "2026-11-03",
+  "disclaimer": "This is exploitability prioritization ... NOT penetration testing ...",
+  "matched": 132,
+  "items": [
+    { "cveId": "CVE-YYYY-NNNNN", "priority": "P0", "rationaleCode": "KEV", "rationale": "In CISA KEV ...",
+      "resourceType": "AwsEc2Instance", "resourceId": "i-0123456789abcdef0", "severity": "HIGH",
+      "exploitAvailable": true, "epss": 0.42, "kev": true, "reachability": "allowlist", "fixAvailable": "YES" }
+  ],
+  "truncated": true
+}
+```
+
+### 实测示例（cn-north-1 真实账号，只读）
+
+| 层 | 条数 |
+|---|---|
+| Inspector2 直拉 | 9,914 条 / 6,671 个 CVE |
+| 有公开 exploit | 1,311 |
+| EPSS 高（≥ 0.1） | 38 |
+| CISA KEV | 29 |
+| 公网可达（`internet_open` + `allowlist`） | 888 |
+| **P0 / P1 / P2 / P3** | **9 / 123 / 1,449 / 8,333** |
+| 去重删除的 Security Hub Inspector 重复项 | 9,888 |
+
+两台有公网 IP 的 EC2（安全组只有 `/32` 白名单规则）判为 `allowlist`；5 个运行中的 ECS Fargate 镜像判为 `internal`（ENI 有公网 IP，但安全组只放行 VPC 网段与安全组引用）。“先修清单”从几千条 CRITICAL/HIGH 收敛到 9 条 P0 + 123 条 P1。
+
+### IAM 权限
+
+新增的只读动作：`inspector2:BatchGetAccountStatus`、`inspector2:ListFindings`、`ecs:ListClusters`、`ecs:ListTasks`、`ecs:DescribeTasks`、`ecs:DescribeContainerInstances`、`ec2:DescribeNetworkInterfaces`、`eks:ListClusters`、`lambda:GetFunctionUrlConfig`（另需已有的 `ec2:DescribeInstances`、`ec2:DescribeSecurityGroups`、`ec2:DescribeNetworkAcls`）。全部为 List/Describe/Get；已于 2026-11-04 核实：`aws-cn` 分区的 AWS 托管策略 **SecurityAudit**（v92）与 **ReadOnlyAccess**（v187）**均已全部包含**。权限不足时优雅降级（可达性 `unknown` + 1 条 warning，模块不报错）。
+
+如果使用自定义最小权限策略，请追加以下语句（完整推荐策略见英文 [README](README.md#recommended-iam-policy)）：
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CveExploitabilityReadOnly",
+      "Effect": "Allow",
+      "Action": [
+        "inspector2:BatchGetAccountStatus",
+        "inspector2:ListFindings",
+        "ec2:DescribeInstances",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeNetworkAcls",
+        "ec2:DescribeNetworkInterfaces",
+        "ecs:ListClusters",
+        "ecs:ListTasks",
+        "ecs:DescribeTasks",
+        "ecs:DescribeContainerInstances",
+        "eks:ListClusters",
+        "lambda:GetFunctionUrlConfig"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+### CISA KEV 快照更新
+
+KEV 目录以离线快照随包分发（`src/data/kev.json`；CISA KEV 为美国联邦政府作品，属公共领域；来源 <https://www.cisa.gov/known-exploited-vulnerabilities-catalog>）。默认扫描时 **KEV 零网络调用**。报告会显示快照日期，超过 90 天提示过期。更新方法：
+
+```bash
+npx tsx scripts/update-kev.ts                    # 下载官方 feed
+npx tsx scripts/update-kev.ts --from feed.json   # 或使用本地已下载的文件
+```
+
+设置环境变量 `AWS_SECURITY_MCP_KEV_REFRESH=1` 时，扫描时会尝试在内存中在线刷新（5 秒超时；失败则静默沿用离线快照并记一条 warning；绝不写文件）。
+
+### 已知局限
+
+- 可达性只看配置（公网 IP、安全组、NACL），**不评估** ALB/NLB/CloudFront 前置以及路由表 / IGW。
+- **EKS 未评估**：账号里有 EKS 集群时，未在 ECS 中观察到的镜像判为 `unknown` 而不是 `not_running`。
+- ECS 运行状态是扫描时刻的**时点快照**。
+- **中国区不支持 Lambda Function URL**：`GetFunctionUrlConfig` 在中国区被拒绝，Lambda 可达性为 `unknown`（只出 1 条 warning）；API Gateway / ALB 触发器未评估。
+- org 模式下 **member 账号资源的可达性为 `unknown`**（只解析扫描账号自身的资源）。
+- 仅覆盖 AWS provider；华为云结果不带可利用性数据。
 
 ---
 
