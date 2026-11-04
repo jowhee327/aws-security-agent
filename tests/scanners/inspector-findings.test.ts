@@ -407,6 +407,28 @@ describe("InspectorFindingsScanner (Inspector2 direct pull)", () => {
     expect(epssCall.input.filterCriteria.epssScore[0].lowerInclusive).toBe(0.01);
   });
 
+  it("does not let exploit/EPSS overlap consume the signal budget (Codex fix round 1)", async () => {
+    // 5 unique signal findings with maxFindings=5; exploit-1 is returned by both
+    // signal queries. The EPSS-only finding must survive and no plain one fill in.
+    const plain = Array.from({ length: 5 }, (_, i) => insFinding({ arn: `f/plain-${i + 1}` }));
+    const exploit = [1, 2, 3, 4].map((i) =>
+      insFinding({ arn: `f/exploit-${i}`, exploit: "YES", epss: i <= 2 ? 0.02 : undefined }));
+    const epssOnly = insFinding({ arn: "f/epss-only-5", epss: 0.02 });
+    mockSend.mockImplementation(dispatch({
+      "AWS_EC2_INSTANCE:start": { findings: plain, nextToken: "more" },
+      "exploit:start": { findings: exploit },
+      "epss:start": { findings: [exploit[0], epssOnly] },
+    }));
+
+    const result = await new InspectorFindingsScanner({ maxFindings: 5, concurrency: 1 }).scan(ctx);
+
+    expect(result.findings.map((f) => f.sourceFindingId).sort()).toEqual(
+      ["f/epss-only-5", "f/exploit-1", "f/exploit-2", "f/exploit-3", "f/exploit-4"]);
+    expect(result.warnings).toContain("Inspector returned more than 5 findings; truncated (signal findings kept)");
+    expect(result.warnings).not.toContain(
+      "Inspector signal findings (exploit/EPSS) exceed 5; signal subset also truncated");
+  });
+
   it("does not run the signal queries when under the cap", async () => {
     mockSend.mockImplementation(dispatch({
       "AWS_EC2_INSTANCE:start": { findings: [insFinding({ arn: "f/1", exploit: "YES" })] },

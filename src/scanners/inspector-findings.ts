@@ -75,6 +75,12 @@ interface PullResult {
   truncated: boolean;
 }
 
+/** Budget shared by a group of streams; only findings not yet seen in the group consume it. */
+interface StreamBudget {
+  remaining: number;
+  seen: Set<string>;
+}
+
 function isAccessDenied(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   const name = err instanceof Error ? err.name : "";
@@ -227,7 +233,7 @@ export class InspectorFindingsScanner implements Scanner {
       findingType: [{ comparison: "EQUALS", value: "PACKAGE_VULNERABILITY" }],
     };
 
-    const budget = { remaining: maxFindings };
+    const budget: StreamBudget = { remaining: maxFindings, seen: new Set() };
     const normal = await this.runStreams(
       client,
       ctx,
@@ -238,7 +244,9 @@ export class InspectorFindingsScanner implements Scanner {
     );
     if (!normal.truncated) return { findings: normal.findings, raw: normal.raw };
 
-    const signalBudget = { remaining: maxFindings };
+    // Exploit and EPSS queries overlap; the shared seen-set makes duplicates
+    // free so the budget counts unique signal findings only.
+    const signalBudget: StreamBudget = { remaining: maxFindings, seen: new Set() };
     const signal = await this.runStreams(
       client,
       ctx,
@@ -267,13 +275,13 @@ export class InspectorFindingsScanner implements Scanner {
     return { findings: [...merged.values()], raw: normal.raw + signal.raw };
   }
 
-  /** Run independent paginated ListFindings streams with bounded concurrency and a shared budget. */
+  /** Run independent paginated ListFindings streams with bounded concurrency and a shared unique-finding budget. */
   private async runStreams(
     client: Inspector2Client,
     ctx: ScanContext,
     filters: FilterCriteria[],
     concurrency: number,
-    budget: { remaining: number },
+    budget: StreamBudget,
     warnings: string[],
   ): Promise<PullResult> {
     const settled = await runWithConcurrency(
@@ -302,7 +310,7 @@ export class InspectorFindingsScanner implements Scanner {
     client: Inspector2Client,
     ctx: ScanContext,
     filterCriteria: FilterCriteria,
-    budget: { remaining: number },
+    budget: StreamBudget,
     warnings: string[],
   ): Promise<PullResult> {
     const findings: Finding[] = [];
@@ -317,8 +325,11 @@ export class InspectorFindingsScanner implements Scanner {
         raw++;
         const f = this.toFinding(item, ctx);
         if (!f) continue;
+        const key = f.sourceFindingId;
+        if (key && budget.seen.has(key)) continue;
         if (budget.remaining <= 0) return { findings, raw, truncated: true };
         budget.remaining--;
+        if (key) budget.seen.add(key);
         findings.push(f);
       }
       nextToken = resp?.nextToken;

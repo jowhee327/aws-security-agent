@@ -155,18 +155,64 @@ describe("SecurityHubFindingsScanner exploitability (Inspector CVEs)", () => {
     };
   }
 
-  it("stores sourceFindingId = SH finding Id on every finding", async () => {
+  // Intentional change (Codex fix round 1): this T2-added test used to assert
+  // sourceFindingId on every SH finding, including FSBP/S3. Plan §2.2 requires
+  // non-CVE findings to serialize exactly as before, so only Inspector CVEs get it.
+  it("stores sourceFindingId = SH finding Id only on Inspector CVE findings", async () => {
     mockSend.mockResolvedValueOnce({
       Findings: [
         { Id: "fsbp-1", Title: "S3.1", Severity: { Label: "HIGH" }, Resources: [{ Id: "arn:aws:s3:::b", Type: "AwsS3Bucket" }], ProductName: "Security Hub" },
         inspectorFinding(),
+        inspectorFinding({ Id: "ins-ghsa", Vulnerabilities: [{ Id: "GHSA-xxxx-yyyy-zzzz" }] }),
       ],
     });
     const result = await scanner.scan(ctx);
     expect(result.findings.map((f) => f.sourceFindingId)).toEqual([
-      "fsbp-1",
+      undefined,
       "arn:aws:inspector2:us-east-1:123456789012:finding/abc",
+      undefined,
     ]);
+  });
+
+  it("serializes a non-CVE finding with exactly the pre-exploitability shape", async () => {
+    mockSend.mockResolvedValueOnce({
+      Findings: [{
+        Id: "fsbp-1",
+        Title: "S3.1 S3 Block Public Access setting should be enabled",
+        Description: "S3 Block Public Access is not enabled",
+        Severity: { Label: "HIGH" },
+        Resources: [{ Id: "arn:aws:s3:::b", Type: "AwsS3Bucket" }],
+        Region: "us-east-1",
+        AwsAccountId: "123456789012",
+        ProductName: "Security Hub",
+        GeneratorId: "aws-foundational-security-best-practices/v/1.0.0/S3.1",
+        Remediation: { Recommendation: { Text: "Enable S3 Block Public Access", Url: "https://docs.aws.example" } },
+      }],
+    });
+    const result = await scanner.scan(ctx);
+    const expected = {
+      severity: "HIGH",
+      title: "S3.1 S3 Block Public Access setting should be enabled",
+      resourceType: "AwsS3Bucket",
+      resourceId: "arn:aws:s3:::b",
+      resourceArn: "arn:aws:s3:::b",
+      region: "us-east-1",
+      description: "S3 Block Public Access is not enabled",
+      impact: "Source: Security Hub (aws-foundational-security-best-practices/v/1.0.0/S3.1)",
+      riskScore: 8.0,
+      remediationSteps: [
+        "S3.1 S3 Block Public Access setting should be enabled",
+        "Documentation: https://docs.aws.example",
+        "Enable S3 Block Public Access",
+      ],
+      priority: "P1",
+      module: "security_hub_findings",
+      accountId: "123456789012",
+      source: "FSBP",
+    };
+    expect(JSON.stringify(result.findings[0])).toBe(JSON.stringify(expected));
+    expect(result.findings[0]).not.toHaveProperty("sourceFindingId");
+    expect(result.findings[0]).not.toHaveProperty("exploitability");
   });
 
   it("computes exploitability from ASFF signals + KEV and bands riskScore", async () => {
