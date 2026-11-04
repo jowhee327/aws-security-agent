@@ -132,3 +132,98 @@ describe("SecurityHubFindingsScanner", () => {
     expect(mockSend).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("SecurityHubFindingsScanner exploitability (Inspector CVEs)", () => {
+  const scanner = new SecurityHubFindingsScanner();
+
+  beforeEach(() => {
+    mockSend.mockReset();
+  });
+
+  function inspectorFinding(over: Record<string, unknown> = {}) {
+    return {
+      Id: "arn:aws:inspector2:us-east-1:123456789012:finding/abc",
+      Title: "CVE-2026-31431 - kernel",
+      Description: "kernel vuln",
+      Severity: { Label: "HIGH" },
+      Resources: [{ Id: "arn:aws:ec2:us-east-1:123456789012:instance/i-0abc", Type: "AwsEc2Instance" }],
+      Region: "us-east-1",
+      ProductName: "Inspector",
+      GeneratorId: "AWSInspector",
+      Vulnerabilities: [{ Id: "CVE-2026-31431", ExploitAvailable: "YES", EpssScore: 0.02, FixAvailable: "YES" }],
+      ...over,
+    };
+  }
+
+  it("stores sourceFindingId = SH finding Id on every finding", async () => {
+    mockSend.mockResolvedValueOnce({
+      Findings: [
+        { Id: "fsbp-1", Title: "S3.1", Severity: { Label: "HIGH" }, Resources: [{ Id: "arn:aws:s3:::b", Type: "AwsS3Bucket" }], ProductName: "Security Hub" },
+        inspectorFinding(),
+      ],
+    });
+    const result = await scanner.scan(ctx);
+    expect(result.findings.map((f) => f.sourceFindingId)).toEqual([
+      "fsbp-1",
+      "arn:aws:inspector2:us-east-1:123456789012:finding/abc",
+    ]);
+  });
+
+  it("computes exploitability from ASFF signals + KEV and bands riskScore", async () => {
+    mockSend.mockResolvedValueOnce({ Findings: [inspectorFinding()] });
+    const result = await scanner.scan(ctx);
+    const f = result.findings[0];
+    expect(f.source).toBe("Inspector");
+    expect(f.severity).toBe("HIGH");
+    expect(f.priority).toBe("P1"); // severity-derived, unchanged
+    expect(f.exploitability).toMatchObject({
+      cveId: "CVE-2026-31431",
+      exploitAvailable: true,
+      epss: 0.02,
+      epssLevel: "medium",
+      kev: true,
+      fixAvailable: "YES",
+      reachability: "unknown",
+      priority: "P0",
+      rationaleCode: "KEV",
+      originalRiskScore: 8.0,
+      dataSource: "securityhub",
+    });
+    expect(f.riskScore).toBe(9.8); // 9.0 + 8.0/10
+  });
+
+  it("maps missing ASFF signals to null/none and non-KEV to baseline", async () => {
+    mockSend.mockResolvedValueOnce({
+      Findings: [inspectorFinding({
+        Title: "CVE-2026-43284 - libfoo",
+        Severity: { Label: "CRITICAL" },
+        Vulnerabilities: [{ Id: "CVE-2026-43284" }],
+      })],
+    });
+    const result = await scanner.scan(ctx);
+    const f = result.findings[0];
+    expect(f.severity).toBe("CRITICAL");
+    expect(f.exploitability).toMatchObject({ exploitAvailable: null, epss: null, epssLevel: "none", kev: false, priority: "P3" });
+    expect(f.exploitability!.fixAvailable).toBeUndefined();
+    expect(f.riskScore).toBe(3.7); // 0.1 + 9.5/10*3.8
+  });
+
+  it("leaves non-Inspector and non-CVE findings without exploitability and riskScore unchanged", async () => {
+    mockSend.mockResolvedValueOnce({
+      Findings: [
+        // Non-Inspector product carrying a CVE vulnerability → untouched.
+        inspectorFinding({ Id: "gd-1", ProductName: "GuardDuty" }),
+        // Inspector but non-CVE vulnerability ID → untouched.
+        inspectorFinding({ Id: "ins-ghsa", Vulnerabilities: [{ Id: "GHSA-xxxx-yyyy", ExploitAvailable: "YES" }] }),
+        // Inspector without Vulnerabilities → untouched.
+        inspectorFinding({ Id: "ins-none", Vulnerabilities: undefined }),
+      ],
+    });
+    const result = await scanner.scan(ctx);
+    expect(result.findings).toHaveLength(3);
+    for (const f of result.findings) {
+      expect(f.exploitability).toBeUndefined();
+      expect(f.riskScore).toBe(8.0);
+    }
+  });
+});

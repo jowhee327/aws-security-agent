@@ -7,6 +7,15 @@ import { ScanResult, ScanContext, Finding } from "../types.js";
 import { createClient } from "../utils/aws-client.js";
 import { severityFromScore, priorityFromSeverity } from "../utils/risk-scoring.js";
 import { getSecurityHubSource } from "../utils/sh-source.js";
+import { adjustRiskScore, buildExploitability } from "../exploitability/priority.js";
+
+const CVE_ID = /^CVE-\d{4}-\d{4,}$/i;
+
+function mapExploitAvailable(v: string | undefined): boolean | null {
+  if (v === "YES") return true;
+  if (v === "NO") return false;
+  return null;
+}
 
 function shSeverityToScore(label: string): number | null {
   switch (label) {
@@ -103,6 +112,24 @@ export class SecurityHubFindingsScanner implements Scanner {
             accountId: f.AwsAccountId ?? accountId,
           };
           finding.source = getSecurityHubSource(finding);
+          if (f.Id) finding.sourceFindingId = f.Id;
+
+          // Inspector CVEs: ASFF carries exploit/EPSS/fix signals, so exploitability
+          // is available even when Inspector cannot be pulled directly.
+          const vuln = f.Vulnerabilities?.[0];
+          if (finding.source === "Inspector" && vuln?.Id && CVE_ID.test(vuln.Id)) {
+            const fix = vuln.FixAvailable;
+            const exploitability = buildExploitability({
+              cveId: vuln.Id,
+              exploitAvailable: mapExploitAvailable(vuln.ExploitAvailable),
+              epss: typeof vuln.EpssScore === "number" ? vuln.EpssScore : null,
+              fixAvailable: fix === "YES" || fix === "NO" || fix === "PARTIAL" ? fix : undefined,
+              originalRiskScore: score,
+              dataSource: "securityhub",
+            });
+            finding.exploitability = exploitability;
+            finding.riskScore = adjustRiskScore(score, exploitability.priority);
+          }
           findings.push(finding);
         }
 
