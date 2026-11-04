@@ -20,6 +20,7 @@ import {
   EPSS_MEDIUM,
   type EpssThresholds,
 } from "../exploitability/priority.js";
+import { applyReachability, resolveReachability } from "../exploitability/reachability-aws.js";
 
 export const DEFAULT_MAX_FINDINGS = 20_000;
 export const DEFAULT_LIST_CONCURRENCY = 3;
@@ -59,7 +60,7 @@ export interface InspectorFindingsOptions {
   /** Parallel partition streams (default 3). */
   concurrency?: number;
   epssThresholds?: EpssThresholds;
-  /** L4 reachability resolution (wired in by T3; currently all findings are "unknown"). */
+  /** L4 reachability resolution (default true); false leaves every finding "unknown". */
   reachability?: boolean;
   /** Try refreshing the CISA KEV catalog online (falls back to AWS_SECURITY_MCP_KEV_REFRESH=1). */
   kevRefresh?: boolean;
@@ -161,6 +162,7 @@ export class InspectorFindingsScanner implements Scanner {
 
     try {
       const { findings, raw } = await this.pullFindings(client, ctx, warnings);
+      if (this.opts.reachability !== false) await this.resolveExposure(findings, ctx, warnings);
       return {
         module: this.moduleName,
         status: "success",
@@ -179,6 +181,19 @@ export class InspectorFindingsScanner implements Scanner {
         warnings.push(`Inspector ListFindings failed (${msg}); falling back to Security Hub`);
       }
       return this.detectionOnly(warnings, startMs);
+    }
+  }
+
+  /** L4: resolve reachability, then re-run the priority rules and riskScore bands. */
+  private async resolveExposure(findings: Finding[], ctx: ScanContext, warnings: string[]): Promise<void> {
+    const cves = findings.filter((f) => f.exploitability);
+    if (cves.length === 0) return;
+    try {
+      const results = await resolveReachability(cves, ctx, { warnings });
+      applyReachability(cves, results, this.opts.epssThresholds);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      warnings.push(`Reachability resolution failed (${msg}); reachability left unknown`);
     }
   }
 
@@ -401,7 +416,7 @@ export class InspectorFindingsScanner implements Scanner {
     if (item.findingArn) finding.sourceFindingId = item.findingArn;
 
     if (vulnId) {
-      // Reachability stays "unknown" until L4 resolution is wired in (T3).
+      // Reachability starts "unknown"; resolveExposure() re-prioritizes after L4 resolution.
       const exploitability = buildExploitability({
         cveId: vulnId,
         exploitAvailable,

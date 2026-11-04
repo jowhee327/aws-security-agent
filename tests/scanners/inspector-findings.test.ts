@@ -202,6 +202,10 @@ function dispatch(pages: Record<string, { findings: unknown[]; nextToken?: strin
         ?? (fc.exploitAvailable ? "exploit" : fc.epssScore ? "epss" : "?");
       return pages[`${stream}:${cmd.input.nextToken ?? "start"}`] ?? { findings: [] };
     }
+    // Intentional T3 change (plan §5 T3): L4 reachability is on by default and issues
+    // read-only EC2/ECS/EKS/Lambda Describe/List/Get calls; answer them with an empty
+    // inventory (EC2 → instance not found → "unknown"). No assertion was changed.
+    if (/^(Describe|List|Get)/.test(cmd.constructor.name)) return {};
     throw new Error(`unexpected command ${cmd.constructor.name}`);
   };
 }
