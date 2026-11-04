@@ -1,5 +1,17 @@
 import type { FullScanResult, Finding, Severity } from "../types.js";
 import { getI18n, type Lang } from "../i18n/index.js";
+import { computeExploitabilityFunnel, FUNNEL_LAYERS } from "../exploitability/funnel.js";
+import {
+  PRIORITY_ORDER,
+  fmtEpss,
+  fmtExploit,
+  hasExploitability,
+  kevStaleNote,
+  localizedRationale,
+  selectInspectorFindings,
+  summarizeByCve,
+  urgentFindings,
+} from "./exploitability-report.js";
 
 const SEVERITY_ICON: Record<Severity, string> = {
   CRITICAL: "\ud83d\udd34",
@@ -20,6 +32,14 @@ function formatDuration(start: string, end: string): string {
   return `${mins}m ${remainSecs}s`;
 }
 
+/** P0/P1 rows in the Markdown exploitability section. */
+const MD_URGENT_TOP = 10;
+
+/** Make user data safe inside a Markdown table cell. */
+function mdCell(s: string): string {
+  return s.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+}
+
 export function generateMarkdownReport(scanResults: FullScanResult, lang?: Lang): string {
   const t = getI18n(lang ?? "zh", scanResults.provider);
   const { summary, modules, accountId, region, scanStart, scanEnd } =
@@ -34,10 +54,27 @@ export function generateMarkdownReport(scanResults: FullScanResult, lang?: Lang)
     LOW: t.low,
   };
 
+  const tx = t.exploitability;
+
   function renderFinding(f: Finding): string {
     const steps = f.remediationSteps
       .map((s, i) => `  ${i + 1}. ${s}`)
       .join("\n");
+
+    const x = f.exploitability;
+    if (x) {
+      return [
+        `#### ${f.title}`,
+        `- **${t.resource}:** ${f.resourceId} (\`${f.resourceArn}\`)`,
+        `- **${tx.exploitPriority}:** ${x.priority} \u2014 ${localizedRationale(tx, f)} (${tx.colReachability}: ${tx.reachability[x.reachability] ?? x.reachability})`,
+        `- **${t.description}:** ${f.description}`,
+        `- **${t.impact}:** ${f.impact}`,
+        `- **${t.riskScore}:** ${f.riskScore}/10`,
+        `- **${t.remediation}:**`,
+        steps,
+        `- **${t.priority}:** ${f.priority}`,
+      ].join("\n");
+    }
 
     return [
       `#### ${f.title}`,
@@ -76,6 +113,61 @@ export function generateMarkdownReport(scanResults: FullScanResult, lang?: Lang)
     lines.push("");
   }
 
+  // Exploitability: when present, inspector_findings is listed only for P0/P1 + the
+  // top entries by priority; the remainder goes to a per-CVE summary table.
+  const everyFinding: Finding[] = modules.flatMap((m) => m.findings);
+  const hasExploit = hasExploitability(everyFinding);
+  const inspectorMod = modules.find((m) => m.module === "inspector_findings");
+  const inspectorSel = hasExploit && inspectorMod && hasExploitability(inspectorMod.findings)
+    ? selectInspectorFindings(inspectorMod.findings, undefined, true)
+    : undefined;
+  const omitted = new Set<Finding>(inspectorSel?.rest ?? []);
+  const listedFindings = (): Finding[] =>
+    omitted.size === 0 ? modules.flatMap((m) => m.findings) : modules.flatMap((m) => m.findings).filter((f) => !omitted.has(f));
+
+  if (hasExploit) {
+    const funnel = computeExploitabilityFunnel(everyFinding);
+    lines.push(`## ${tx.sectionTitle}`);
+    lines.push("");
+    lines.push(`| ${tx.funnelTitle} | ${t.findings} | ${tx.funnelCves} |`);
+    lines.push("|---|---|---|");
+    for (const layer of FUNNEL_LAYERS) {
+      lines.push(`| ${tx.funnelLayers[layer]} | ${funnel[layer].findings} | ${funnel[layer].cves} |`);
+    }
+    lines.push("");
+    lines.push(`_${tx.funnelNote}_`);
+    lines.push("");
+    lines.push(`- **${tx.byPriority}:** ${PRIORITY_ORDER.map((p) => `${p} ${funnel.byPriority[p]}`).join(" | ")}`);
+    const stale = kevStaleNote(tx, funnel.kevSnapshotDate, date);
+    lines.push(`- ${tx.kevSnapshot(funnel.kevSnapshotDate)}${stale ? ` \u2014 ${stale}` : ""}`);
+    lines.push("");
+
+    const urgent = urgentFindings(everyFinding);
+    lines.push(`### ${tx.mdTopTitle(MD_URGENT_TOP)}`);
+    lines.push("");
+    if (urgent.length === 0) {
+      lines.push(tx.noUrgent);
+    } else {
+      lines.push(`| ${tx.colPriority} | ${tx.colCve} | ${tx.colResource} | ${tx.colResourceType} | ${tx.colExploit} | ${tx.colEpss} | ${tx.colKev} | ${tx.colReachability} | ${tx.colRationale} |`);
+      lines.push("|---|---|---|---|---|---|---|---|---|");
+      for (const f of urgent.slice(0, MD_URGENT_TOP)) {
+        const x = f.exploitability!;
+        const kev = x.kev ? `${tx.yes}${x.kevDateAdded ? ` (${x.kevDateAdded})` : ""}` : tx.no;
+        const reach = tx.reachability[x.reachability] ?? x.reachability;
+        lines.push(
+          `| ${x.priority} | ${mdCell(x.cveId)} | ${mdCell(f.resourceId)} | ${mdCell(f.resourceType)} | ${fmtExploit(tx, x.exploitAvailable)} | ${fmtEpss(x.epss) || tx.notAvailable} | ${mdCell(kev)} | ${mdCell(reach)} | ${mdCell(localizedRationale(tx, f))} |`,
+        );
+      }
+      if (urgent.length > MD_URGENT_TOP) {
+        lines.push("");
+        lines.push(tx.moreRows(urgent.length - MD_URGENT_TOP));
+      }
+    }
+    lines.push("");
+    lines.push(`> ${tx.disclaimer}`);
+    lines.push("");
+  }
+
   // Edge case: no findings
   if (summary.totalFindings === 0) {
     lines.push(`## ${t.findingsBySeverity}`);
@@ -84,7 +176,7 @@ export function generateMarkdownReport(scanResults: FullScanResult, lang?: Lang)
     lines.push("");
   } else {
     // Collect all findings
-    const allFindings: Finding[] = modules.flatMap((m) => m.findings);
+    const allFindings: Finding[] = listedFindings();
 
     // Group by severity
     const grouped = new Map<Severity, Finding[]>();
@@ -117,6 +209,20 @@ export function generateMarkdownReport(scanResults: FullScanResult, lang?: Lang)
         lines.push("");
       }
     }
+
+    if (inspectorSel && inspectorSel.rest.length > 0) {
+      const rows = summarizeByCve(inspectorSel.rest);
+      lines.push(`### ${tx.cveSummaryTitle(inspectorSel.rest.length, rows.length)}`);
+      lines.push("");
+      lines.push(tx.cveSummaryNote(inspectorSel.listed.length));
+      lines.push("");
+      lines.push(`| ${tx.colCve} | ${tx.colAffectedResources} | ${tx.colFindings} | ${tx.colHighestPriority} |`);
+      lines.push("|---|---|---|---|");
+      for (const r of rows) {
+        lines.push(`| ${mdCell(r.cveId)} | ${r.resources} | ${r.findings} | ${r.highestPriority} |`);
+      }
+      lines.push("");
+    }
   }
 
   // Scan Statistics
@@ -135,7 +241,7 @@ export function generateMarkdownReport(scanResults: FullScanResult, lang?: Lang)
 
   // Recommendations
   if (summary.totalFindings > 0) {
-    const allFindings: Finding[] = modules.flatMap((m) => m.findings);
+    const allFindings: Finding[] = listedFindings();
     allFindings.sort((a, b) => b.riskScore - a.riskScore);
 
     lines.push(`## ${t.recommendations}`);

@@ -1,4 +1,4 @@
-import type { ProviderId } from "../types.js";
+import type { Priority, ProviderId, RationaleCode, Reachability } from "../types.js";
 
 export type Lang = "zh" | "en";
 
@@ -148,6 +148,53 @@ export interface I18n {
   hwManualCount: (n: number) => string;
   hwAffectedResources: (n: number) => string;
   hwRemediation: string;
+
+  // CVE exploitability prioritization (AWS; rendered only when findings carry `exploitability`)
+  exploitability: ExploitabilityI18n;
+}
+
+/** Funnel layer keys — mirrors FUNNEL_LAYERS in src/exploitability/funnel.ts. */
+export type ExploitFunnelLayer = "total" | "exploitAvailable" | "epssHigh" | "kev" | "reachable" | "p0";
+
+export interface ExploitabilityI18n {
+  sectionTitle: string;
+  funnelTitle: string;
+  funnelLayers: Record<ExploitFunnelLayer, string>;
+  funnelFindings: string;
+  funnelCves: string;
+  funnelNote: string;
+  byPriority: string;
+  priorityLabels: Record<Priority, string>;
+  priorityTableTitle: string;
+  noUrgent: string;
+  moreRows: (n: number) => string;
+  colPriority: string;
+  colCve: string;
+  colResource: string;
+  colResourceType: string;
+  colExploit: string;
+  colEpss: string;
+  colKev: string;
+  colReachability: string;
+  colRationale: string;
+  colAffectedResources: string;
+  colFindings: string;
+  colHighestPriority: string;
+  yes: string;
+  no: string;
+  notAvailable: string;
+  reachability: Record<Reachability, string>;
+  rationale: Record<RationaleCode, string>;
+  exploitPriority: string;
+  disclaimer: string;
+  kevSnapshot: (date: string) => string;
+  kevStale: (days: number) => string;
+  cveSummaryTitle: (findings: number, cves: number) => string;
+  cveSummaryNote: (shown: number) => string;
+  hwUrgentTitle: string;
+  hwOthersTitle: string;
+  hwMoreGroups: (n: number) => string;
+  mdTopTitle: (n: number) => string;
 }
 
 import { zhI18n } from "./zh.js";

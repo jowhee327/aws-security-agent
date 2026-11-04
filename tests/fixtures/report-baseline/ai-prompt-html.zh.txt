@@ -1,0 +1,34 @@
+# 任务：为「AWS 安全扫描报告」生成针对性的 AI 安全总结
+
+## 角色
+你在为一份完整的 AWS 安全扫描报告写执行摘要。读者既有管理层也有技术负责人。
+
+## 总结重点
+整体风险全景 + Top 风险的共性根因（如公网暴露面、IAM 过权、加密/日志缺失等）+ 分优先级(P0→P2)的修复路线建议。点出系统性问题而非逐条复述。
+
+## 输出格式
+1 段概述 + 3-5 条要点。中文。可用要点列表。技术与管理双视角，给出可落地的下一步。
+
+## 约束
+- 只依据下面的扫描数据，不要编造不存在的资源或 finding。
+- 不要逐条复述所有 finding；提炼模式与优先级。
+- 直接输出总结正文本身（不要带「以下是总结」之类的前言，不要 code fence）。
+- 语言：中文。
+
+## 扫描数据摘要
+账号: 123456789012 | 区域: us-east-1
+风险总数: 9 (CRITICAL 2 / HIGH 4 / MEDIUM 2 / LOW 1)
+模块分布: security_hub_findings=5, network_reachability=2, patch_compliance_findings=1, iam_privilege_escalation=1
+
+高风险 Top 9:
+1. [CRITICAL/P0] CVE-2024-4577 - php — AWS::EC2::Instance arn:aws:ec2:us-east-1:123456789012:instance/i-0legacy0003 (us-east-1) risk=9.8
+2. [CRITICAL/P0] EC2 instance i-0legacy0001 has SSH (22) reachable from 0.0.0.0/0 — AWS::EC2::Instance i-0legacy0001 (us-east-1) risk=9.4
+3. [HIGH/P1] EC2 instance i-0legacy0002 has RDP (3389) reachable — AWS::EC2::Instance i-0legacy0002 (us-east-1) risk=8.1
+4. [HIGH/P1] Instance i-0legacy0004 missing critical patches — AWS::EC2::Instance i-0legacy0004 (us-east-1) risk=7.8
+5. [HIGH/P1] CVE-2023-1111 - openssl — AWS::EC2::Instance i-0legacy0001 (us-east-1) risk=7.5
+6. [HIGH/P1] EC2.19 Security groups should not allow unrestricted access to ports with high risk — AWS::EC2::Instance i-0legacy0001 (us-east-1) risk=7
+7. [MEDIUM/P2] Unusual API call — AWS::EC2::Instance i-0legacy0001 (us-east-1) risk=5.5
+8. [MEDIUM/P2] KB5034441 - Windows security update — AWS::EC2::Instance i-0legacy0001 (us-east-1) risk=5
+9. [LOW/P3] Role 'dev' can pass role — AWS::IAM::Role dev (us-east-1) risk=2.5
+
+请现在输出总结正文。生成后，把这段文本通过对应报告工具的 ai_summary 参数回传即可。

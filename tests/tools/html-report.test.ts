@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { generateHtmlReport, generateMlps3HtmlReport } from "../../src/tools/html-report.js";
 import type { FullScanResult } from "../../src/types.js";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { legacyScan } from "../fixtures/report-baseline/legacy-scan.js";
+import { bulkInspector, cveFinding, moduleOf, scanOf, stripVersion } from "../fixtures/report-baseline/exploit-scan.js";
+import type { Finding } from "../../src/types.js";
 
 function makeResult(modules: Array<{
   module: string;
@@ -367,5 +372,134 @@ describe("generateMlps3HtmlReport", () => {
     const html = generateMlps3HtmlReport(result);
 
     expect(html).toContain("@media print");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T5 — CVE exploitability prioritization
+// ---------------------------------------------------------------------------
+
+describe("generateHtmlReport — exploitability", () => {
+  const baselineDir = join(__dirname, "../fixtures/report-baseline");
+
+  it("legacy fixture without exploitability is byte-identical to the pre-T5 output (zh + en)", () => {
+    for (const lang of ["zh", "en"] as const) {
+      const html = stripVersion(generateHtmlReport(legacyScan(), undefined, lang));
+      expect(html).toBe(readFileSync(join(baselineDir, `html.${lang}.html`), "utf8"));
+      expect(html).not.toContain("xp-section");
+    }
+  });
+
+  function top5Section(html: string): string {
+    const start = html.indexOf('<div class="top5-card');
+    const end = html.indexOf('id="exploitability"');
+    return html.slice(start, end === -1 ? undefined : end);
+  }
+
+  it("Top 5 orders by exploitability priority (P0 > P1 > …), ties by riskScore", () => {
+    const legacyCritical: Finding = {
+      ...sampleFinding,
+      severity: "CRITICAL",
+      title: "LEGACY-P0 open SSH",
+      priority: "P0",
+      riskScore: 9.5,
+    } as Finding;
+    const scan = scanOf([
+      moduleOf("network_reachability", [legacyCritical]),
+      moduleOf("inspector_findings", [
+        // CRITICAL CVSS 10 but no signals → P3 (riskScore 3.9)
+        cveFinding({ cve: "CVE-2099-0003", epss: 0.0001, orig: 10, severity: "CRITICAL" }),
+        cveFinding({ cve: "CVE-2099-0001", exploit: true, epss: 0.5, orig: 9.9 }), // P1 8.8
+        cveFinding({ cve: "CVE-2026-31431", reach: "allowlist", orig: 7.0 }), // KEV P0 9.7
+        cveFinding({ cve: "CVE-2099-0002", exploit: true, reach: "internet_open", orig: 9.0 }), // P0 9.9
+        cveFinding({ cve: "CVE-2099-0004", epss: 0.05, orig: 9.9 }), // P2 6.9
+      ]),
+    ]);
+    const top = top5Section(generateHtmlReport(scan, undefined, "en"));
+    const order = ["CVE-2099-0002", "CVE-2026-31431", "LEGACY-P0", "CVE-2099-0001", "CVE-2099-0004"].map((s) =>
+      top.indexOf(s),
+    );
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(top).not.toContain("CVE-2099-0003");
+    // priority badge + localized rationale on Top cards
+    expect(top).toContain('<span class="xp-badge xp-p0">P0</span>');
+    expect(top).toContain("Public exploit available and the resource is open to the internet");
+  });
+
+  it("renders the exploitability block: 6 funnel numbers, P0/P1 table, disclaimer, KEV date", () => {
+    const scan = scanOf([
+      moduleOf("inspector_findings", [
+        cveFinding({ cve: "CVE-2026-31431", reach: "allowlist", reachDetail: "public IP 1.2.3.4; SG sg-1 allows 1.2.3.4/32" }),
+        cveFinding({ cve: "CVE-2099-0001", exploit: true, epss: 0.5, reach: "internal" }),
+        cveFinding({ cve: "CVE-2099-0001", exploit: true, epss: 0.5, reach: "internal", resourceId: "i-0abc000000000002" }),
+        cveFinding({ cve: "CVE-2099-0002", epss: 0.0001 }),
+      ]),
+    ]);
+    const html = generateHtmlReport(scan, undefined, "zh");
+    expect(html).toContain("🎯 可利用性研判");
+    const block = html.slice(html.indexOf('id="exploitability"'), html.indexOf("</section>", html.indexOf('id="exploitability"')));
+    const layers = [...block.matchAll(/data-layer="(\w+)"><div class="xp-funnel-count">(\d+)<\/div><div class="xp-funnel-cves">(\d+)/g)].map(
+      (m) => [m[1], Number(m[2]), Number(m[3])],
+    );
+    expect(layers).toEqual([
+      ["total", 4, 3],
+      ["exploitAvailable", 2, 1],
+      ["epssHigh", 2, 1],
+      ["kev", 1, 1],
+      ["reachable", 1, 1],
+      ["p0", 1, 1],
+    ]);
+    expect(block).toContain("各层独立统计");
+    expect(block).toContain("P0 / P1 漏洞清单");
+    expect(block).toContain("CISA KEV 快照日期：2026-11-03");
+    expect(block).toContain("2026-05-01"); // KEV dateAdded of CVE-2026-31431
+    expect(block).toContain("public IP 1.2.3.4");
+    expect(block).toContain("不是渗透测试");
+    expect(block).not.toContain("KEV 快照已过期");
+    // P0/P1 table rows: 1 P0 + 2 P1; P3 not listed
+    expect((block.match(/<tr><td><span class="xp-badge/g) ?? []).length).toBe(3);
+    expect(block).not.toContain("CVE-2099-0002");
+    // footer disclaimer
+    const footer = html.slice(html.indexOf("<footer>"));
+    expect(footer).toContain("不是渗透测试");
+  });
+
+  it("flags a KEV snapshot older than 90 days", () => {
+    const scan = scanOf([moduleOf("inspector_findings", [cveFinding({ cve: "CVE-2099-0002", epss: 0.0001 })])], "2027-03-01T08:00:00.000Z");
+    const html = generateHtmlReport(scan, undefined, "en");
+    expect(html).toContain("The KEV snapshot is 118 days old");
+    expect(html).toContain("No P0 / P1 vulnerabilities.");
+  });
+
+  it("inspector_findings module: ≤ 200 cards (P0/P1 first) + CVE summary table for the rest", () => {
+    const urgent = [
+      cveFinding({ cve: "CVE-2026-31431", reach: "allowlist" }),
+      cveFinding({ cve: "CVE-2099-0001", exploit: true, epss: 0.5 }),
+    ];
+    const scan = scanOf([moduleOf("inspector_findings", [...bulkInspector(450, 300), ...urgent])]);
+    const html = generateHtmlReport(scan, undefined, "en");
+    const cards = html.match(/<div class="finding-card [^"]+" data-severity="\w+" data-module="inspector_findings">/g) ?? [];
+    expect(cards.length).toBe(200);
+    const moduleBody = html.slice(html.indexOf('<details class="module-fold" data-module="inspector_findings">'));
+    expect(moduleBody.indexOf("CVE-2026-31431")).toBeLessThan(moduleBody.indexOf("CVE-2099-1"));
+    expect(moduleBody).toContain("P0 — fix immediately");
+    expect(moduleBody).toContain("Remaining 252 findings summarized by CVE");
+    expect(moduleBody).toContain("Only the top 200 findings by exploitability priority are listed individually");
+    // inspector now shows in the stats table
+    expect(html).toMatch(/<tr><td>Inspector<\/td><td>5<\/td><td>452<\/td>/);
+  });
+
+  it("detection-only inspector_findings (no findings) stays hidden", () => {
+    const scan = scanOf([
+      moduleOf("inspector_findings", [], { dataSource: "detection-only" }),
+      moduleOf("security_hub_findings", [cveFinding({ cve: "CVE-2099-0001", exploit: true, module: "security_hub_findings" })]),
+    ]);
+    const html = generateHtmlReport(scan, undefined, "en");
+    expect(html).not.toContain('data-module="inspector_findings"');
+    expect(html).not.toMatch(/<tr><td>Inspector<\/td><td>5<\/td>/);
+    // SH Inspector sub-category card carries the exploitability badge + rationale
+    expect(html).toContain('<span class="xp-badge xp-p2">P2</span>');
+    expect(html).toContain("Exploitability priority:</strong> Public exploit available, but no internet exposure");
   });
 });

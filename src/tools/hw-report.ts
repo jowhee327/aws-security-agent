@@ -2,6 +2,15 @@ import type { FullScanResult, Finding, Severity } from "../types.js";
 import { VERSION } from "../version.js";
 import { getI18n, type Lang } from "../i18n/index.js";
 import { resolveModuleAlias } from "../providers/module-aliases.js";
+import {
+  INSPECTOR_CARD_LIMIT,
+  compareByExploitPriority,
+  effectivePriority,
+  hasExploitability,
+  isUrgent,
+  localizedRationale,
+  priorityRank,
+} from "./exploitability-report.js";
 
 // ---------------------------------------------------------------------------
 // Helpers (same XSS-safe helpers as html-report.ts)
@@ -75,7 +84,7 @@ const HW_SECTIONS: HwSection[] = [
   },
   {
     id: "vulnerability_patch",
-    autoModules: ["patch_compliance_findings"],
+    autoModules: ["patch_compliance_findings", "inspector_findings"],
     shKeywords: ["vulnerability", "patch", "cve", "inspector", "software"],
   },
   {
@@ -203,6 +212,20 @@ function hwCss(): string {
   `;
 }
 
+/** Extra CSS, appended only when the scan carries exploitability data (legacy output unchanged). */
+function hwExploitCss(): string {
+  return `
+    .xp-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#fff}
+    .xp-p0{background:#b91c1c}
+    .xp-p1{background:#c2410c}
+    .xp-p2{background:#a16207}
+    .xp-p3{background:#15803d}
+    .xp-rationale{color:#fbbf24;font-size:12px;padding:4px 0 0}
+    .xp-subtitle{font-size:13px;font-weight:600;color:#f8fafc;margin:12px 0 6px}
+    .xp-note{color:#94a3b8;font-size:12px;margin:6px 0}
+  `;
+}
+
 // ---------------------------------------------------------------------------
 // Main report generator
 // ---------------------------------------------------------------------------
@@ -226,6 +249,21 @@ export function generateHwDefenseHtmlReport(
     const findings = mod.findings.map((f) => ({ ...f, module: f.module ?? mod.module }));
     moduleMap.set(mod.module, findings);
   }
+
+  // A detection-only inspector_findings run (no Inspector2 pull) did not check CVEs itself,
+  // so it does not count as an automated result for the section.
+  const isAutoModuleResult = (name: string): boolean => {
+    if (!moduleMap.has(name)) return false;
+    if (name !== "inspector_findings") return true;
+    const mod = scanResults.modules.find((m) => m.module === name);
+    return !!mod && (mod.dataSource === "inspector2" || mod.findings.length > 0);
+  };
+
+  const allFindings = [...moduleMap.values()].flat();
+  const hasExploit = hasExploitability(allFindings);
+  const tx = t.exploitability;
+  const exploitBadge = (p: string): string =>
+    `<span class="xp-badge xp-${esc(p.toLowerCase())}">${esc(p)}</span>`;
 
   // Track SH findings already assigned (dedup — first match wins)
   const assignedShFindings = new Set<string>();
@@ -274,7 +312,7 @@ export function generateHwDefenseHtmlReport(
 
     // Check if we actually have scanner results for any of the auto modules
     const hasAutoResults = hasAutoModules && (
-      section.autoModules.some((m) => moduleMap.has(m)) ||
+      section.autoModules.some((m) => isAutoModuleResult(m)) ||
       (section.shKeywords.length > 0 && moduleMap.has(aggregationModule))
     );
 
@@ -301,6 +339,8 @@ export function generateHwDefenseHtmlReport(
     title: string;
     findings: Finding[];
     highestSeverity: Severity;
+    /** Most urgent exploitability-assessed finding in the group (first in priority order). */
+    lead?: Finding;
   }
 
   function groupFindings(findings: Finding[]): FindingGroup[] {
@@ -344,7 +384,10 @@ export function generateHwDefenseHtmlReport(
           highestSeverity = f.severity;
         }
       }
-      result.push({ title: groupTitles.get(key)!, findings: gFindings, highestSeverity });
+      const lead = gFindings
+        .filter((f) => f.exploitability)
+        .sort(compareByExploitPriority)[0];
+      result.push({ title: groupTitles.get(key)!, findings: gFindings, highestSeverity, lead });
     }
     return result;
   }
@@ -360,12 +403,14 @@ export function generateHwDefenseHtmlReport(
     const remediationSteps = first.remediationSteps
       .map((s) => `<li>${escWithLinks(s)}</li>`)
       .join("");
+    const lead = group.lead;
     return `<div class="hw-finding-group">
   <div class="hw-finding-header">
-    <span class="badge badge-${esc(sev)}">${esc(group.highestSeverity)}</span>
+    ${lead ? exploitBadge(effectivePriority(lead)) : ""}<span class="badge badge-${esc(sev)}">${esc(group.highestSeverity)}</span>
     <span class="hw-finding-title">${esc(group.title)}</span>
     <span class="hw-finding-count">&times;${count}</span>
-  </div>
+  </div>${lead ? `
+  <div class="xp-rationale">${esc(localizedRationale(tx, lead))} &middot; ${esc(tx.reachability[lead.exploitability!.reachability] ?? lead.exploitability!.reachability)}</div>` : ""}
   <details>
     <summary>${t.hwAffectedResources(count)}</summary>
     <div class="hw-finding-resources">
@@ -377,6 +422,32 @@ export function generateHwDefenseHtmlReport(
     </div>
   </details>
 </div>`;
+  };
+
+  // Vulnerability section with exploitability data: P0/P1 groups first (with rationale),
+  // then the rest by priority, capped so ~10k Inspector CVEs do not bloat the report.
+  const renderVulnerabilityGroups = (groups: FindingGroup[]): string => {
+    const rank = (g: FindingGroup) => priorityRank(effectivePriority(g.lead ?? g.findings[0]));
+    const ordered = groups
+      .map((g, i) => ({ g, i }))
+      .sort((a, b) => rank(a.g) - rank(b.g) || a.i - b.i)
+      .map((x) => x.g);
+    const urgent = ordered.filter((g) => g.lead && isUrgent(g.lead));
+    const others = ordered.filter((g) => !(g.lead && isUrgent(g.lead)));
+    const shown = others.slice(0, INSPECTOR_CARD_LIMIT);
+    const parts: string[] = [];
+    if (urgent.length > 0) {
+      parts.push(`<div class="xp-subtitle">${esc(tx.hwUrgentTitle)} (${urgent.length})</div>`);
+      parts.push(urgent.map(renderGroup).join("\n"));
+    }
+    if (shown.length > 0) {
+      if (urgent.length > 0) parts.push(`<div class="xp-subtitle">${esc(tx.hwOthersTitle)} (${others.length})</div>`);
+      parts.push(shown.map(renderGroup).join("\n"));
+    }
+    if (others.length > shown.length) {
+      parts.push(`<div class="xp-note">${esc(tx.hwMoreGroups(others.length - shown.length))}</div>`);
+    }
+    return parts.join("\n");
   };
 
   // Render sections
@@ -425,7 +496,11 @@ export function generateHwDefenseHtmlReport(
           return b.riskScore - a.riskScore;
         });
         const groups = groupFindings(sorted);
-        autoHtml = groups.map(renderGroup).join("\n");
+        if (section.id === "vulnerability_patch" && hasExploitability(section.findings)) {
+          autoHtml = renderVulnerabilityGroups(groups);
+        } else {
+          autoHtml = groups.map(renderGroup).join("\n");
+        }
       }
 
       // Manual checklist section
@@ -468,7 +543,7 @@ export function generateHwDefenseHtmlReport(
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(t.hwReportTitle)} &mdash; ${esc(date)}</title>
-<style>${hwCss()}</style>
+<style>${hwCss()}${hasExploit ? hwExploitCss() : ""}</style>
 </head>
 <body>
 <div class="container">
@@ -491,7 +566,7 @@ ${sectionsHtml}
 
 <footer>
   <p>${esc(t.generatedBy)} v${VERSION}</p>
-
+${hasExploit ? `  <p>${esc(tx.disclaimer)}</p>` : ""}
 </footer>
 
 </div>

@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AWS Security Scan Report &mdash; 2026-05-01</title>
+<style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:#0f172a;color:#f8fafc;font-family:Inter,system-ui,-apple-system,sans-serif;line-height:1.6;font-size:14px}
+    .container{max-width:900px;margin:0 auto;padding:40px 24px}
+    header{text-align:center;margin-bottom:40px;border-bottom:1px solid #334155;padding-bottom:24px}
+    header h1{font-size:28px;font-weight:700;margin-bottom:8px;letter-spacing:-0.5px}
+    .meta{color:#94a3b8;font-size:13px}
+    .disclaimer{color:#94a3b8;font-size:12px;font-style:italic;margin-top:8px;max-width:640px;margin-left:auto;margin-right:auto}
+    h2{font-size:20px;font-weight:600;margin:32px 0 16px;padding-bottom:8px;border-bottom:1px solid #334155}
+    h3{font-size:16px;font-weight:600;margin:16px 0 8px}
+    h4{font-size:14px;font-weight:600;margin:12px 0 4px}
+    .card{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:20px;margin-bottom:16px}
+    .summary{display:flex;gap:24px;margin-bottom:32px;flex-wrap:wrap}
+    .score-card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:24px 32px;text-align:center;flex:0 0 auto}
+    .score-value{font-size:48px;font-weight:700}
+    .score-label{color:#94a3b8;font-size:13px;margin-top:4px}
+    .severity-stats{display:flex;gap:12px;flex-wrap:wrap;flex:1;align-items:center;justify-content:center}
+    .stat-card{border-radius:8px;padding:16px 20px;text-align:center;min-width:100px;border:1px solid #334155;background:#1e293b}
+    .stat-count{font-size:28px;font-weight:700}
+    .stat-label{font-size:12px;color:#94a3b8;margin-top:2px}
+    .stat-critical .stat-count{color:#ef4444}
+    .stat-high .stat-count{color:#f97316}
+    .stat-medium .stat-count{color:#eab308}
+    .stat-low .stat-count{color:#22c55e}
+    .charts{display:flex;gap:24px;margin-bottom:32px;flex-wrap:wrap;justify-content:center}
+    .chart-box{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:20px;flex:1;min-width:280px}
+    .chart-title{font-size:14px;font-weight:600;margin-bottom:12px;text-align:center;color:#cbd5e1}
+    .sev-critical{border-left-color:#ef4444}
+    .sev-high{border-left-color:#f97316}
+    .sev-medium{border-left-color:#eab308}
+    .sev-low{border-left-color:#22c55e}
+    .badge{display:inline-block;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:0.5px;color:#fff}
+    .badge-critical{background:#ef4444}
+    .badge-high{background:#f97316}
+    .badge-medium{background:#eab308;color:#1e293b}
+    .badge-low{background:#22c55e;color:#1e293b}
+    .finding-title{font-size:15px;font-weight:600;margin-bottom:8px}
+    .finding-detail{color:#cbd5e1;font-size:13px;margin-bottom:4px}
+    .finding-detail strong{color:#f8fafc}
+    .remediation-steps{margin-top:8px;padding-left:20px}
+    .remediation-steps li{color:#cbd5e1;font-size:13px;margin-bottom:4px}
+    table{width:100%;border-collapse:collapse;margin-bottom:16px}
+    th{background:#334155;color:#f8fafc;padding:10px 12px;text-align:left;font-size:13px;font-weight:600}
+    td{padding:8px 12px;border-bottom:1px solid #334155;font-size:13px;color:#cbd5e1}
+    tr:hover td{background:rgba(51,65,85,0.3)}
+    .recommendations ol{padding-left:24px}
+    .recommendations li{margin-bottom:8px;color:#cbd5e1;font-size:13px}
+    .priority-p0{color:#ef4444;font-weight:700}
+    .priority-p1{color:#f97316;font-weight:700}
+    .priority-p2{color:#eab308;font-weight:700}
+    .priority-p3{color:#22c55e;font-weight:700}
+    footer{margin-top:48px;padding-top:24px;border-top:1px solid #334155;text-align:center}
+    footer p{color:#64748b;font-size:12px;margin-bottom:4px}
+    .check-item{display:flex;align-items:flex-start;gap:8px;padding:8px 12px;border-radius:6px;margin-bottom:4px;font-size:14px}
+    .check-pass{background:rgba(34,197,94,0.1)}
+    .check-fail{background:rgba(239,68,68,0.1)}
+    .check-unknown{background:rgba(148,163,184,0.1)}
+    .check-icon{font-size:16px;flex-shrink:0}
+    .check-name{font-weight:500}
+    .check-findings{margin-left:28px;margin-top:4px}
+    .check-findings li{color:#94a3b8;font-size:12px;margin-bottom:2px;list-style:none}
+    .no-findings{text-align:center;padding:40px;color:#22c55e;font-size:18px;font-weight:600}
+    .finding-fold{background:#1e293b;border:1px solid #334155;border-radius:8px;margin-bottom:12px;border-left:4px solid;overflow:hidden}
+    .finding-fold>summary{cursor:pointer;padding:12px 20px;display:flex;align-items:center;gap:12px;list-style:none;user-select:none}
+    .finding-fold>summary::-webkit-details-marker{display:none}
+    .finding-fold>summary::marker{content:""}
+    .finding-fold>summary .badge{margin-bottom:0}
+    .finding-fold>summary::after{content:"\25B6";font-size:10px;color:#64748b;flex-shrink:0;transition:transform 0.2s}
+    .finding-fold[open]>summary::after{transform:rotate(90deg)}
+    .finding-fold[open]>summary{border-bottom:1px solid #334155}
+    .finding-body{padding:12px 20px 16px}
+    .finding-summary-title{font-weight:600;font-size:14px;flex:1}
+    .finding-summary-score{color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap}
+    .top5-card{display:flex;gap:16px;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:24px;margin-bottom:16px;border-left:4px solid}
+    .top5-card .badge{margin-bottom:0}
+    .top5-rank{font-size:28px;font-weight:800;color:#475569;min-width:44px;display:flex;align-items:flex-start;justify-content:center}
+    .top5-content{flex:1}
+    .top5-title{font-size:17px;font-weight:700;margin:8px 0}
+    .top5-detail{color:#cbd5e1;font-size:13px;margin-bottom:4px}
+    .top5-detail strong{color:#f8fafc}
+    .top5-remediation{margin-top:8px;padding-left:20px}
+    .top5-remediation li{color:#cbd5e1;font-size:13px;margin-bottom:4px}
+    .trend-section{margin-bottom:32px}
+    .trend-chart{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:20px;margin-bottom:16px}
+    .trend-title{font-size:14px;font-weight:600;margin-bottom:12px;text-align:center;color:#cbd5e1}
+    .category-fold{background:#1e293b;border:1px solid #334155;border-radius:8px;margin-bottom:16px;overflow:hidden}
+    .category-fold>summary{cursor:pointer;padding:16px 20px;display:flex;align-items:center;gap:12px;list-style:none;font-size:18px;font-weight:600;user-select:none}
+    .category-fold>summary::-webkit-details-marker{display:none}
+    .category-fold>summary::marker{content:""}
+    .category-fold>summary::after{content:"\25B6";font-size:12px;color:#64748b;flex-shrink:0;transition:transform 0.2s}
+    .category-fold[open]>summary::after{transform:rotate(90deg)}
+    .category-fold[open]>summary{border-bottom:1px solid #334155}
+    .category-body{padding:12px 20px 16px}
+    .category-title{flex:1}
+    .category-stats{display:inline-flex;gap:12px;font-size:13px}
+    .category-stat-pass{color:#22c55e}
+    .category-stat-fail{color:#ef4444}
+    .category-stat-unknown{color:#94a3b8}
+    .module-fold{background:#1e293b;border:1px solid #334155;border-radius:8px;margin-bottom:16px;overflow:hidden}
+    .module-fold>summary{cursor:pointer;padding:16px 20px;display:flex;align-items:center;gap:12px;list-style:none;user-select:none;flex-wrap:wrap}
+    .module-fold>summary::-webkit-details-marker{display:none}
+    .module-fold>summary::marker{content:""}
+    .module-fold>summary h3{margin:0;font-size:16px}
+    .module-fold>summary::after{content:"\25B6";font-size:12px;color:#64748b;flex-shrink:0;transition:transform 0.2s;margin-left:auto}
+    .module-fold[open]>summary::after{transform:rotate(90deg)}
+    .module-fold[open]>summary{border-bottom:1px solid #334155}
+    .module-body{padding:12px 20px 16px}
+    .module-badges{display:inline-flex;gap:6px;flex-wrap:wrap}
+    .severity-group{margin-bottom:16px}
+    .severity-group-fold{margin-bottom:16px}
+    .severity-group-fold>summary{cursor:pointer;padding:4px 0;list-style:none;user-select:none}
+    .severity-group-fold>summary::-webkit-details-marker{display:none}
+    .severity-group-fold>summary::marker{content:""}
+    .severity-group-fold>summary h4{margin:0;display:inline}
+    .finding-card{display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:4px;border-radius:6px;border-left:4px solid #334155;background:rgba(30,41,59,0.5);flex-wrap:wrap}
+    .finding-title-text{font-weight:600;font-size:13px;flex:1;min-width:200px}
+    .finding-resource{color:#94a3b8;font-size:12px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .finding-card>details{width:100%;margin-top:4px}
+    .finding-card>details>summary{cursor:pointer;font-size:12px;color:#60a5fa;user-select:none}
+    .finding-card-body{padding:8px 0}
+    .finding-card-body p{color:#cbd5e1;font-size:13px;margin-bottom:4px}
+    .finding-card-body ol{padding-left:20px}
+    .finding-card-body li{color:#cbd5e1;font-size:13px;margin-bottom:2px}
+    .rec-fold{background:#1e293b;border:1px solid #334155;border-radius:8px;margin-bottom:16px;overflow:hidden}
+    .rec-fold>summary{cursor:pointer;padding:16px 20px;display:flex;align-items:center;gap:12px;list-style:none;user-select:none}
+    .rec-fold>summary::-webkit-details-marker{display:none}
+    .rec-fold>summary::marker{content:""}
+    .rec-fold>summary::after{content:"\25B6";font-size:12px;color:#64748b;flex-shrink:0;transition:transform 0.2s;margin-left:auto}
+    .rec-fold[open]>summary::after{transform:rotate(90deg)}
+    .rec-fold[open]>summary{border-bottom:1px solid #334155}
+    .rec-body{padding:12px 20px 16px}
+    .rec-body ol{padding-left:24px}
+    .rec-body li{margin-bottom:8px;color:#cbd5e1;font-size:13px}
+    .rec-body .badge{margin-right:6px;vertical-align:middle}
+    .filter-toolbar{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-bottom:20px;padding:12px 16px;background:#1e293b;border:1px solid #334155;border-radius:8px}
+    .filter-group{display:flex;align-items:center;gap:8px}
+    .filter-label{color:#94a3b8;font-size:13px}
+    .filter-btn{padding:4px 12px;border-radius:4px;border:1px solid #475569;background:transparent;color:#cbd5e1;cursor:pointer;font-size:13px}
+    .filter-btn:hover{background:#334155}
+    .filter-btn.active{background:#3b82f6;border-color:#3b82f6;color:#fff}
+    .filter-select{padding:4px 8px;border-radius:4px;border:1px solid #475569;background:#0f172a;color:#cbd5e1;font-size:13px}
+    .filter-count{color:#64748b;font-size:13px;margin-left:auto}
+    @media print{
+      .filter-toolbar{display:none !important}
+      .finding-card,.module-fold{display:block !important}
+      body{background:#fff;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .container{max-width:100%;padding:20px}
+      .card,.score-card,.stat-card,.chart-box,.finding-fold,.top5-card,.trend-chart,.category-fold,.module-fold,.finding-card,.rec-fold{background:#fff;border:1px solid #e2e8f0}
+      .badge{border:1px solid}
+      header{border-bottom-color:#e2e8f0}
+      h2{border-bottom-color:#e2e8f0}
+      th{background:#f1f5f9;color:#1e293b}
+      td{border-bottom-color:#e2e8f0;color:#475569}
+      footer{border-top-color:#e2e8f0}
+      .meta,.disclaimer{color:#64748b}
+      .finding-detail,.top5-detail{color:#475569}
+      .finding-detail strong,.top5-detail strong{color:#1e293b}
+      .stat-label,.score-label{color:#64748b}
+      .chart-title,.trend-title{color:#475569}
+      .remediation-steps li,.top5-remediation li{color:#475569}
+      .recommendations li{color:#475569}
+      .finding-card-body p,.finding-card-body li{color:#475569}
+      .finding-title-text{color:#1e293b}
+      .finding-resource{color:#64748b}
+      .check-findings li{color:#64748b}
+      .finding-fold,.top5-card,.category-fold,.module-fold,.finding-card,.rec-fold{break-inside:avoid}
+      .check-item{break-inside:avoid}
+      svg text{fill:#1e293b !important}
+      .finding-fold[open]>summary,.category-fold[open]>summary,.module-fold[open]>summary,.rec-fold[open]>summary{border-bottom-color:#e2e8f0}
+      details{display:block}
+      details>summary{display:block}
+      details>:not(summary){display:block !important}
+      .ai-summary{background:#f5f3ff !important;border-color:#c7d2fe !important}
+      .ai-summary-title{color:#4338ca !important}
+      .ai-summary-body{color:#1e293b !important}
+    }
+    .ai-summary{background:linear-gradient(135deg,#1e293b,#1e1b4b);border:1px solid #4338ca;border-radius:10px;padding:16px 20px;margin:0 0 28px}
+    .ai-summary-title{font-size:14px;font-weight:700;color:#a5b4fc;margin-bottom:8px}
+    .ai-summary-body{font-size:14px;line-height:1.7;color:#cbd5e1;white-space:pre-wrap}
+  </style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>&#128737;&#65039; AWS Security Scan Report</h1>
+  <div class="meta">Account: 123456789012 | Region: us-east-1 | 2026-05-01 | Duration: 2m 5s</div>
+</header>
+
+
+
+<section class="summary">
+  <div class="score-card">
+    <div class="score-value" style="color:#ef4444">46</div>
+    <div class="score-label">Security Score</div>
+  </div>
+  <div class="severity-stats">
+    <div class="stat-card stat-critical"><div class="stat-count">2</div><div class="stat-label">Critical</div></div>
+    <div class="stat-card stat-high"><div class="stat-count">4</div><div class="stat-label">High</div></div>
+    <div class="stat-card stat-medium"><div class="stat-count">2</div><div class="stat-label">Medium</div></div>
+    <div class="stat-card stat-low"><div class="stat-count">1</div><div class="stat-label">Low</div></div>
+  </div>
+</section>
+
+<section class="charts">
+  <div class="chart-box">
+    <div class="chart-title">Severity Distribution</div>
+    <div style="text-align:center"><svg viewBox="0 0 200 200" width="200" height="200">
+  <circle cx="100" cy="100" r="80" fill="none" stroke="#ef4444" stroke-width="20" stroke-dasharray="111.70 390.95" stroke-dashoffset="0.00" transform="rotate(-90 100 100)"/>
+  <circle cx="100" cy="100" r="80" fill="none" stroke="#f97316" stroke-width="20" stroke-dasharray="223.40 279.25" stroke-dashoffset="-111.70" transform="rotate(-90 100 100)"/>
+  <circle cx="100" cy="100" r="80" fill="none" stroke="#eab308" stroke-width="20" stroke-dasharray="111.70 390.95" stroke-dashoffset="-335.10" transform="rotate(-90 100 100)"/>
+  <circle cx="100" cy="100" r="80" fill="none" stroke="#22c55e" stroke-width="20" stroke-dasharray="55.85 446.80" stroke-dashoffset="-446.80" transform="rotate(-90 100 100)"/>
+  <text x="100" y="105" text-anchor="middle" fill="#f8fafc" font-size="28" font-weight="700">9</text>
+</svg></div>
+  </div>
+  <div class="chart-box">
+    <div class="chart-title">Findings by Module</div>
+    <svg viewBox="0 0 400 168" width="100%">
+<text x="152" y="15" text-anchor="end" fill="#94a3b8" font-size="11">Software Vulnerabilities</text>
+<rect x="160" y="0" width="190.0" height="22" rx="3" fill="#ef4444" opacity="0.85"/>
+<text x="356" y="15" fill="#f8fafc" font-size="11">3</text>
+<text x="152" y="43" text-anchor="end" fill="#94a3b8" font-size="11">Network Reachability</text>
+<rect x="160" y="28" width="126.7" height="22" rx="3" fill="#ef4444" opacity="0.85"/>
+<text x="292.66666666666663" y="43" fill="#f8fafc" font-size="11">2</text>
+<text x="152" y="71" text-anchor="end" fill="#94a3b8" font-size="11">Security Best Practices</text>
+<rect x="160" y="56" width="63.3" height="22" rx="3" fill="#f97316" opacity="0.85"/>
+<text x="229.33333333333331" y="71" fill="#f8fafc" font-size="11">1</text>
+<text x="152" y="99" text-anchor="end" fill="#94a3b8" font-size="11">Threat Detection</text>
+<rect x="160" y="84" width="63.3" height="22" rx="3" fill="#eab308" opacity="0.85"/>
+<text x="229.33333333333331" y="99" fill="#f8fafc" font-size="11">1</text>
+<text x="152" y="127" text-anchor="end" fill="#94a3b8" font-size="11">Patch Compliance</text>
+<rect x="160" y="112" width="63.3" height="22" rx="3" fill="#f97316" opacity="0.85"/>
+<text x="229.33333333333331" y="127" fill="#f8fafc" font-size="11">1</text>
+<text x="152" y="155" text-anchor="end" fill="#94a3b8" font-size="11">IAM Privilege Escalation</text>
+<rect x="160" y="140" width="63.3" height="22" rx="3" fill="#22c55e" opacity="0.85"/>
+<text x="229.33333333333331" y="155" fill="#f8fafc" font-size="11">1</text>
+</svg>
+  </div>
+</section>
+
+
+
+
+    <section>
+      <h2>Top 5 Highest Risk Findings</h2>
+      
+      <div class="top5-card sev-critical">
+        <div class="top5-rank">#1</div>
+        <div class="top5-content">
+          <span class="badge badge-critical">CRITICAL</span>
+          <div class="top5-title">CVE-2024-4577 - php</div>
+          <div class="top5-detail"><strong>Resource:</strong> arn:aws:ec2:us-east-1:123456789012:instance/i-0legacy0003</div>
+          <div class="top5-detail"><strong>Impact:</strong> Source: Inspector (package vulnerability)</div>
+          <div class="top5-detail"><strong>Risk Score:</strong> 9.8/10</div>
+          <h4>Remediation</h4>
+          <ol class="top5-remediation"><li>Review and fix</li><li>Documentation: <a href="https://docs.aws.amazon.com/x" style="color:#60a5fa" target="_blank" rel="noopener">https://docs.aws.amazon.com/x</a></li></ol>
+        </div>
+      </div>
+
+      <div class="top5-card sev-critical">
+        <div class="top5-rank">#2</div>
+        <div class="top5-content">
+          <span class="badge badge-critical">CRITICAL</span>
+          <div class="top5-title">EC2 instance i-0legacy0001 has SSH (22) reachable from 0.0.0.0/0</div>
+          <div class="top5-detail"><strong>Resource:</strong> i-0legacy0001</div>
+          <div class="top5-detail"><strong>Impact:</strong> Legacy impact</div>
+          <div class="top5-detail"><strong>Risk Score:</strong> 9.4/10</div>
+          <h4>Remediation</h4>
+          <ol class="top5-remediation"><li>Restrict port 22 on sg-0abc1234 to known IPs</li></ol>
+        </div>
+      </div>
+
+      <div class="top5-card sev-high">
+        <div class="top5-rank">#3</div>
+        <div class="top5-content">
+          <span class="badge badge-high">HIGH</span>
+          <div class="top5-title">EC2 instance i-0legacy0002 has RDP (3389) reachable</div>
+          <div class="top5-detail"><strong>Resource:</strong> i-0legacy0002</div>
+          <div class="top5-detail"><strong>Impact:</strong> Legacy impact</div>
+          <div class="top5-detail"><strong>Risk Score:</strong> 8.1/10</div>
+          <h4>Remediation</h4>
+          <ol class="top5-remediation"><li>Review and fix</li><li>Documentation: <a href="https://docs.aws.amazon.com/x" style="color:#60a5fa" target="_blank" rel="noopener">https://docs.aws.amazon.com/x</a></li></ol>
+        </div>
+      </div>
+
+      <div class="top5-card sev-high">
+        <div class="top5-rank">#4</div>
+        <div class="top5-content">
+          <span class="badge badge-high">HIGH</span>
+          <div class="top5-title">Instance i-0legacy0004 missing critical patches</div>
+          <div class="top5-detail"><strong>Resource:</strong> i-0legacy0004</div>
+          <div class="top5-detail"><strong>Impact:</strong> Legacy impact</div>
+          <div class="top5-detail"><strong>Risk Score:</strong> 7.8/10</div>
+          <h4>Remediation</h4>
+          <ol class="top5-remediation"><li>Review and fix</li><li>Documentation: <a href="https://docs.aws.amazon.com/x" style="color:#60a5fa" target="_blank" rel="noopener">https://docs.aws.amazon.com/x</a></li></ol>
+        </div>
+      </div>
+
+      <div class="top5-card sev-high">
+        <div class="top5-rank">#5</div>
+        <div class="top5-content">
+          <span class="badge badge-high">HIGH</span>
+          <div class="top5-title">CVE-2023-1111 - openssl</div>
+          <div class="top5-detail"><strong>Resource:</strong> i-0legacy0001</div>
+          <div class="top5-detail"><strong>Impact:</strong> Source: Inspector (package vulnerability)</div>
+          <div class="top5-detail"><strong>Risk Score:</strong> 7.5/10</div>
+          <h4>Remediation</h4>
+          <ol class="top5-remediation"><li>Review and fix</li><li>Documentation: <a href="https://docs.aws.amazon.com/x" style="color:#60a5fa" target="_blank" rel="noopener">https://docs.aws.amazon.com/x</a></li></ol>
+        </div>
+      </div>
+    </section>
+
+
+  <section>
+    <div style="background:#2d1f00;border:1px solid #b45309;border-radius:8px;padding:20px;margin-bottom:32px">
+      <div style="font-size:17px;font-weight:700;margin-bottom:12px">⚡ The following security services are not enabled; some checks cannot be performed:</div>
+      
+    <div style="margin-bottom:12px">
+      <div style="font-weight:600;font-size:15px">🟡 Inspector Not Enabled</div>
+      <div style="margin-left:28px;color:#cbd5e1;font-size:13px">Impact：Cannot scan EC2/Lambda/container software vulnerabilities (CVEs)</div>
+      <div style="margin-left:28px;color:#cbd5e1;font-size:13px">Action：Enable Inspector to discover known security vulnerabilities</div>
+    </div>
+      <div style="margin-top:12px;font-size:13px;color:#fbbf24;font-weight:500">Re-scan after enabling the above services for a more complete security assessment.</div>
+    </div>
+  </section>
+
+<section>
+  <h2>Scan Statistics</h2>
+  <table>
+    <thead><tr><th>Module</th><th>Resources</th><th>Findings</th><th>Status</th></tr></thead>
+    <tbody><tr><td>Network Reachability</td><td>7</td><td>2</td><td>&#10003;</td></tr>
+<tr><td>Security Best Practices</td><td>7</td><td>1</td><td>&#10003;</td></tr>
+<tr><td>Software Vulnerabilities</td><td>7</td><td>3</td><td>&#10003;</td></tr>
+<tr><td>Threat Detection</td><td>7</td><td>1</td><td>&#10003;</td></tr>
+<tr><td>Patch Compliance</td><td>7</td><td>1</td><td>&#10003;</td></tr>
+<tr><td>IAM Privilege Escalation</td><td>7</td><td>1</td><td>&#10003;</td></tr>
+<tr><td>SSL Certificate</td><td>7</td><td>0</td><td>&#10007;</td></tr></tbody>
+  </table>
+</section>
+
+<section>
+  <h2>All Findings</h2>
+  <div class="filter-toolbar" id="filterBar">
+      <div class="filter-group">
+        <span class="filter-label">Severity:</span>
+        <button class="filter-btn active" data-severity="ALL">All</button>
+        <button class="filter-btn" data-severity="CRITICAL">Critical</button>
+        <button class="filter-btn" data-severity="HIGH">High</button>
+        <button class="filter-btn" data-severity="MEDIUM">Medium</button>
+        <button class="filter-btn" data-severity="LOW">Low</button>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Module:</span>
+        <select class="filter-select" id="moduleFilter">
+          <option value="ALL">All Modules</option>
+          <option value="Inspector">Software Vulnerabilities</option>
+        <option value="network_reachability">Network Reachability</option>
+        <option value="FSBP">Security Best Practices</option>
+        <option value="patch_compliance_findings">Patch Compliance</option>
+        <option value="GuardDuty">Threat Detection</option>
+        <option value="iam_privilege_escalation">IAM Privilege Escalation</option>
+        </select>
+      </div>
+      <div class="filter-count" id="filterCount" data-tpl="Showing {shown} / {total} findings"></div>
+    </div>
+  <details class="module-fold" data-module="Inspector">
+        <summary>
+          <h3>&#128274; Software Vulnerabilities (3)</h3>
+          <span class="module-badges"><span class="badge badge-critical">1 Critical</span> <span class="badge badge-high">1 High</span> <span class="badge badge-medium">1 Medium</span></span>
+        </summary>
+        <div class="module-body">
+          <details class="severity-group-fold">
+          <summary><h4>&#128308; Critical (1)</h4></summary>
+          <div class="finding-card sev-critical" data-severity="CRITICAL" data-module="Inspector">
+        <span class="badge badge-critical">CRITICAL</span>
+        <span class="finding-title-text">CVE-2024-4577 - php</span>
+        <span class="finding-resource">arn:aws:ec2:us-east-1:123456789012:instance/i-0legacy0003</span>
+        <details><summary>Details</summary><div class="finding-card-body">
+          <p>PHP CGI argument injection &lt;b&gt;bold&lt;/b&gt;</p>
+          <p><strong>Remediation:</strong></p>
+          <ol><li>Review and fix</li><li>Documentation: <a href="https://docs.aws.amazon.com/x" style="color:#60a5fa" target="_blank" rel="noopener">https://docs.aws.amazon.com/x</a></li></ol>
+        </div></details>
+      </div>
+        </details>
+<details class="severity-group-fold">
+          <summary><h4>&#128992; High (1)</h4></summary>
+          <div class="finding-card sev-high" data-severity="HIGH" data-module="Inspector">
+        <span class="badge badge-high">HIGH</span>
+        <span class="finding-title-text">CVE-2023-1111 - openssl</span>
+        <span class="finding-resource">arn:aws:ec2:us-east-1:123456789012:instance/i-0legacy0001</span>
+        <details><summary>Details</summary><div class="finding-card-body">
+          <p>Legacy finding description</p>
+          <p><strong>Remediation:</strong></p>
+          <ol><li>Review and fix</li><li>Documentation: <a href="https://docs.aws.amazon.com/x" style="color:#60a5fa" target="_blank" rel="noopener">https://docs.aws.amazon.com/x</a></li></ol>
+        </div></details>
+      </div>
+        </details>
+<details class="severity-group-fold">
+          <summary><h4>&#128993; Medium (1)</h4></summary>
+          <div class="finding-card sev-medium" data-severity="MEDIUM" data-module="Inspector">
+        <span class="badge badge-medium">MEDIUM</span>
+        <span class="finding-title-text">KB5034441 - Windows security update</span>
+        <span class="finding-resource">arn:aws:ec2:us-east-1:123456789012:instance/i-0legacy0001</span>
+        <details><summary>Details</summary><div class="finding-card-body">
+          <p>Legacy finding description</p>
+          <p><strong>Remediation:</strong></p>
+          <ol><li>Install KB5034441</li></ol>
+        </div></details>
+      </div>
+        </details>
+        </div>
+      </details>
+<details class="module-fold" data-module="network_reachability">
+        <summary>
+          <h3>&#128274; Network Reachability (2)</h3>
+          <span class="module-badges"><span class="badge badge-critical">1 Critical</span> <span class="badge badge-high">1 High</span></span>
+        </summary>
+        <div class="module-body">
+          <details class="severity-group-fold">
+          <summary><h4>&#128308; Critical (1)</h4></summary>
+          <div class="finding-card sev-critical" data-severity="CRITICAL" data-module="network_reachability">
+        <span class="badge badge-critical">CRITICAL</span>
+        <span class="finding-title-text">EC2 instance i-0legacy0001 has SSH (22) reachable from 0.0.0.0/0</span>
+        <span class="finding-resource">arn:aws:ec2:us-east-1:123456789012:instance/i-0legacy0001</span>
+        <details><summary>Details</summary><div class="finding-card-body">
+          <p>Legacy finding description</p>
+          <p><strong>Remediation:</strong></p>
+          <ol><li>Restrict port 22 on sg-0abc1234 to known IPs</li></ol>
+        </div></details>
+      </div>
+        </details>
+<details class="severity-group-fold">
+          <summary><h4>&#128992; High (1)</h4></summary>
+          <div class="finding-card sev-high" data-severity="HIGH" data-module="network_reachability">
+        <span class="badge badge-high">HIGH</span>
+        <span class="finding-title-text">EC2 instance i-0legacy0002 has RDP (3389) reachable</span>
+        <span class="finding-resource">arn:aws:ec2:us-east-1:123456789012:instance/i-0legacy0001</span>
+        <details><summary>Details</summary><div class="finding-card-body">
+          <p>Legacy finding description</p>
+          <p><strong>Remediation:</strong></p>
+          <ol><li>Review and fix</li><li>Documentation: <a href="https://docs.aws.amazon.com/x" style="color:#60a5fa" target="_blank" rel="noopener">https://docs.aws.amazon.com/x</a></li></ol>
+        </div></details>
+      </div>
+        </details>
+        </div>
+      </details>
+<details class="module-fold" data-module="FSBP">
+        <summary>
+          <h3>&#128274; Security Best Practices (1)</h3>
+          <span class="module-badges"><span class="badge badge-high">1 High</span></span>
+        </summary>
+        <div class="module-body">
+          <details class="severity-group-fold">
+          <summary><h4>&#128992; High (1)</h4></summary>
+          <div class="finding-card sev-high" data-severity="HIGH" data-module="FSBP">
+        <span class="badge badge-high">HIGH</span>
+        <span class="finding-title-text">EC2.19 Security groups should not allow unrestricted access to ports with high risk</span>
+        <span class="finding-resource">arn:aws:ec2:us-east-1:123456789012:instance/i-0legacy0001</span>
+        <details><summary>Details</summary><div class="finding-card-body">
+          <p>Legacy finding description</p>
+          <p><strong>Remediation:</strong></p>
+          <ol><li>Remove unrestricted rules</li></ol>
+        </div></details>
+      </div>
+        </details>
+        </div>
+      </details>
+<details class="module-fold" data-module="patch_compliance_findings">
+        <summary>
+          <h3>&#128274; Patch Compliance (1)</h3>
+          <span class="module-badges"><span class="badge badge-high">1 High</span></span>
+        </summary>
+        <div class="module-body">
+          <details class="severity-group-fold">
+          <summary><h4>&#128992; High (1)</h4></summary>
+          <div class="finding-card sev-high" data-severity="HIGH" data-module="patch_compliance_findings">
+        <span class="badge badge-high">HIGH</span>
+        <span class="finding-title-text">Instance i-0legacy0004 missing critical patches</span>
+        <span class="finding-resource">arn:aws:ec2:us-east-1:123456789012:instance/i-0legacy0001</span>
+        <details><summary>Details</summary><div class="finding-card-body">
+          <p>Legacy finding description</p>
+          <p><strong>Remediation:</strong></p>
+          <ol><li>Review and fix</li><li>Documentation: <a href="https://docs.aws.amazon.com/x" style="color:#60a5fa" target="_blank" rel="noopener">https://docs.aws.amazon.com/x</a></li></ol>
+        </div></details>
+      </div>
+        </details>
+        </div>
+      </details>
+<details class="module-fold" data-module="GuardDuty">
+        <summary>
+          <h3>&#128274; Threat Detection (1)</h3>
+          <span class="module-badges"><span class="badge badge-medium">1 Medium</span></span>
+        </summary>
+        <div class="module-body">
+          <details class="severity-group-fold">
+          <summary><h4>&#128993; Medium (1)</h4></summary>
+          <div class="finding-card sev-medium" data-severity="MEDIUM" data-module="GuardDuty">
+        <span class="badge badge-medium">MEDIUM</span>
+        <span class="finding-title-text">Unusual API call</span>
+        <span class="finding-resource">arn:aws:ec2:us-east-1:123456789012:instance/i-0legacy0001</span>
+        <details><summary>Details</summary><div class="finding-card-body">
+          <p>Legacy finding description</p>
+          <p><strong>Remediation:</strong></p>
+          <ol><li>Investigate</li></ol>
+        </div></details>
+      </div>
+        </details>
+        </div>
+      </details>
+<details class="module-fold" data-module="iam_privilege_escalation">
+        <summary>
+          <h3>&#128274; IAM Privilege Escalation (1)</h3>
+          <span class="module-badges"><span class="badge badge-low">1 Low</span></span>
+        </summary>
+        <div class="module-body">
+          <details class="severity-group-fold">
+          <summary><h4>&#128309; Low (1)</h4></summary>
+          <div class="finding-card sev-low" data-severity="LOW" data-module="iam_privilege_escalation">
+        <span class="badge badge-low">LOW</span>
+        <span class="finding-title-text">Role &#39;dev&#39; can pass role</span>
+        <span class="finding-resource">arn:aws:iam::123456789012:role/dev</span>
+        <details><summary>Details</summary><div class="finding-card-body">
+          <p>Legacy finding description</p>
+          <p><strong>Remediation:</strong></p>
+          <ol><li>Review and fix</li><li>Documentation: <a href="https://docs.aws.amazon.com/x" style="color:#60a5fa" target="_blank" rel="noopener">https://docs.aws.amazon.com/x</a></li></ol>
+        </div></details>
+      </div>
+        </details>
+        </div>
+      </details>
+</section>
+
+
+      <details class="rec-fold">
+        <summary><h2 style="margin:0;border:0;display:inline">Recommendations (6 unique)</h2></summary>
+        <div class="rec-body">
+          <ol><li><span class="badge badge-critical">CRITICAL</span> Restrict port 22 on sg-0abc1234 to known IPs</li>
+<li><span class="badge badge-critical">CRITICAL</span> Fix 2 software vulnerabilities (CVE-2024-4577, CVE-2023-1111) — update affected packages to latest patched versions <a href="https://docs.aws.amazon.com/x" style="color:#60a5fa" target="_blank" rel="noopener">&#128214;</a></li>
+<li><span class="badge badge-high">HIGH</span> Review and fix (&times; 3) <a href="https://docs.aws.amazon.com/x" style="color:#60a5fa" target="_blank" rel="noopener">&#128214;</a></li>
+<li><span class="badge badge-high">HIGH</span> [EC2.19] Remove unrestricted rules</li>
+<li><span class="badge badge-medium">MEDIUM</span> Investigate</li>
+<li><span class="badge badge-medium">MEDIUM</span> Install 1 Windows patch (KB5034441)</li></ol>
+        </div>
+      </details>
+
+<footer>
+  <p>Generated by AWS Security MCP Server v__VERSION__</p>
+  <p>This report is for informational purposes only.</p>
+</footer>
+
+</div>
+<script>
+(function(){
+  var activeSev='ALL',activeMod='ALL';
+  var countEl=document.getElementById('filterCount');
+  var tpl=countEl?countEl.getAttribute('data-tpl'):'';
+  function apply(){
+    var cards=document.querySelectorAll('.finding-card[data-severity]');
+    var shown=0,total=cards.length;
+    cards.forEach(function(c){
+      var sevOk=activeSev==='ALL'||c.getAttribute('data-severity')===activeSev;
+      var modOk=activeMod==='ALL'||c.getAttribute('data-module')===activeMod;
+      c.style.display=(sevOk&&modOk)?'':'none';
+      if(sevOk&&modOk)shown++;
+    });
+    if(countEl)countEl.textContent=tpl.replace('{shown}',shown).replace('{total}',total);
+    document.querySelectorAll('.module-fold').forEach(function(f){
+      var mod=f.getAttribute('data-module');
+      if(activeMod!=='ALL'&&mod!==activeMod){f.style.display='none';return;}
+      var hasVisible=f.querySelectorAll('.finding-card:not([style*="display: none"])').length>0;
+      f.style.display=hasVisible?'':'none';
+    });
+    document.querySelectorAll('.severity-group-fold').forEach(function(g){
+      g.style.display=g.querySelectorAll('.finding-card:not([style*="display: none"])').length?'':'none';
+    });
+  }
+  document.querySelectorAll('.filter-btn[data-severity]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.filter-btn[data-severity]').forEach(function(x){x.classList.remove('active')});
+      b.classList.add('active');
+      activeSev=b.getAttribute('data-severity');
+      apply();
+    });
+  });
+  var sel=document.getElementById('moduleFilter');
+  if(sel)sel.addEventListener('change',function(){activeMod=sel.value;apply();});
+  apply();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HW Defense Security Assessment Report &mdash; 2026-05-01</title>
+<style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:#0f172a;color:#f8fafc;font-family:Inter,system-ui,-apple-system,sans-serif;line-height:1.6;font-size:14px}
+    .container{max-width:900px;margin:0 auto;padding:40px 24px}
+    header{text-align:center;margin-bottom:40px;border-bottom:1px solid #334155;padding-bottom:24px}
+    header h1{font-size:28px;font-weight:700;margin-bottom:8px;letter-spacing:-0.5px}
+    .meta{color:#94a3b8;font-size:13px}
+    h2{font-size:20px;font-weight:600;margin:32px 0 16px;padding-bottom:8px;border-bottom:1px solid #334155}
+    h3{font-size:16px;font-weight:600;margin:16px 0 8px}
+    h4{font-size:14px;font-weight:600;margin:12px 0 4px}
+    .summary-cards{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:32px;justify-content:center}
+    .summary-card{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px 20px;text-align:center;min-width:100px;flex:1}
+    .summary-card .stat-count{font-size:28px;font-weight:700}
+    .summary-card .stat-label{font-size:12px;color:#94a3b8;margin-top:2px}
+    .badge{display:inline-block;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:0.5px;color:#fff}
+    .badge-critical{background:#ef4444}
+    .badge-high{background:#f97316}
+    .badge-medium{background:#eab308;color:#1e293b}
+    .badge-low{background:#22c55e;color:#1e293b}
+    .hw-section{background:#1e293b;border:1px solid #334155;border-radius:8px;margin-bottom:16px;overflow:hidden}
+    .hw-section>summary{cursor:pointer;padding:16px 20px;display:flex;align-items:center;gap:12px;list-style:none;font-size:16px;font-weight:600;user-select:none;flex-wrap:wrap}
+    .hw-section>summary::-webkit-details-marker{display:none}
+    .hw-section>summary::marker{content:""}
+    .hw-section>summary::after{content:"\25B6";font-size:12px;color:#64748b;flex-shrink:0;transition:transform 0.2s;margin-left:auto}
+    .hw-section[open]>summary::after{transform:rotate(90deg)}
+    .hw-section[open]>summary{border-bottom:1px solid #334155}
+    .hw-section-body{padding:16px 20px}
+    .hw-section-icon{font-size:20px}
+    .hw-section-title{flex:1}
+    .hw-section-stats{display:inline-flex;gap:8px;font-size:12px;flex-wrap:wrap}
+    .hw-section-stats .badge{font-size:10px;padding:1px 8px}
+    .hw-auto-section{margin-bottom:16px}
+    .hw-auto-section h4{color:#60a5fa;margin-bottom:8px}
+    .hw-manual-section h4{color:#fbbf24;margin-bottom:8px}
+    .hw-clean{color:#22c55e;font-size:14px;padding:8px 12px;background:rgba(34,197,94,0.1);border-radius:6px}
+    .hw-no-auto{color:#94a3b8;font-size:14px;padding:8px 12px;background:rgba(148,163,184,0.08);border-radius:6px}
+    .hw-manual-item{display:flex;align-items:flex-start;gap:8px;padding:6px 12px;margin-bottom:4px;font-size:14px;color:#cbd5e1;border-radius:4px;background:rgba(148,163,184,0.06)}
+    .hw-manual-checkbox{color:#fbbf24;font-size:16px;flex-shrink:0}
+    .finding-card{display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:4px;border-radius:6px;border-left:4px solid #334155;background:rgba(30,41,59,0.5);flex-wrap:wrap}
+    .sev-critical{border-left-color:#ef4444}
+    .sev-high{border-left-color:#f97316}
+    .sev-medium{border-left-color:#eab308}
+    .sev-low{border-left-color:#22c55e}
+    .finding-title-text{font-weight:600;font-size:13px;flex:1;min-width:200px}
+    .finding-resource{color:#94a3b8;font-size:12px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .finding-card>details{width:100%;margin-top:4px}
+    .finding-card>details>summary{cursor:pointer;font-size:12px;color:#60a5fa;user-select:none}
+    .finding-card-body{padding:8px 0}
+    .finding-card-body p{color:#cbd5e1;font-size:13px;margin-bottom:4px}
+    .finding-card-body ol{padding-left:20px}
+    .finding-card-body li{color:#cbd5e1;font-size:13px;margin-bottom:2px}
+    .hw-finding-group{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px 16px;margin-bottom:8px}
+    .hw-finding-header{display:flex;align-items:center;gap:8px}
+    .hw-finding-title{color:#e2e8f0;font-size:14px;flex:1}
+    .hw-finding-count{color:#94a3b8;font-size:13px;font-weight:600;background:#334155;padding:2px 8px;border-radius:4px}
+    .hw-finding-resources{padding:8px 0}
+    .hw-resource-item{font-size:12px;color:#94a3b8;padding:2px 0;font-family:monospace}
+    .hw-finding-remediation{border-top:1px solid #334155;margin-top:8px;padding-top:8px}
+    .hw-finding-remediation ol{margin:4px 0;padding-left:20px;font-size:13px;color:#cbd5e1}
+    footer{margin-top:48px;padding-top:24px;border-top:1px solid #334155;text-align:center}
+    footer p{color:#64748b;font-size:12px;margin-bottom:4px}
+    @media print{
+      body{background:#fff;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .container{max-width:100%;padding:20px}
+      .hw-section,.summary-card,.finding-card{background:#fff;border:1px solid #e2e8f0}
+      .badge{border:1px solid}
+      header{border-bottom-color:#e2e8f0}
+      h2{border-bottom-color:#e2e8f0}
+      footer{border-top-color:#e2e8f0}
+      .summary-card .stat-label{color:#64748b}
+      .finding-title-text{color:#1e293b}
+      .finding-resource{color:#64748b}
+      .finding-card-body p,.finding-card-body li{color:#475569}
+      .hw-section[open]>summary{border-bottom-color:#e2e8f0}
+      .hw-manual-item{color:#475569}
+      details{display:block}
+      details>summary{display:block}
+      details>:not(summary){display:block !important}
+      .ai-summary{background:#f5f3ff !important;border-color:#c7d2fe !important}
+      .ai-summary-title{color:#4338ca !important}
+      .ai-summary-body{color:#1e293b !important}
+    }
+    .ai-summary{background:linear-gradient(135deg,#1e293b,#1e1b4b);border:1px solid #4338ca;border-radius:10px;padding:16px 20px;margin:0 0 28px}
+    .ai-summary-title{font-size:14px;font-weight:700;color:#a5b4fc;margin-bottom:8px}
+    .ai-summary-body{font-size:14px;line-height:1.7;color:#cbd5e1;white-space:pre-wrap}
+  </style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>&#128737;&#65039; HW Defense Security Assessment Report</h1>
+  <div class="meta">Account: 123456789012 | Region: us-east-1 | Scan Time: 2026-05-01 08:00:00 UTC</div>
+</header>
+
+
+
+<section class="summary-cards">
+  <div class="summary-card"><div class="stat-count" style="color:#ef4444">8</div><div class="stat-label">Total Findings</div></div>
+  <div class="summary-card"><div class="stat-count" style="color:#60a5fa">8</div><div class="stat-label">Sections Checked</div></div>
+  <div class="summary-card"><div class="stat-count" style="color:#22c55e">4</div><div class="stat-label">Auto-Verified</div></div>
+  <div class="summary-card"><div class="stat-count" style="color:#fbbf24">24</div><div class="stat-label">Manual Pending</div></div>
+</section>
+
+<details class="hw-section">
+  <summary>
+    <span class="hw-section-icon">🎯</span>
+    <span class="hw-section-title">Attack Surface Reduction</span>
+    <span class="hw-section-stats"><span class="badge badge-critical">1 CRITICAL</span> <span class="badge badge-high">2 HIGH</span> <span style="color:#fbbf24;font-size:12px">&#9744; 1 manual item</span></span>
+  </summary>
+  <div class="hw-section-body">
+    <div class="hw-auto-section">
+      <h4>&#129302; Automated Checks</h4>
+      <div class="hw-finding-group">
+  <div class="hw-finding-header">
+    <span class="badge badge-critical">CRITICAL</span>
+    <span class="hw-finding-title">EC2 instance i-0legacy0001 has SSH (22) reachable from 0.0.0.0/0</span>
+    <span class="hw-finding-count">&times;1</span>
+  </div>
+  <details>
+    <summary>View affected resources (1)</summary>
+    <div class="hw-finding-resources">
+      <div class="hw-resource-item">i-0legacy0001 &mdash; arn:aws:ec2:us-east-1:123456789012:instance/i-0legacy0001</div>
+    </div>
+    <div class="hw-finding-remediation">
+      <strong>Remediation:</strong>
+      <ol><li>Restrict port 22 on sg-0abc1234 to known IPs</li></ol>
+    </div>
+  </details>
+</div>
+<div class="hw-finding-group">
+  <div class="hw-finding-header">
+    <span class="badge badge-high">HIGH</span>
+    <span class="hw-finding-title">EC2 instance i-0legacy0002 has RDP (3389) reachable</span>
+    <span class="hw-finding-count">&times;1</span>
+  </div>
+  <details>
+    <summary>View affected resources (1)</summary>
+    <div class="hw-finding-resources">
+      <div class="hw-resource-item">i-0legacy0002 &mdash; arn:aws:ec2:us-east-1:123456789012:instance/i-0legacy0001</div>
+    </div>
+    <div class="hw-finding-remediation">
+      <strong>Remediation:</strong>
+      <ol><li>Review and fix</li><li>Documentation: <a href="https://docs.aws.amazon.com/x" style="color:#60a5fa" target="_blank" rel="noopener">https://docs.aws.amazon.com/x</a></li></ol>
+    </div>
+  </details>
+</div>
+<div class="hw-finding-group">
+  <div class="hw-finding-header">
+    <span class="badge badge-high">HIGH</span>
+    <span class="hw-finding-title">EC2.19 Security groups should not allow unrestricted access to ports with high risk</span>
+    <span class="hw-finding-count">&times;1</span>
+  </div>
+  <details>
+    <summary>View affected resources (1)</summary>
+    <div class="hw-finding-resources">
+      <div class="hw-resource-item">i-0legacy0001 &mdash; arn:aws:ec2:us-east-1:123456789012:instance/i-0legacy0001</div>
+    </div>
+    <div class="hw-finding-remediation">
+      <strong>Remediation:</strong>
+      <ol><li>Remove unrestricted rules</li></ol>
+    </div>
+  </details>
+</div>
+    </div>
+    
+        <div class="hw-manual-section">
+          <h4>&#128203; Manual Verification Items</h4>
+          <div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Draw ingress/egress path architecture diagram, mark all Internet/DX dedicated line paths</div>
+        </div>
+  </div>
+</details>
+<details class="hw-section">
+  <summary>
+    <span class="hw-section-icon">🩹</span>
+    <span class="hw-section-title">Vulnerability &amp; Patch Management</span>
+    <span class="hw-section-stats"><span class="badge badge-critical">1 CRITICAL</span> <span class="badge badge-high">2 HIGH</span> <span class="badge badge-medium">1 MEDIUM</span> <span style="color:#fbbf24;font-size:12px">&#9744; 2 manual items</span></span>
+  </summary>
+  <div class="hw-section-body">
+    <div class="hw-auto-section">
+      <h4>&#129302; Automated Checks</h4>
+      <div class="hw-finding-group">
+  <div class="hw-finding-header">
+    <span class="badge badge-critical">CRITICAL</span>
+    <span class="hw-finding-title">CVE-2024-4577 - php</span>
+    <span class="hw-finding-count">&times;1</span>
+  </div>
+  <details>
+    <summary>View affected resources (1)</summary>
+    <div class="hw-finding-resources">
+      <div class="hw-resource-item">arn:aws:ec2:us-east-1:123456789012:instance/i-0legacy0003 &mdash; arn:aws:ec2:us-east-1:123456789012:instance/i-0legacy0003</div>
+    </div>
+    <div class="hw-finding-remediation">
+      <strong>Remediation:</strong>
+      <ol><li>Review and fix</li><li>Documentation: <a href="https://docs.aws.amazon.com/x" style="color:#60a5fa" target="_blank" rel="noopener">https://docs.aws.amazon.com/x</a></li></ol>
+    </div>
+  </details>
+</div>
+<div class="hw-finding-group">
+  <div class="hw-finding-header">
+    <span class="badge badge-high">HIGH</span>
+    <span class="hw-finding-title">Instance i-0legacy0004 missing critical patches</span>
+    <span class="hw-finding-count">&times;1</span>
+  </div>
+  <details>
+    <summary>View affected resources (1)</summary>
+    <div class="hw-finding-resources">
+      <div class="hw-resource-item">i-0legacy0004 &mdash; arn:aws:ec2:us-east-1:123456789012:instance/i-0legacy0001</div>
+    </div>
+    <div class="hw-finding-remediation">
+      <strong>Remediation:</strong>
+      <ol><li>Review and fix</li><li>Documentation: <a href="https://docs.aws.amazon.com/x" style="color:#60a5fa" target="_blank" rel="noopener">https://docs.aws.amazon.com/x</a></li></ol>
+    </div>
+  </details>
+</div>
+<div class="hw-finding-group">
+  <div class="hw-finding-header">
+    <span class="badge badge-high">HIGH</span>
+    <span class="hw-finding-title">CVE-2023-1111 - openssl</span>
+    <span class="hw-finding-count">&times;1</span>
+  </div>
+  <details>
+    <summary>View affected resources (1)</summary>
+    <div class="hw-finding-resources">
+      <div class="hw-resource-item">i-0legacy0001 &mdash; arn:aws:ec2:us-east-1:123456789012:instance/i-0legacy0001</div>
+    </div>
+    <div class="hw-finding-remediation">
+      <strong>Remediation:</strong>
+      <ol><li>Review and fix</li><li>Documentation: <a href="https://docs.aws.amazon.com/x" style="color:#60a5fa" target="_blank" rel="noopener">https://docs.aws.amazon.com/x</a></li></ol>
+    </div>
+  </details>
+</div>
+<div class="hw-finding-group">
+  <div class="hw-finding-header">
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="hw-finding-title">KB5034441 - Windows security update</span>
+    <span class="hw-finding-count">&times;1</span>
+  </div>
+  <details>
+    <summary>View affected resources (1)</summary>
+    <div class="hw-finding-resources">
+      <div class="hw-resource-item">i-0legacy0001 &mdash; arn:aws:ec2:us-east-1:123456789012:instance/i-0legacy0001</div>
+    </div>
+    <div class="hw-finding-remediation">
+      <strong>Remediation:</strong>
+      <ol><li>Install KB5034441</li></ol>
+    </div>
+  </details>
+</div>
+    </div>
+    
+        <div class="hw-manual-section">
+          <h4>&#128203; Manual Verification Items</h4>
+          <div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Contact security vendors for simulated attack drills (penetration testing)</div>
+<div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Monitor AWS security advisories (known vulnerabilities and patches)</div>
+        </div>
+  </div>
+</details>
+<details class="hw-section">
+  <summary>
+    <span class="hw-section-icon">🔑</span>
+    <span class="hw-section-title">Identity &amp; Credential Security</span>
+    <span class="hw-section-stats"><span class="badge badge-low">1 LOW</span> <span style="color:#fbbf24;font-size:12px">&#9744; 4 manual items</span></span>
+  </summary>
+  <div class="hw-section-body">
+    <div class="hw-auto-section">
+      <h4>&#129302; Automated Checks</h4>
+      <div class="hw-finding-group">
+  <div class="hw-finding-header">
+    <span class="badge badge-low">LOW</span>
+    <span class="hw-finding-title">Role &#39;dev&#39; can pass role</span>
+    <span class="hw-finding-count">&times;1</span>
+  </div>
+  <details>
+    <summary>View affected resources (1)</summary>
+    <div class="hw-finding-resources">
+      <div class="hw-resource-item">dev &mdash; arn:aws:iam::123456789012:role/dev</div>
+    </div>
+    <div class="hw-finding-remediation">
+      <strong>Remediation:</strong>
+      <ol><li>Review and fix</li><li>Documentation: <a href="https://docs.aws.amazon.com/x" style="color:#60a5fa" target="_blank" rel="noopener">https://docs.aws.amazon.com/x</a></li></ol>
+    </div>
+  </details>
+</div>
+    </div>
+    
+        <div class="hw-manual-section">
+          <h4>&#128203; Manual Verification Items</h4>
+          <div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>All IAM users must have MFA enabled</div>
+<div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Access key rotation cycle ≤ 90 days</div>
+<div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Avoid shared account usage</div>
+<div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>No plaintext passwords in S3/Lambda/application code</div>
+        </div>
+  </div>
+</details>
+<details class="hw-section">
+  <summary>
+    <span class="hw-section-icon">🔒</span>
+    <span class="hw-section-title">Transport &amp; Instance Security</span>
+    <span class="hw-section-stats"><span style="color:#22c55e;font-size:12px">&#10003; No issues found</span> <span style="color:#fbbf24;font-size:12px">&#9744; 2 manual items</span></span>
+  </summary>
+  <div class="hw-section-body">
+    <div class="hw-auto-section">
+      <h4>&#129302; Automated Checks</h4>
+      <div class="hw-clean">&#10004; No issues found</div>
+    </div>
+    
+        <div class="hw-manual-section">
+          <h4>&#128203; Manual Verification Items</h4>
+          <div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Verify all external-facing services use TLS 1.2+</div>
+<div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Check internal service-to-service communication encryption</div>
+        </div>
+  </div>
+</details>
+<details class="hw-section">
+  <summary>
+    <span class="hw-section-icon">🛡️</span>
+    <span class="hw-section-title">Security Service Status</span>
+    <span class="hw-section-stats"><span style="color:#fbbf24;font-size:12px">&#9744; 4 manual items</span></span>
+  </summary>
+  <div class="hw-section-body">
+    <div class="hw-auto-section">
+      <h4>&#129302; Automated Checks</h4>
+      <div class="hw-no-auto">&#9898; No automated checks for this section</div>
+    </div>
+    
+        <div class="hw-manual-section">
+          <h4>&#128203; Manual Verification Items</h4>
+          <div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Verify Security Hub is enabled with standards configured</div>
+<div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Verify GuardDuty is enabled in all regions</div>
+<div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Verify CloudTrail multi-region logging is enabled</div>
+<div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Verify Config Rules are configured</div>
+        </div>
+  </div>
+</details>
+<details class="hw-section">
+  <summary>
+    <span class="hw-section-icon">🚨</span>
+    <span class="hw-section-title">Emergency Response Readiness</span>
+    <span class="hw-section-stats"><span style="color:#fbbf24;font-size:12px">&#9744; 5 manual items</span></span>
+  </summary>
+  <div class="hw-section-body">
+    <div class="hw-auto-section">
+      <h4>&#129302; Automated Checks</h4>
+      <div class="hw-no-auto">&#9898; No automated checks for this section</div>
+    </div>
+    
+        <div class="hw-manual-section">
+          <h4>&#128203; Manual Verification Items</h4>
+          <div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Prepare dedicated isolation security groups (no Inbound/Outbound rules)</div>
+<div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Establish instance isolation SOP: Alert → Investigate → Block attacker IP → Network isolation → Security response → Log attack details</div>
+<div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Form 7×24 monitoring rapid response team</div>
+<div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Create dedicated communication channels for the drill period (Teams/Slack/Chime)</div>
+<div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Establish WAR-ROOM connection with AWS TAM (Enterprise Support customers)</div>
+        </div>
+  </div>
+</details>
+<details class="hw-section">
+  <summary>
+    <span class="hw-section-icon">🏗️</span>
+    <span class="hw-section-title">Environment Control</span>
+    <span class="hw-section-stats"><span style="color:#fbbf24;font-size:12px">&#9744; 3 manual items</span></span>
+  </summary>
+  <div class="hw-section-body">
+    <div class="hw-auto-section">
+      <h4>&#129302; Automated Checks</h4>
+      <div class="hw-no-auto">&#9898; No automated checks for this section</div>
+    </div>
+    
+        <div class="hw-manual-section">
+          <h4>&#128203; Manual Verification Items</h4>
+          <div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Shut down non-critical systems during the drill period</div>
+<div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Shut down test/dev environments or maintain same security baseline as production</div>
+<div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Confirm which environments can be emergency-stopped to prevent attack propagation</div>
+        </div>
+  </div>
+</details>
+<details class="hw-section">
+  <summary>
+    <span class="hw-section-icon">📊</span>
+    <span class="hw-section-title">Post-Drill Optimization</span>
+    <span class="hw-section-stats"><span style="color:#fbbf24;font-size:12px">&#9744; 3 manual items</span></span>
+  </summary>
+  <div class="hw-section-body">
+    <div class="hw-auto-section">
+      <h4>&#129302; Automated Checks</h4>
+      <div class="hw-no-auto">&#9898; No automated checks for this section</div>
+    </div>
+    
+        <div class="hw-manual-section">
+          <h4>&#128203; Manual Verification Items</h4>
+          <div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Address and remediate each item from the attack report</div>
+<div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Establish periodic security maintenance processes with the security team</div>
+<div class="hw-manual-item"><span class="hw-manual-checkbox">&#9633;</span>Continuously fill security risk gaps</div>
+        </div>
+  </div>
+</details>
+
+<footer>
+  <p>Generated by AWS Security MCP Server v__VERSION__</p>
+
+</footer>
+
+</div>
+</body>
+</html>
