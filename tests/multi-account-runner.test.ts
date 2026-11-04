@@ -23,6 +23,7 @@ import { listOrgAccounts } from "../src/utils/org-accounts.js";
 import { assumeRole } from "../src/utils/assume-role.js";
 import type { Scanner } from "../src/scanners/base.js";
 import type { ScanResult, ScanContext } from "../src/types.js";
+import { acceptanceModules } from "./exploitability/fixtures.js";
 
 function createMockScanner(name: string, findings: ScanResult["findings"] = []): Scanner {
   return {
@@ -176,5 +177,78 @@ describe("runMultiAccountScanners", () => {
 
     expect(result.modules[0].findings[0].accountId).toBe("000000000000");
     expect(result.modules[0].findings[0].accountAlias).toBe("Admin");
+  });
+});
+
+describe("runMultiAccountScanners — exploitability post-process (T4)", () => {
+  beforeEach(() => {
+    vi.mocked(listOrgAccounts).mockReset();
+    vi.mocked(assumeRole).mockReset();
+  });
+
+  it("org mode: dedupes aggregation results (security_hub vs inspector) before the summary", async () => {
+    vi.mocked(listOrgAccounts).mockResolvedValue([
+      { id: "000000000000", name: "Admin", email: "admin@test.com", status: "ACTIVE" },
+    ]);
+    const [inspector, sh] = acceptanceModules();
+    const result = await runMultiAccountScanners(
+      [
+        { moduleName: inspector.module, scan: vi.fn().mockResolvedValue(inspector) },
+        { moduleName: sh.module, scan: vi.fn().mockResolvedValue(sh) },
+        createMockScanner("ssl_certificate"),
+      ],
+      "cn-north-1",
+      { orgMode: true, roleName: "AWSSecurityMCPAudit" },
+    );
+
+    const shOut = result.modules.find((m) => m.module === "security_hub_findings")!;
+    expect(shOut.findings.filter((f) => f.source === "Inspector")).toHaveLength(1);
+    expect(shOut.findingsCount).toBe(2);
+    expect(shOut.warnings?.some((w) => w.includes("Deduplicated 3"))).toBe(true);
+    expect(result.summary.totalFindings).toBe(5);
+  });
+
+  it("org mode: detection-only Inspector leaves Security Hub findings untouched", async () => {
+    vi.mocked(listOrgAccounts).mockResolvedValue([
+      { id: "000000000000", name: "Admin", email: "admin@test.com", status: "ACTIVE" },
+    ]);
+    const [inspector, sh] = acceptanceModules("detection-only");
+    const result = await runMultiAccountScanners(
+      [
+        { moduleName: inspector.module, scan: vi.fn().mockResolvedValue(inspector) },
+        { moduleName: sh.module, scan: vi.fn().mockResolvedValue(sh) },
+      ],
+      "cn-north-1",
+      { orgMode: true, roleName: "AWSSecurityMCPAudit" },
+    );
+
+    const shOut = result.modules.find((m) => m.module === "security_hub_findings")!;
+    expect(shOut.findings).toHaveLength(5);
+    expect(result.summary.totalFindings).toBe(5);
+  });
+
+  it("org mode with account_ids filter: dedupes after the aggregation filter", async () => {
+    vi.mocked(listOrgAccounts).mockResolvedValue([
+      { id: "123456789012", name: "Member", email: "m@test.com", status: "ACTIVE" },
+    ]);
+    vi.mocked(assumeRole).mockResolvedValue({
+      accessKeyId: "ASIA_FAKE",
+      secretAccessKey: "fake",
+      sessionToken: "fake",
+    });
+    const [inspector, sh] = acceptanceModules();
+    const result = await runMultiAccountScanners(
+      [
+        { moduleName: inspector.module, scan: vi.fn().mockResolvedValue(inspector) },
+        { moduleName: sh.module, scan: vi.fn().mockResolvedValue(sh) },
+      ],
+      "cn-north-1",
+      { orgMode: true, roleName: "AWSSecurityMCPAudit", accountIds: ["123456789012"] },
+    );
+
+    const shOut = result.modules.find((m) => m.module === "security_hub_findings")!;
+    expect(shOut.findings).toHaveLength(2);
+    expect(shOut.findingsCount).toBe(2);
+    expect(result.summary.totalFindings).toBe(5);
   });
 });
