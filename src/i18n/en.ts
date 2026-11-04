@@ -350,6 +350,8 @@ export const enI18n: I18n = {
       `Remaining ${findings} finding${findings === 1 ? "" : "s"} summarized by CVE (${cves} CVE${cves === 1 ? "" : "s"})`,
     cveSummaryNote: (shown: number) =>
       `Only the top ${shown} findings by exploitability priority are listed individually; the rest are summarized below.`,
+    inspectorOverflow: (n: number) =>
+      `${n} more Inspector finding${n === 1 ? " is" : "s are"} summarized in the CVE table below.`,
     hwUrgentTitle: "Fix first (P0 / P1)",
     hwOthersTitle: "Other vulnerabilities",
     hwMoreGroups: (n: number) =>

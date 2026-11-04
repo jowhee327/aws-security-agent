@@ -345,6 +345,7 @@ export const zhI18n: I18n = {
     kevStale: (days: number) => `KEV 快照已过期（${days} 天），建议运行 scripts/update-kev.ts 更新。`,
     cveSummaryTitle: (findings: number, cves: number) => `其余 ${findings} 条发现按 CVE 汇总（${cves} 个 CVE）`,
     cveSummaryNote: (shown: number) => `仅按可利用性优先级逐条列出前 ${shown} 条，其余按 CVE 汇总如下。`,
+    inspectorOverflow: (n: number) => `另有 ${n} 条 Inspector 发现以 CVE 汇总表呈现（见下方）。`,
     hwUrgentTitle: "优先修复（P0 / P1）",
     hwOthersTitle: "其余漏洞",
     hwMoreGroups: (n: number) => `另有 ${n} 组漏洞未展开，详见完整安全扫描报告。`,

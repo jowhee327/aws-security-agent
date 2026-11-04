@@ -486,8 +486,30 @@ describe("generateHtmlReport — exploitability", () => {
     expect(moduleBody).toContain("P0 — fix immediately");
     expect(moduleBody).toContain("Remaining 252 findings summarized by CVE");
     expect(moduleBody).toContain("Only the top 200 findings by exploitability priority are listed individually");
+    expect(moduleBody).toContain("252 more Inspector findings are summarized in the CVE table below.");
     // inspector now shows in the stats table
     expect(html).toMatch(/<tr><td>Inspector<\/td><td>5<\/td><td>452<\/td>/);
+  });
+
+  it("210 P0/P1 inspector findings: exactly 200 cards, 10 overflow at the top of the CVE table", () => {
+    const urgent = Array.from({ length: 210 }, (_, i) =>
+      cveFinding({ cve: `CVE-2099-5${String(i).padStart(3, "0")}`, exploit: true, epss: 0.5, resourceId: `i-${i}` }),
+    );
+    const scan = scanOf([moduleOf("inspector_findings", [...bulkInspector(30, 20), ...urgent])]);
+    for (const lang of ["en", "zh"] as const) {
+      const html = generateHtmlReport(scan, undefined, lang);
+      const cards = html.match(/<div class="finding-card [^"]+" data-severity="\w+" data-module="inspector_findings">/g) ?? [];
+      expect(cards.length).toBe(200);
+      const moduleBody = html.slice(html.indexOf('<details class="module-fold" data-module="inspector_findings">'));
+      expect(moduleBody).toContain(
+        lang === "en" ? "40 more Inspector findings are summarized in the CVE table below." : "另有 40 条 Inspector 发现以 CVE 汇总表呈现（见下方）。",
+      );
+      const summary = moduleBody.slice(moduleBody.indexOf('class="severity-group-fold xp-cve-summary"'));
+      const rows = summary.match(/<tr><td>CVE-2099-\d+<\/td><td>\d+<\/td><td>\d+<\/td><td>[^]*?<\/tr>/g) ?? [];
+      expect(rows).toHaveLength(30);
+      expect(rows.slice(0, 10).every((r) => /<td>CVE-2099-52\d\d<\/td>/.test(r) && r.includes("P1"))).toBe(true);
+      expect(rows.slice(10).every((r) => r.includes("P3"))).toBe(true);
+    }
   });
 
   it("detection-only inspector_findings (no findings) stays hidden", () => {

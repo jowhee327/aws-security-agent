@@ -875,10 +875,12 @@ export function generateHtmlReport(
       }).filter(Boolean).join("\n");
       if (rest.length === 0) return groups;
       const rows = summarizeByCve(rest);
+      const overflow = `<div class="xp-note">${esc(tx.inspectorOverflow(rest.length))}</div>`;
       const body = rows
         .map((r) => `<tr><td>${esc(r.cveId)}</td><td>${r.resources}</td><td>${r.findings}</td><td>${exploitBadge(r.highestPriority)}</td></tr>`)
         .join("\n");
-      return `${groups}
+      return `${overflow}
+          ${groups}
           <div class="xp-note">${esc(tx.cveSummaryNote(listed.length))}</div>
           <details class="severity-group-fold xp-cve-summary">
             <summary><h4>${esc(tx.cveSummaryTitle(rest.length, rows.length))}</h4></summary>

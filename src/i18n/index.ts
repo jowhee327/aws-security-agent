@@ -191,6 +191,8 @@ export interface ExploitabilityI18n {
   kevStale: (days: number) => string;
   cveSummaryTitle: (findings: number, cves: number) => string;
   cveSummaryNote: (shown: number) => string;
+  /** Note under the inspector module when findings overflow the individual-entry cap. */
+  inspectorOverflow: (n: number) => string;
   hwUrgentTitle: string;
   hwOthersTitle: string;
   hwMoreGroups: (n: number) => string;

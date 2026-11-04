@@ -137,7 +137,7 @@ describe("generateMarkdownReport — exploitability", () => {
     expect(md.indexOf("## 🎯 Exploitability Assessment")).toBeLessThan(md.indexOf("## Findings by Severity"));
   });
 
-  it("lists inspector_findings only for P0/P1 + top 200, rest as a CVE summary table", () => {
+  it("lists inspector_findings hard-capped at top 200, rest as a CVE summary table", () => {
     const urgent = Array.from({ length: 210 }, (_, i) =>
       cveFinding({ cve: `CVE-2099-5${String(i).padStart(3, "0")}`, exploit: true, epss: 0.5, resourceId: `i-${i}` }),
     );
@@ -148,15 +148,48 @@ describe("generateMarkdownReport — exploitability", () => {
     const scan = scanOf([other, moduleOf("inspector_findings", [...bulk, ...urgent])]);
     const md = generateMarkdownReport(scan, "zh");
     const entries = md.match(/^#### /gm) ?? [];
-    // all 210 P0/P1 kept (exceeds 200) + the non-inspector finding
-    expect(entries).toHaveLength(211);
+    // Intentional change (Codex final review, fix round 2): Markdown now uses the same
+    // hard cap of 200 as HTML — previously all 210 P0/P1 were kept (211 entries). The
+    // 10 overflowing P0/P1 go to the CVE summary table instead.
+    expect(entries).toHaveLength(201);
     expect(md).toContain("#### Port 22 open");
-    expect(md).toContain("### 其余 400 条发现按 CVE 汇总（250 个 CVE）");
-    expect(md).toContain("仅按可利用性优先级逐条列出前 210 条");
+    expect(md).toContain("### 其余 410 条发现按 CVE 汇总（260 个 CVE）");
+    expect(md).toContain("仅按可利用性优先级逐条列出前 200 条");
+    expect(md).toContain("> 另有 410 条 Inspector 发现以 CVE 汇总表呈现（见下方）。");
     const summaryRows = md.split("\n").filter((l) => /^\| CVE-2099-1\d{4} \| \d+ \| \d+ \| P3 \|$/.test(l));
     expect(summaryRows).toHaveLength(250);
     // recommendations only enumerate the listed findings
     const recs = md.slice(md.indexOf("## 建议"));
-    expect(recs.split("\n").filter((l) => /^\d+\. \[/.test(l))).toHaveLength(211);
+    expect(recs.split("\n").filter((l) => /^\d+\. \[/.test(l))).toHaveLength(201);
+  });
+
+  it("210 P0/P1 inspector findings: exactly 200 individual entries, 10 overflow at the top of the CVE table", () => {
+    const urgent = Array.from({ length: 210 }, (_, i) =>
+      cveFinding({ cve: `CVE-2099-5${String(i).padStart(3, "0")}`, exploit: true, epss: 0.5, resourceId: `i-${i}` }),
+    );
+    const md = generateMarkdownReport(scanOf([moduleOf("inspector_findings", [...bulkInspector(30, 20), ...urgent])]), "en");
+    const entries = md.match(/^#### /gm) ?? [];
+    expect(entries).toHaveLength(200);
+    expect(md).toContain("> 40 more Inspector findings are summarized in the CVE table below.");
+    expect(md).toContain("### Remaining 40 findings summarized by CVE (30 CVEs)");
+    const listedCves = new Set((md.match(/^#### CVE-2099-5\d{3}/gm) ?? []).map((l) => l.slice(5)));
+    expect(listedCves.size).toBe(200);
+    const table = md.slice(md.indexOf("### Remaining 40 findings"));
+    const rows = table.split("\n").filter((l) => /^\| CVE-2099-\d+ \| \d+ \| \d+ \| P\d \|$/.test(l));
+    expect(rows).toHaveLength(30);
+    // overflowing P1 CVEs first, none of them also listed individually
+    const top = rows.slice(0, 10);
+    expect(top.every((r) => r.endsWith("| P1 |"))).toBe(true);
+    for (const r of top) expect(listedCves.has(r.split(" | ")[0].slice(2))).toBe(false);
+    expect(rows.slice(10).every((r) => r.endsWith("| P3 |"))).toBe(true);
+    // the P0/P1 Top 10 section is unchanged
+    expect(md).toContain("### P0 / P1 Top 10");
+    expect(md).toContain("200 more P0/P1 findings not shown");
+  });
+
+  it("no overflow note when inspector findings fit under the cap", () => {
+    const md = generateMarkdownReport(scanOf([moduleOf("inspector_findings", bulkInspector(20))]), "en");
+    expect(md).not.toContain("summarized in the CVE table below");
+    expect(md).not.toContain("summarized by CVE");
   });
 });

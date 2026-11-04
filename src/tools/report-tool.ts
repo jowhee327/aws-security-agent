@@ -113,13 +113,14 @@ export function generateMarkdownReport(scanResults: FullScanResult, lang?: Lang)
     lines.push("");
   }
 
-  // Exploitability: when present, inspector_findings is listed only for P0/P1 + the
-  // top entries by priority; the remainder goes to a per-CVE summary table.
+  // Exploitability: when present, inspector_findings is hard-capped at the top
+  // INSPECTOR_CARD_LIMIT entries by priority (P0 > P1 > P2 > P3, then riskScore);
+  // the remainder, including any P0/P1 overflow, goes to a per-CVE summary table.
   const everyFinding: Finding[] = modules.flatMap((m) => m.findings);
   const hasExploit = hasExploitability(everyFinding);
   const inspectorMod = modules.find((m) => m.module === "inspector_findings");
   const inspectorSel = hasExploit && inspectorMod && hasExploitability(inspectorMod.findings)
-    ? selectInspectorFindings(inspectorMod.findings, undefined, true)
+    ? selectInspectorFindings(inspectorMod.findings)
     : undefined;
   const omitted = new Set<Finding>(inspectorSel?.rest ?? []);
   const listedFindings = (): Finding[] =>
@@ -189,6 +190,10 @@ export function generateMarkdownReport(scanResults: FullScanResult, lang?: Lang)
 
     lines.push(`## ${t.findingsBySeverity}`);
     lines.push("");
+    if (inspectorSel && inspectorSel.rest.length > 0) {
+      lines.push(`> ${tx.inspectorOverflow(inspectorSel.rest.length)}`);
+      lines.push("");
+    }
 
     for (const sev of SEVERITY_ORDER) {
       const findings = grouped.get(sev)!;
