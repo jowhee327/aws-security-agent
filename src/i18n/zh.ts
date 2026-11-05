@@ -291,7 +291,7 @@ export const zhI18n: I18n = {
       exploitAvailable: "有公开 exploit",
       epssHigh: "EPSS 高（\u2265 0.1）",
       kev: "CISA KEV（在野利用）",
-      reachable: "公网可达（全开 / 白名单）",
+      reachable: "有公网暴露面（全开或白名单）",
       p0: "P0（立即修复）",
     },
     funnelFindings: "条",

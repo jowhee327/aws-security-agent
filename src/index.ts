@@ -1102,6 +1102,12 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
             isError: true,
           };
         }
+        if (p === "alicloud") {
+          return {
+            content: [{ type: "text", text: `Error: list_org_accounts is not supported for provider "alicloud". Alibaba Cloud multi-account (Resource Directory) is not supported in this release: scans run against the single account of the configured AccessKey.` }],
+            isError: true,
+          };
+        }
         if (p !== "aws") {
           return {
             content: [{ type: "text", text: `Error: list_org_accounts is not supported for provider "${p}" yet (Huawei Cloud multi-account via Organizations + STS assumeAgency is planned for Phase 2).` }],

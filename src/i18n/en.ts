@@ -293,7 +293,7 @@ export const enI18n: I18n = {
       exploitAvailable: "Public exploit",
       epssHigh: "EPSS high (\u2265 0.1)",
       kev: "CISA KEV (exploited in the wild)",
-      reachable: "Internet-reachable (open / allow-list)",
+      reachable: "Publicly exposed (0.0.0.0/0 or allow-listed public IPs)",
       p0: "P0 (fix now)",
     },
     funnelFindings: "findings",

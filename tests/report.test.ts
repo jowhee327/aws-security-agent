@@ -120,7 +120,7 @@ describe("generateMarkdownReport — exploitability", () => {
     expect(md).toContain("| Public exploit | 12 | 12 |");
     expect(md).toContain("| EPSS high (≥ 0.1) | 12 | 12 |");
     expect(md).toContain("| CISA KEV (exploited in the wild) | 1 | 1 |");
-    expect(md).toContain("| Internet-reachable (open / allow-list) | 1 | 1 |");
+    expect(md).toContain("| Publicly exposed (0.0.0.0/0 or allow-listed public IPs) | 1 | 1 |");
     expect(md).toContain("| P0 (fix now) | 1 | 1 |");
     expect(md).toContain("- **By exploitability priority:** P0 1 | P1 12 | P2 0 | P3 1");
     expect(md).toContain("CISA KEV snapshot: 2026-11-03");

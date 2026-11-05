@@ -542,7 +542,7 @@ Returns a short summary plus JSON:
 | Public exploit | 1,311 |
 | EPSS high (≥ 0.1) | 38 |
 | CISA KEV | 29 |
-| Reachable (`internet_open` + `allowlist`) | 888 |
+| Publicly exposed (`internet_open` 0 + `allowlist` 888) | 888 |
 | **P0 / P1 / P2 / P3** | **0 / 132 / 1,449 / 8,333** |
 | Security Hub Inspector duplicates removed | 9,888 |
 

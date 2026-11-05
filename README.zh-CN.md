@@ -391,7 +391,7 @@ bucket **保持私有**（不加公开策略、不开静态网站托管），访
 | 有公开 exploit | 1,311 |
 | EPSS 高（≥ 0.1） | 38 |
 | CISA KEV | 29 |
-| 公网可达（`internet_open` + `allowlist`） | 888 |
+| 有公网暴露面（`internet_open` 0 + `allowlist` 888） | 888 |
 | **P0 / P1 / P2 / P3** | **0 / 132 / 1,449 / 8,333** |
 | 去重删除的 Security Hub Inspector 重复项 | 9,888 |
 

@@ -170,16 +170,28 @@ describe("MCP tools — list_org_accounts for azure", () => {
     }
   });
 
-  it("keeps the existing huaweicloud / alicloud text byte-identical", async () => {
+  it("keeps the existing huaweicloud text byte-identical", async () => {
     const { client, close } = await connect();
     try {
-      for (const p of ["huaweicloud", "alicloud"]) {
-        const res = await call(client, "list_org_accounts", { provider: p });
-        expect(res.isError).toBe(true);
-        expect(res.content[0].text).toBe(
-          `Error: list_org_accounts is not supported for provider "${p}" yet (Huawei Cloud multi-account via Organizations + STS assumeAgency is planned for Phase 2).`,
-        );
-      }
+      const res = await call(client, "list_org_accounts", { provider: "huaweicloud" });
+      expect(res.isError).toBe(true);
+      expect(res.content[0].text).toBe(
+        `Error: list_org_accounts is not supported for provider "huaweicloud" yet (Huawei Cloud multi-account via Organizations + STS assumeAgency is planned for Phase 2).`,
+      );
+    } finally {
+      await close();
+    }
+  });
+
+  it("returns an Alibaba Cloud-specific single-account message for alicloud", async () => {
+    const { client, close } = await connect();
+    try {
+      const res = await call(client, "list_org_accounts", { provider: "alicloud" });
+      expect(res.isError).toBe(true);
+      const text = res.content[0].text;
+      expect(text).toContain('not supported for provider "alicloud"');
+      expect(text).toContain("not supported in this release");
+      expect(text).not.toMatch(/Huawei|Phase 2|assumeAgency/);
     } finally {
       await close();
     }
