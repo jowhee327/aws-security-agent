@@ -1,11 +1,22 @@
 # aws-security-mcp
 
-MCP server for automated AWS security scanning — 20 modules, risk scoring, zero write operations.
+MCP server for automated AWS security scanning — 20 modules, CVE exploitability prioritization, risk scoring, zero write operations. Also scans Huawei Cloud, plus Alibaba Cloud and Azure (both **experimental**) — see [Supported clouds](#supported-clouds).
 
 <!-- badges -->
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Node >= 18](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)
 ![MCP Protocol](https://img.shields.io/badge/MCP-1.12-purple.svg)
+
+> 中文文档：[README.zh-CN.md](README.zh-CN.md)
+
+## What's New in v0.10.0
+
+- **CVE exploitability prioritization (AWS only)** — `inspector_findings` now pulls ACTIVE package-vulnerability findings **directly from Inspector2** and de-duplicates the Security Hub copies of the same findings in `scan_all` / `scan_group`. Each CVE is ranked P0–P3 from public-exploit, EPSS and CISA KEV (offline snapshot) signals plus L4 reachability (EC2 public IP + SG + NACL, ECR image → running ECS task, Lambda Function URL). In short: **P0 requires `internet_open`** together with KEV, a public exploit or high EPSS; a KEV CVE that is not `internet_open` is **P1** (`KEV_NOT_EXPOSED` / `KEV_NOT_RUNNING`); public exploit + high EPSS or + `allowlist` is P1; any other public exploit, high or medium EPSS is P2; everything else is P3. Full rule table: [CVE Exploitability Prioritization](#cve-exploitability-prioritization).
+- **New tool `prioritize_vulnerabilities`** — "what do I fix first": CVE findings ordered by exploitability priority, with funnel, rationale and reachability. AWS only; any non-aws `provider` returns an explicit error.
+- **"🎯 Exploitability Assessment" block** (Chinese: 可利用性研判) in the HTML / Markdown / HW Defense reports, the AI summary prompt and the dashboard (exploitability card + priority column).
+- **Alibaba Cloud provider (`alicloud`) — EXPERIMENTAL**: 14 modules. Tested only with mocks and smoke runs using fake credentials; **not validated against a real account**. See [Alibaba Cloud](#multi-cloud-alibaba-cloud-experimental).
+- **Azure provider (`azure`) — EXPERIMENTAL**: 12 modules, Azure China (21Vianet, the default) and Azure Global. Tested only with mocks and smoke runs using fake credentials; **not validated against a real subscription**. See [Azure](#multi-cloud-azure-incl-azure-china--21vianet-experimental).
+- **Package entry point fix** — `package.json` `main` / `exports` now point to `dist/src/index.js`, so the library import `import('aws-security-mcp')` (e.g. `createServer`, `runAllScanners`, report generators) resolves correctly.
 
 ## Features
 
@@ -20,6 +31,7 @@ MCP server for automated AWS security scanning — 20 modules, risk scoring, zer
 - **MCP Resources** — embedded security rules and risk scoring model documentation
 - **MCP Prompts** — pre-built workflows for full scans and finding analysis
 - **China Region Support** — full support for aws-cn partition
+- **Multi-cloud** — Huawei Cloud (11 modules), plus Alibaba Cloud (14) and Azure incl. Azure China / 21Vianet (12) as **experimental** providers via the `provider` parameter ([Supported clouds](#supported-clouds))
 - **CloudFormation StackSet Template** — one-click deployment of cross-account audit roles
 
 ## Screenshots
@@ -104,7 +116,7 @@ Verify the binary is on your `PATH`:
 
 ```bash
 aws-security-mcp --version
-# 0.10.0
+# aws-security-mcp 0.10.0
 ```
 
 <details>
@@ -242,9 +254,11 @@ This uploads the dashboard files (including your latest `data.json`) to the buck
 
 ## Available Tools
 
+The server registers **39 MCP tools**, 3 MCP prompts (`security-scan`, `analyze-finding`, `hw_defense_checklist`) and 2 resources (`security://rules`, `security://risk-scoring`).
+
 | Tool | Description |
 |------|-------------|
-| `scan_all` | Run all 20 security scanners in parallel (supports org_mode) |
+| `scan_all` | Run all security scanners in parallel — 20 on AWS (11 Huawei Cloud / 14 Alibaba Cloud / 12 Azure); supports org_mode on AWS |
 | `detect_services` | Detect enabled AWS security services and assess maturity |
 | `scan_secret_exposure` | Check Lambda env vars and EC2 userData for exposed secrets |
 | `scan_ssl_certificate` | Check ACM certificates for expiry and failed status |
@@ -264,6 +278,9 @@ This uploads the dashboard files (including your latest `data.json`) to the buck
 | `scan_patch_compliance_findings` | Aggregate findings from SSM Patch Compliance |
 | `scan_imdsv2_enforcement` | Check EC2 instances for IMDSv2 enforcement |
 | `scan_waf_coverage` | Check internet-facing ALBs for WAF Web ACL protection |
+| `scan_rms_compliance_findings` | Huawei Cloud only: aggregate NonCompliant RMS policy states (Security Hub equivalent) |
+| `scan_config_compliance_findings` | Alibaba Cloud only (experimental): Config rule / compliance-pack NON_COMPLIANT findings (Security Hub equivalent) |
+| `scan_defender_assessment_findings` | Azure only (experimental): Defender for Cloud Unhealthy assessments (Security Hub equivalent) |
 | `prioritize_vulnerabilities` | "What do I fix first": CVE findings ordered by exploitability priority (P0 first) with funnel, rationale and reachability. Params: `priorities` (default `["P0","P1"]`), `limit` (default 20, max 200), `resource_type` (`ec2`/`ecr`/`lambda`), `include_reachability` (default true). AWS only (any non-aws `provider` returns an explicit error) |
 | `scan_ecr_image_cve` | Deep-scan ECR image layers for critical/high CVEs missed by ECR Basic/Inspector Enhanced scanning; reports gap/confirmed/reverse-gap vs official results |
 | `scan_group` | Run a predefined group of scanners for a specific scenario |
@@ -274,6 +291,7 @@ This uploads the dashboard files (including your latest `data.json`) to the buck
 | `generate_html_report` | Generate a professional HTML report |
 | `generate_mlps3_report` | Generate a MLPS Level 3 compliance report |
 | `generate_mlps3_html_report` | Generate a MLPS Level 3 HTML compliance report |
+| `get_ai_summary_prompt` | Build the prompt the calling AI uses to write the executive summary, passed back via `ai_summary` (the server makes no LLM calls) |
 | `generate_hw_defense_report` | Generate an HW Defense HTML report (SOP-organized, findings grouped by CVE/control-ID) |
 | `generate_maturity_report` | Generate a security maturity assessment |
 | `scan_and_report` | Run full scan + generate all reports in one step. Saves HTML/MLPS/HW/MD reports to `~/.aws-security/reports/`. Avoids large data transfer |
@@ -525,10 +543,19 @@ Returns a short summary plus JSON:
 | EPSS high (≥ 0.1) | 38 |
 | CISA KEV | 29 |
 | Reachable (`internet_open` + `allowlist`) | 888 |
-| **P0 / P1 / P2 / P3** | **9 / 123 / 1,449 / 8,333** |
+| **P0 / P1 / P2 / P3** | **0 / 132 / 1,449 / 8,333** |
 | Security Hub Inspector duplicates removed | 9,888 |
 
-The two public EC2 instances (SGs with `/32` allow-list rules only) were classified `allowlist`; the 5 running ECS Fargate images were `internal` (public IP on the ENI, but the SG only admits the VPC CIDR and SG references). Instead of thousands of CRITICAL/HIGH findings, the "fix first" list is 9 P0 + 123 P1.
+| Rule (`rationaleCode`) | Findings |
+|---|---|
+| P1 `KEV_NOT_EXPOSED` / `KEV_NOT_RUNNING` | 9 / 20 |
+| P1 `EXPLOIT_EPSS_HIGH` / `EXPLOIT_ALLOWLIST` | 11 / 92 |
+| P2 `EXPLOIT_LIMITED` / `EPSS_MEDIUM` / `EPSS_HIGH` | 1,179 / 262 / 8 |
+| P3 `BASELINE` | 8,333 |
+
+The two public EC2 instances (SGs with `/32` allow-list rules only) were classified `allowlist`; the 5 running ECS Fargate images were `internal` (public IP on the ENI, but the SG only admits the VPC CIDR and SG references). Nothing in the account is open to `0.0.0.0/0`, so there is no P0. Instead of thousands of CRITICAL/HIGH findings, the "fix first" list is 132 P1.
+
+> **Rules changed in v0.10.0.** Under the earlier rule table the same 9,914 findings gave 9 P0 + 123 P1. Those 9 former P0 are KEV CVEs on allow-listed / internal hosts; since P0 now requires `internet_open`, they are P1 (`KEV_NOT_EXPOSED`).
 
 ### IAM permissions
 
@@ -552,7 +579,7 @@ Setting `AWS_SECURITY_MCP_KEV_REFRESH=1` makes the server try an in-memory refre
 - ECS running state is a **point-in-time snapshot** taken during the scan.
 - **Lambda Function URL is not supported in China regions** — `GetFunctionUrlConfig` is rejected there, so Lambda reachability is `unknown` (one warning). API Gateway / ALB triggers are not evaluated.
 - In org mode, reachability of **member-account resources is `unknown`** (only the scanning account's resources are resolved).
-- Only the AWS provider is covered; Huawei Cloud results carry no exploitability data.
+- Only the AWS provider is covered; Huawei Cloud, Alibaba Cloud and Azure results carry no exploitability data, and `prioritize_vulnerabilities` returns an explicit error for any non-aws `provider`.
 
 ## Scan Groups
 
@@ -589,12 +616,14 @@ The StackSet templates are available in the `templates/` directory in both YAML 
 
 ## Supported clouds
 
+Select a cloud per call with the `provider` parameter, or server-wide with `--provider <id>` / `CLOUD_PROVIDER` (`aws` | `huaweicloud` | `alicloud` | `azure`; default `aws`).
+
 | Provider (`provider`) | Status | Modules | Validation |
 |-----------------------|--------|---------|------------|
-| AWS (`aws`, default) | stable | 20 | production |
+| AWS (`aws`, default; China `aws-cn` and Global regions) | stable | 20 | production |
 | Huawei Cloud (`huaweicloud`) | Phase 1 | 11 | see [Huawei Cloud](#multi-cloud-huawei-cloud-phase-1) |
-| Alibaba Cloud (`alicloud`) | **experimental** | 14 | mock-tested only, **not live-validated** — see [Alibaba Cloud](#multi-cloud-alibaba-cloud-experimental) |
-| Azure (`azure`, Azure China / 21Vianet default, Global supported) | **experimental** | 12 | mock-tested only, **not live-validated** — see [Azure](#multi-cloud-azure-incl-azure-china--21vianet-experimental) |
+| Alibaba Cloud (`alicloud`) | **experimental** | 14 | mock + fake-credential smoke tests only, **not live-validated** — see [Alibaba Cloud](#multi-cloud-alibaba-cloud-experimental) |
+| Azure (`azure`, Azure China / 21Vianet default, Global supported) | **experimental** | 12 | mock + fake-credential smoke tests only, **not live-validated** — see [Azure](#multi-cloud-azure-incl-azure-china--21vianet-experimental) |
 
 ## Multi-cloud (Huawei Cloud, Phase 1)
 
@@ -602,7 +631,7 @@ The server can scan a **Huawei Cloud** account with the same tools and report fo
 
 **Selecting the provider**
 
-- Every scan tool (`scan_all`, `scan_group`, `scan_<module>`, `scan_and_report`, `detect_services`, `list_modules`, `list_org_accounts`) accepts an optional `provider: "aws" | "huaweicloud"` parameter (default `aws`).
+- Every scan tool (`scan_all`, `scan_group`, `scan_<module>`, `scan_and_report`, `detect_services`, `list_modules`, `list_org_accounts`) accepts an optional `provider: "aws" | "huaweicloud" | "alicloud" | "azure"` parameter (default `aws`; `alicloud` and `azure` are experimental).
 - Server-wide default: `aws-security-mcp --provider huaweicloud`, or the environment variable `CLOUD_PROVIDER=huaweicloud` (alias `AWS_SECURITY_MCP_PROVIDER`).
 - Region semantics with `provider: "huaweicloud"`: `region` is a Huawei Cloud region ID (e.g. `cn-north-4`). Omit it, or pass `"all"`, to scan every region project of the account (discovered via IAM `keystoneListProjects`). Account-wide modules (RMS) run once; regional modules run once per region.
 
@@ -653,20 +682,21 @@ Findings use the URN `hws:<region>:<domainId>:<service>:<type>:<id>` in `resourc
 
 ## Multi-cloud (Alibaba Cloud, experimental)
 
-> **EXPERIMENTAL.** The Alibaba Cloud provider is mock-tested only — it has **not yet been validated against a live Alibaba Cloud account**. API field names follow the official API docs; expect rough edges until live validation.
+> **EXPERIMENTAL.** The Alibaba Cloud provider is only mock-tested and smoke-tested with fake credentials — it has **not yet been validated against a live Alibaba Cloud account**. API field names follow the official API docs; expect rough edges until live validation.
 
 The same tools and report formats work against an **Alibaba Cloud** (阿里云) account. AWS remains the default; nothing changes unless you pass `provider`.
 
 **Selecting the provider**
 
-- Every scan tool accepts `provider: "alicloud"` (same tool list as Huawei Cloud above). Server-wide default: `CLOUD_PROVIDER=alicloud`.
+- Every scan tool accepts `provider: "alicloud"` (same tool list as Huawei Cloud above). Server-wide default: `--provider alicloud` or `CLOUD_PROVIDER=alicloud`.
 - Region semantics with `provider: "alicloud"`: `region` is an Alibaba Cloud region ID (e.g. `cn-hangzhou`). Omit it, or pass `"all"`, to scan every region (discovered via ECS `DescribeRegions`). Account-wide modules (RAM, Config, Security Center, CAS) run once; regional modules run once per region.
-- Site: `ALIBABA_CLOUD_SITE=cn` (default, China site) or `intl` (international site). It selects the centralised endpoints (Config `config.cn-shanghai` vs `config.ap-southeast-1`, Security Center `tds` vs `tds.ap-southeast-1`).
+- Site: `ALIBABA_CLOUD_SITE=cn` (default, China site) or `intl` / `international` (international site). It selects the centralised endpoints (Config `config.cn-shanghai` vs `config.ap-southeast-1`, Security Center `tds` vs `tds.ap-southeast-1`).
 
-**Credentials** (read-only AccessKey; the server parses them itself and never probes the ECS metadata service)
+**Credentials** (read-only AccessKey; the server parses them itself and never probes the ECS metadata service). First match wins:
 
 1. Environment: `ALIBABA_CLOUD_ACCESS_KEY_ID` / `ALIBABA_CLOUD_ACCESS_KEY_SECRET` (optional `ALIBABA_CLOUD_SECURITY_TOKEN` for STS credentials).
-2. File: `~/.alibabacloud/credentials` (override with `ALIBABA_CLOUD_CREDENTIALS_FILE`), profile `ALIBABA_CLOUD_PROFILE` (default `default`):
+2. Legacy (Terraform-style) environment, used only when neither name above is set: `ALICLOUD_ACCESS_KEY` / `ALICLOUD_SECRET_KEY` (optional `ALICLOUD_SECURITY_TOKEN`).
+3. File: `~/.alibabacloud/credentials` (override with `ALIBABA_CLOUD_CREDENTIALS_FILE`), profile `ALIBABA_CLOUD_PROFILE` (default `default`):
 
 ```ini
 [default]
@@ -674,6 +704,8 @@ type = access_key            ; or sts (+ security_token)
 access_key_id = <access key id>
 access_key_secret = <access key secret>
 ```
+
+Only `access_key` (the default when `type` is omitted) and `sts` profiles are supported; `ram_role_arn`, `ecs_ram_role`, `oidc_role_arn` etc. are rejected with an explicit error.
 
 The account ID (UID) is resolved via STS `GetCallerIdentity`. Credential values are never logged, and error text is redacted (Alibaba Cloud error responses can echo the AccessKey ID). An invalid AccessKey is reported as `Alibaba Cloud authentication failed` (module status `error`), never as "service not enabled".
 
@@ -709,14 +741,14 @@ Findings use Alibaba Cloud ARNs `acs:<service>:<region>:<uid>:<type>/<id>` (glob
 
 ## Multi-cloud (Azure, incl. Azure China / 21Vianet, experimental)
 
-> **EXPERIMENTAL.** The Azure provider is mock-tested only — it has **not yet been validated against a live Azure subscription** (neither Azure China nor Global). API field names follow the `@azure/*` SDK type definitions; expect rough edges until live validation.
+> **EXPERIMENTAL.** The Azure provider is only mock-tested and smoke-tested with fake credentials — it has **not yet been validated against a live Azure subscription** (neither Azure China nor Global). API field names follow the `@azure/*` SDK type definitions; expect rough edges until live validation.
 
 The same tools and report formats work against **Microsoft Azure**. **Azure China (operated by 21Vianet / 世纪互联) is the default cloud**; the global public cloud is also supported. AWS remains the default provider; nothing changes unless you pass `provider`.
 
 **Selecting the provider and cloud**
 
-- Every scan tool accepts `provider: "azure"`. Server-wide default: `CLOUD_PROVIDER=azure`.
-- Cloud: `AZURE_CLOUD=china` (default) or `AZURE_CLOUD=global`. It selects the sign-in authority and every endpoint — the two clouds are separate tenant systems and cannot be mixed:
+- Every scan tool accepts `provider: "azure"`. Server-wide default: `--provider azure` or `CLOUD_PROVIDER=azure`.
+- Cloud: `AZURE_CLOUD=china` (default) or `AZURE_CLOUD=global` (`public` / `AzureCloud` / `AzurePublicCloud` are accepted as aliases; any other value means China). The cloud is chosen only via this environment variable — there is no per-call `cloud` parameter. It selects the sign-in authority and every endpoint — the two clouds are separate tenant systems and cannot be mixed:
 
 | | Azure China (21Vianet, default) | Azure Global |
 |---|---|---|

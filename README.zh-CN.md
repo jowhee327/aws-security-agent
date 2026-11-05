@@ -1,6 +1,20 @@
 # AWS Security Agent 🛡️
 
 > 面向 **AWS 中国区企业客户** 的自助式安全基线扫描 Agent —— 通过 MCP 协议接入 Kiro CLI / Claude Code，几分钟内产出等保 2.0 / 护网行动级别的中文安全评估报告。
+>
+> English: [README.md](README.md)
+
+---
+
+## v0.10.0 更新说明
+
+- **CVE 可利用性研判（仅 AWS）**：`inspector_findings` 现在**直接从 Inspector2 拉取** ACTIVE 软件包漏洞，并在 `scan_all` / `scan_group` 中删除 Security Hub 里与之重复的 Inspector finding；每个 CVE 结合公开 exploit、EPSS、CISA KEV（离线快照）三类威胁情报与 L4 可达性（EC2 公网 IP + 安全组 + NACL、ECR 镜像 → 运行中 ECS task、Lambda Function URL）定级 P0–P3。规则要点：**P0 必须 `internet_open`**，且同时命中 KEV / 公开 exploit / EPSS 高之一；在 KEV 但不是 `internet_open` → **P1**（`KEV_NOT_EXPOSED` / `KEV_NOT_RUNNING`）；公开 exploit + EPSS 高、或公开 exploit + `allowlist` → P1；其余公开 exploit、EPSS 高或中 → P2；其他 → P3。完整规则表见 [CVE 可利用性研判](#cve-可利用性研判)。
+- **新工具 `prioritize_vulnerabilities`**：“先修哪几个”——按可利用性优先级返回 CVE 清单 + 漏斗 + 研判依据 + 可达性。仅 AWS；任何非 aws 的 `provider` 均返回明确错误。
+- **“🎯 可利用性研判”区块**（英文版为 Exploitability Assessment）：出现在 HTML / Markdown / 护网报告、AI 摘要 prompt 以及 Dashboard（可利用性卡片 + 优先级列）。
+- **阿里云 provider（`alicloud`）——预览**：14 个模块。仅经过 mock 测试与使用假凭据的冒烟测试，**未在真实账号上验证**。见 [多云支持：阿里云（预览）](#多云支持阿里云预览)。
+- **Azure provider（`azure`）——预览**：12 个模块，支持 Azure 中国（世纪互联，默认）与 Azure 全球版。仅经过 mock 测试与使用假凭据的冒烟测试，**未在真实订阅上验证**。见 [多云支持：Azure（预览，含世纪互联）](#多云支持azure预览含世纪互联)。
+- **修复 npm 包入口**：`package.json` 的 `main` / `exports` 改为指向 `dist/src/index.js`，作为库使用时 `import('aws-security-mcp')`（如 `createServer`、`runAllScanners`、各报告生成函数）可以正常解析。
+- 当前共注册 **39 个 MCP 工具**（完整列表见英文 [README](README.md#available-tools)）。
 
 ---
 
@@ -48,7 +62,7 @@ E2E 实测：在中等规模 AWS 中国区账号上一次 `scan_all` 返回 **83
 
 - ✅ **合规周期** — 等保三级自评 / 复测，一次扫描出证据
 - ✅ **护网前体检** — 5 月前跑一次，锁定需要修的高危暴露
-- ✅ **发布前 baseline** — DevOps 团队接入 CI/CD（v0.9.0 规划），每次发布前自动扫
+- ✅ **发布前 baseline** — DevOps 团队接入 CI/CD（规划中），每次发布前自动扫
 - ✅ **Account handoff** — 接手新账号时快速摸底
 - ✅ **TAM / CSE 协助** — AWS 技术支持快速生成客户账号体检报告
 - ✅ **第三方审计配合** — 把 HTML 报告作为内部工作稿，Markdown 作为正式交付物原料
@@ -56,7 +70,8 @@ E2E 实测：在中等规模 AWS 中国区账号上一次 `scan_all` 返回 **83
 ### 环境矩阵
 
 - **AWS partition**：`aws`（全球）+ `aws-cn`（中国区）全支持，自动识别
-- **Region**：按调用时参数决定，单次单 region（多账号多 region 在 v1.0.0 roadmap 上）
+- **Region**：AWS 按调用时参数决定，单次单 region；多账号通过 `org_mode`（见[常见问题快查](#常见问题快查)）
+- **多云**：华为云（11 个模块）；阿里云（14 个模块）与 Azure（12 个模块，含世纪互联）为**预览**，见[多云支持一览](#多云支持一览)
 - **操作系统**：Windows / macOS / Linux
 - **部署位置**：工程师工作站 / 内网 bastion / EC2 / CI runner 都行
 
@@ -110,7 +125,7 @@ AI 做法：工程师直接对 Kiro CLI / Claude Code 说：
 
 > **"帮我在 cn-north-1 跑一次护网备战扫描，输出中文报告"**
 
-MCP 客户端（LLM）自动理解意图 → 调用 `hw_defense` 工具 → 填入 `region=cn-north-1` `language=zh` 参数 → 触发扫描。
+MCP 客户端（LLM）自动理解意图 → 调用 `scan_group` 工具（`group=hw_defense`）→ 填入 `region=cn-north-1` `language=zh` 参数 → 触发扫描。
 
 **AI 角色**：意图理解 + 工具选择 + 参数填充。
 
@@ -153,7 +168,7 @@ AI 帮助：
 
 | 项 | 要求 | 说明 |
 |---|---|---|
-| **运行环境** | Node.js **20.x+** | 工程师本机 / bastion / EC2 / CI runner 任意之一 |
+| **运行环境** | Node.js **≥ 18** | 工程师本机 / bastion / EC2 / CI runner 任意之一 |
 | **MCP 客户端** | Kiro CLI 或 Claude Code | 任选一个，都支持 MCP 协议 |
 | **AWS 凭证** | IAM Role / User / SSO session / EC2 instance profile | 任何标准 SDK credential chain 能解析的形式都行 |
 | **IAM 权限** | 推荐 `SecurityAudit`（AWS 托管策略） | `ReadOnlyAccess` 也行但更宽；也可以用最小权限自定义策略（仓库里有 action 清单） |
@@ -181,7 +196,7 @@ npm install -g aws-security-mcp
 
 ```bash
 aws-security-mcp --version
-# 应输出 0.10.0 或更高
+# aws-security-mcp 0.10.0
 ```
 
 #### Step 2. 配置 AWS 凭证
@@ -377,10 +392,19 @@ bucket **保持私有**（不加公开策略、不开静态网站托管），访
 | EPSS 高（≥ 0.1） | 38 |
 | CISA KEV | 29 |
 | 公网可达（`internet_open` + `allowlist`） | 888 |
-| **P0 / P1 / P2 / P3** | **9 / 123 / 1,449 / 8,333** |
+| **P0 / P1 / P2 / P3** | **0 / 132 / 1,449 / 8,333** |
 | 去重删除的 Security Hub Inspector 重复项 | 9,888 |
 
-两台有公网 IP 的 EC2（安全组只有 `/32` 白名单规则）判为 `allowlist`；5 个运行中的 ECS Fargate 镜像判为 `internal`（ENI 有公网 IP，但安全组只放行 VPC 网段与安全组引用）。“先修清单”从几千条 CRITICAL/HIGH 收敛到 9 条 P0 + 123 条 P1。
+| 规则（`rationaleCode`） | 条数 |
+|---|---|
+| P1 `KEV_NOT_EXPOSED` / `KEV_NOT_RUNNING` | 9 / 20 |
+| P1 `EXPLOIT_EPSS_HIGH` / `EXPLOIT_ALLOWLIST` | 11 / 92 |
+| P2 `EXPLOIT_LIMITED` / `EPSS_MEDIUM` / `EPSS_HIGH` | 1,179 / 262 / 8 |
+| P3 `BASELINE` | 8,333 |
+
+两台有公网 IP 的 EC2（安全组只有 `/32` 白名单规则）判为 `allowlist`；5 个运行中的 ECS Fargate 镜像判为 `internal`（ENI 有公网 IP，但安全组只放行 VPC 网段与安全组引用）。账号里没有任何资源对 `0.0.0.0/0` 开放，因此 P0 为 0。“先修清单”从几千条 CRITICAL/HIGH 收敛到 132 条 P1。
+
+> **v0.10.0 规则有调整。** 旧规则下同样的 9,914 条结果为 9 条 P0 + 123 条 P1。这 9 条原 P0 是白名单 / 内网主机上的 KEV CVE；新规则要求 P0 必须 `internet_open`，因此它们降为 P1（`KEV_NOT_EXPOSED`）。
 
 ### IAM 权限
 
@@ -433,7 +457,20 @@ npx tsx scripts/update-kev.ts --from feed.json   # 或使用本地已下载的�
 - ECS 运行状态是扫描时刻的**时点快照**。
 - **中国区不支持 Lambda Function URL**：`GetFunctionUrlConfig` 在中国区被拒绝，Lambda 可达性为 `unknown`（只出 1 条 warning）；API Gateway / ALB 触发器未评估。
 - org 模式下 **member 账号资源的可达性为 `unknown`**（只解析扫描账号自身的资源）。
-- 仅覆盖 AWS provider；华为云结果不带可利用性数据。
+- 仅覆盖 AWS provider；华为云、阿里云、Azure 结果不带可利用性数据，`prioritize_vulnerabilities` 对任何非 aws 的 `provider` 返回明确错误。
+
+---
+
+## 多云支持一览
+
+每次调用用 `provider` 参数选择云厂商，或通过启动参数 `--provider <id>` / 环境变量 `CLOUD_PROVIDER` 设置服务级默认值（`aws` | `huaweicloud` | `alicloud` | `azure`；默认 `aws`）。
+
+| 云厂商（`provider`） | 状态 | 模块数 | 验证情况 |
+|---|---|---|---|
+| AWS（`aws`，默认；中国区 `aws-cn` & 海外区） | 稳定 | 20 | 生产环境 |
+| 华为云（`huaweicloud`） | Phase 1 | 11 | 见 [华为云](#多云支持华为云phase-1) |
+| 阿里云（`alicloud`） | **预览** | 14 | 仅 mock + 假凭据冒烟测试，**未在真实账号验证**——见 [阿里云](#多云支持阿里云预览) |
+| Azure（`azure`，默认 Azure 中国 / 世纪互联，也支持全球版） | **预览** | 12 | 仅 mock + 假凭据冒烟测试，**未在真实账号验证**——见 [Azure](#多云支持azure预览含世纪互联) |
 
 ---
 
@@ -443,7 +480,7 @@ npx tsx scripts/update-kev.ts --from feed.json   # 或使用本地已下载的�
 
 **选择云厂商**
 
-- 所有扫描工具（`scan_all`、`scan_group`、`scan_<module>`、`scan_and_report`、`detect_services`、`list_modules`、`list_org_accounts`）新增可选参数 `provider: "aws" | "huaweicloud"`（默认 `aws`）。
+- 所有扫描工具（`scan_all`、`scan_group`、`scan_<module>`、`scan_and_report`、`detect_services`、`list_modules`、`list_org_accounts`）新增可选参数 `provider: "aws" | "huaweicloud" | "alicloud" | "azure"`（默认 `aws`；`alicloud`、`azure` 为预览）。
 - 服务级默认值：启动参数 `--provider huaweicloud`，或环境变量 `CLOUD_PROVIDER=huaweicloud`（别名 `AWS_SECURITY_MCP_PROVIDER`）。
 - `provider: "huaweicloud"` 时 `region` 为华为云 region ID（如 `cn-north-4`）；不传或传 `"all"` 则扫描账号下全部 region 项目（通过 IAM `keystoneListProjects` 发现）。账号级模块（RMS）只跑一次，区域级模块逐 region 执行。
 
@@ -494,6 +531,142 @@ Finding 的 `resourceArn` 使用 URN `hws:<region>:<domainId>:<service>:<type>:<
 
 ---
 
+## 多云支持：阿里云（预览）
+
+> **预览（EXPERIMENTAL）**：阿里云 provider 仅经过 mock 测试与使用假凭据的冒烟测试，**尚未在真实阿里云账号上验证**。API 字段名依据官方 API 文档；在完成真实账号验证前可能存在问题。
+
+同一套工具与报告也可以扫描 **阿里云** 账号。默认仍是 AWS，不传 `provider` 时行为不变。
+
+**选择云厂商**
+
+- 所有扫描工具都接受 `provider: "alicloud"`（工具范围同上文华为云）。服务级默认值：`--provider alicloud` 或 `CLOUD_PROVIDER=alicloud`。
+- `provider: "alicloud"` 时 `region` 为阿里云 region ID（如 `cn-hangzhou`）；不传或传 `"all"` 则扫描全部 region（通过 ECS `DescribeRegions` 发现）。账号级模块（RAM、Config、云安全中心、CAS）只跑一次，区域级模块逐 region 执行。
+- 站点：`ALIBABA_CLOUD_SITE=cn`（默认，中国站）或 `intl` / `international`（国际站），决定中心化服务的 endpoint（Config 用 `config.cn-shanghai` 或 `config.ap-southeast-1`，云安全中心用 `tds` 或 `tds.ap-southeast-1`）。
+
+**凭据**（只读 AccessKey；由本服务自行解析，绝不访问 ECS 元数据服务）。按顺序首个命中生效：
+
+1. 环境变量：`ALIBABA_CLOUD_ACCESS_KEY_ID` / `ALIBABA_CLOUD_ACCESS_KEY_SECRET`（STS 临时凭据另加可选的 `ALIBABA_CLOUD_SECURITY_TOKEN`）。
+2. 旧版（Terraform 风格）环境变量，仅在上面两个变量都未设置时使用：`ALICLOUD_ACCESS_KEY` / `ALICLOUD_SECRET_KEY`（可选 `ALICLOUD_SECURITY_TOKEN`）。
+3. 文件：`~/.alibabacloud/credentials`（可用 `ALIBABA_CLOUD_CREDENTIALS_FILE` 覆盖路径），profile 由 `ALIBABA_CLOUD_PROFILE` 指定（默认 `default`）：
+
+```ini
+[default]
+type = access_key            ; 或 sts（需同时提供 security_token）
+access_key_id = <AccessKey ID>
+access_key_secret = <AccessKey Secret>
+```
+
+只支持 `access_key`（未写 `type` 时的默认值）和 `sts` 两种 profile；`ram_role_arn`、`ecs_ram_role`、`oidc_role_arn` 等类型会返回明确错误。
+
+账号 ID（UID）通过 STS `GetCallerIdentity` 解析。凭据值绝不写日志，错误信息会脱敏（阿里云错误响应可能回显 AccessKey ID）。AccessKey 无效时报告为 `Alibaba Cloud authentication failed`（模块状态 `error`），不会误报成“服务未开通”。
+
+**建议的 RAM 只读权限**（授予审计用的 RAM 用户 / 角色）
+
+最简单：系统策略 `ReadOnlyAccess`。细粒度替代方案：`AliyunRAMReadOnlyAccess`、`AliyunConfigReadOnlyAccess`、`AliyunActionTrailReadOnlyAccess`、`AliyunECSReadOnlyAccess`（`ecs:DescribeUserData` 可能需要单独授权）、`AliyunVPCReadOnlyAccess`、`AliyunSLBReadOnlyAccess`、`AliyunRDSReadOnlyAccess`、`AliyunOSSReadOnlyAccess`、`AliyunYundunSASReadOnlyAccess`、`AliyunYundunWAFReadOnlyAccess`、`AliyunYundunCertReadOnlyAccess`、`AliyunKMSReadOnlyAccess`、`AliyunFCReadOnlyAccess`。策略名称仍有待在真实账号上确认。权限不足时按子服务优雅降级：模块给出 warning 并保持 `success`。
+
+**模块成熟度（14 个）**——全部模块：*预览——仅 mock 测试，未在真实账号验证*
+
+| 模块 | 阿里云服务 | 成熟度 |
+|------|-----------|--------|
+| `service_detection` | 操作审计 ActionTrail、配置审计 Config、云安全中心（SAS）、WAF 3.0、KMS | 预览——仅 mock 测试，未在真实账号验证 |
+| `config_rules_findings` | 配置审计资源记录器 | 预览——仅 mock 测试，未在真实账号验证 |
+| `config_compliance_findings` | 配置审计规则 / 合规包（NON_COMPLIANT 评估结果）——替代 `security_hub_findings`（工具 `scan_config_compliance_findings`） | 预览——仅 mock 测试，未在真实账号验证 |
+| `public_access_verify` | OSS（ACL / Bucket Policy / 阻止公共访问）、RDS 公网地址 + IP 白名单 | 预览——仅 mock 测试，未在真实账号验证 |
+| `secret_exposure` | ECS user data、函数计算 3.0 环境变量 | 预览——仅 mock 测试，未在真实账号验证 |
+| `ssl_certificate` | 数字证书管理服务（CAS） | 预览——仅 mock 测试，未在真实账号验证 |
+| `imdsv2_enforcement` | ECS 元数据选项（加固模式，`HttpTokens`） | 预览——仅 mock 测试，未在真实账号验证 |
+| `idle_resources` | ECS 云盘 / 已停止实例 / 安全组、VPC EIP | 预览——仅 mock 测试，未在真实账号验证 |
+| `tag_compliance` | ECS、SLB、RDS、OSS 标签 | 预览——仅 mock 测试，未在真实账号验证 |
+| `network_reachability` | 有公网地址的 ECS + 安全组入方向规则 | 预览——仅 mock 测试，未在真实账号验证 |
+| `iam_privilege_escalation` | RAM 用户 / 用户组 / 角色 / 策略，IMS（主账号 AccessKey、MFA、密码策略） | 预览——仅 mock 测试，未在真实账号验证 |
+| `guardduty_findings` | 云安全中心（SAS）告警 | 预览——仅 mock 测试，未在真实账号验证 |
+| `inspector_findings` | 云安全中心（SAS）漏洞（cve / app / emg） | 预览——仅 mock 测试，未在真实账号验证 |
+| `patch_compliance_findings` | 云安全中心（SAS）逐主机系统漏洞 | 预览——仅 mock 测试，未在真实账号验证 |
+
+Finding 的 `resourceArn` 使用阿里云 ARN `acs:<service>:<region>:<uid>:<type>/<id>`（全局服务 region 留空，如 `acs:ram::<uid>:user/<name>`）。Markdown / HTML / 等保三级 / 护网 报告均接受阿里云结果；等保“云平台负责”项按阿里云措辞，Security Hub 控制号在已知处映射为配置审计托管规则标识（如 `ram-user-mfa-check`、`actiontrail-enabled`、`sg-public-access-check`——标识仍待用真实账号的 `ListManagedRules` 确认）。
+
+**已知限制（预览阶段）**
+
+- 仅单账号。`org_mode` / `role_name` 会给出 warning 并只扫当前账号；基于资源目录（Resource Directory）+ STS `AssumeRole` 的多账号留待后续阶段。
+- `dns_dangling`、`disaster_recovery`、`waf_coverage` 推迟实现；`trusted_advisor_findings`、`access_analyzer_findings` 与 `scan_ecr_image_cve` 在阿里云没有对应能力。
+- 不带 CVE 可利用性研判数据（仅 AWS 支持）。
+
+---
+
+## 多云支持：Azure（预览，含世纪互联）
+
+> **预览（EXPERIMENTAL）**：Azure provider 仅经过 mock 测试与使用假凭据的冒烟测试，**尚未在真实 Azure 订阅上验证**（Azure 中国与全球版均未验证）。API 字段名依据 `@azure/*` SDK 类型定义；在完成真实环境验证前可能存在问题。
+
+同一套工具与报告也可以扫描 **Microsoft Azure**。**默认云为 Azure 中国（由世纪互联运营）**，也支持全球版公有云。默认 provider 仍是 AWS，不传 `provider` 时行为不变。
+
+**选择云厂商与云环境**
+
+- 所有扫描工具都接受 `provider: "azure"`。服务级默认值：`--provider azure` 或 `CLOUD_PROVIDER=azure`。
+- 云环境：`AZURE_CLOUD=china`（默认）或 `AZURE_CLOUD=global`（也接受别名 `public` / `AzureCloud` / `AzurePublicCloud`；其他任何值都视为中国）。云环境只能通过这个环境变量选择，**没有逐次调用的 `cloud` 参数**。它决定登录 authority 和所有 endpoint——两个云是相互独立的租户体系，不能混用：
+
+| | Azure 中国（世纪互联，默认） | Azure 全球版 |
+|---|---|---|
+| Entra ID（AAD）authority | `https://login.chinacloudapi.cn` | `https://login.microsoftonline.com` |
+| Resource Manager（ARM） | `https://management.chinacloudapi.cn` | `https://management.azure.com` |
+| Microsoft Graph | `https://microsoftgraph.chinacloudapi.cn` | `https://graph.microsoft.com` |
+
+- `provider: "azure"` 时 `region` 表示 **Azure 订阅 ID**。不传或传 `"all"` 则扫描**服务主体可见的全部订阅**（通过 Subscriptions API 枚举，跳过已禁用 / 已删除的订阅）。设置 `AZURE_SUBSCRIPTION_ID` 可固定只扫一个订阅。订阅级模块逐订阅执行；租户级模块（`iam_privilege_escalation` 中的 Entra 目录角色部分）只跑一次。
+- 结果中的 `accountId` 为 Entra **租户 ID**；finding 的 `resourceArn` 为原生 ARM 资源 ID（`/subscriptions/<sub>/resourceGroups/<rg>/providers/<rp>/<type>/<name>`），`region` 为 Azure `location`（如 `chinanorth3`）。
+
+**凭据**（使用客户端密钥的服务主体；本服务自行构造 `ClientSecretCredential`，不使用 `DefaultAzureCredential`、Azure CLI 缓存、`~/.azure/` 或托管标识）
+
+```bash
+export AZURE_TENANT_ID=<租户（目录）ID>
+export AZURE_CLIENT_ID=<应用程序（客户端）ID>
+export AZURE_CLIENT_SECRET=<客户端密钥>
+export AZURE_CLOUD=china            # 可选：china（默认）| global
+export AZURE_SUBSCRIPTION_ID=<id>   # 可选：只扫描一个订阅
+```
+
+客户端密钥和访问令牌绝不写日志；`@azure/*` SDK 日志保持关闭（stdout 是 MCP 通道），错误信息会脱敏（Bearer token / JWT、客户端密钥、SAS 签名、存储账户密钥）。租户 / 客户端 / 密钥无效时报告为 `Azure authentication failed (AADSTS…)`（模块状态 `error`），不会误报成“服务未开通”。
+
+**最小只读 RBAC 权限**
+
+- 最简单：在每个订阅（或在**管理组**上，一次覆盖多个订阅）授予内置角色 **`Reader`**。
+- 另加 **`Security Reader`**，用于 Microsoft Defender for Cloud（评估、告警、漏洞子评估、定价计划）。Azure Policy 合规状态 `Reader` 即可读取。
+- `secret_exposure`（App Service 应用设置 / 连接字符串）需要 `Microsoft.Web/sites/config/list/action`，`Reader` 不包含此权限；缺失时该子服务降级为 warning。
+- Entra 目录角色（`iam_privilege_escalation`）：服务主体需要 **Microsoft Graph 应用程序权限** `Directory.Read.All` 或 `RoleManagement.Read.Directory`（需管理员同意）。缺失时 Entra 部分降级为 warning，RBAC 部分照常运行。
+- 权限不足时按子服务优雅降级：模块给出 warning 并保持 `success`。
+
+**模块成熟度（12 个）**——全部模块：*预览——仅 mock 测试，未在真实账号验证*（Azure 中国与全球版相同）
+
+| 模块 | Azure 服务 / API | 成熟度 |
+|------|-----------------|--------|
+| `service_detection` | Defender for Cloud 计划（pricings）、Azure Policy、活动日志诊断设置、Key Vault | 预览——仅 mock 测试，未在真实账号验证 |
+| `config_rules_findings` | Azure Policy 合规状态（按订阅汇总 NonCompliant） | 预览——仅 mock 测试，未在真实账号验证 |
+| `defender_assessment_findings` | Defender for Cloud 评估（Unhealthy 建议、法规合规标准）——替代 `security_hub_findings`（工具 `scan_defender_assessment_findings`） | 预览——仅 mock 测试，未在真实账号验证 |
+| `public_access_verify` | 存储账户（Blob 公共访问、公网访问、网络规则集）、Key Vault 网络 ACL | 预览——仅 mock 测试，未在真实账号验证 |
+| `secret_exposure` | App Service 应用设置 / 连接字符串、VM 自定义数据 / Custom Script 扩展设置 | 预览——仅 mock 测试，未在真实账号验证 |
+| `disk_encryption_findings` | 托管磁盘（`encryption.type`、Azure 磁盘加密）、非托管 VHD 磁盘、VM 主机加密 | 预览——仅 mock 测试，未在真实账号验证 |
+| `network_reachability` | 网络安全组（高危端口上来自 `*` / `0.0.0.0/0` / `Internet` 的入站 Allow）+ 公网 IP 关联 | 预览——仅 mock 测试，未在真实账号验证 |
+| `idle_resources` | 未挂载磁盘、未关联公网 IP、已停止 / 已解除分配的 VM、未关联任何对象的 NSG | 预览——仅 mock 测试，未在真实账号验证 |
+| `tag_compliance` | Resource Manager 资源 / 资源组标签（Environment / Project / Owner） | 预览——仅 mock 测试，未在真实账号验证 |
+| `guardduty_findings` | Defender for Cloud 安全告警 | 预览——仅 mock 测试，未在真实账号验证 |
+| `inspector_findings` | Defender for Cloud 漏洞评估子评估（VM / 容器镜像 / SQL CVE） | 预览——仅 mock 测试，未在真实账号验证 |
+| `iam_privilege_escalation` | RBAC 角色分配 / 定义（Owner、User Access Administrator、Contributor、通配符自定义角色、来宾）、经典管理员、Entra 目录角色（Microsoft Graph） | 预览——仅 mock 测试，未在真实账号验证 |
+
+Markdown / HTML / 等保三级 / 护网 报告均接受 Azure 结果；等保“云平台负责”项按 Azure（世纪互联）措辞，Security Hub 控制号在已知处映射为 Azure Policy / Defender for Cloud 建议名称（如 `Storage account public access should be disallowed`、`Management ports should be closed on your virtual machines`、`MFA should be enabled on accounts with owner permissions`——名称仍待在真实账号上确认）。
+
+**Azure 中国（世纪互联）功能差异**
+
+- 所有 endpoint 使用 `*.chinacloudapi.cn`（Entra ID、ARM、Microsoft Graph——见上表）。
+- 部分服务在 Azure 中国不可用或落后于全球版：某些 Defender for Cloud 计划、部分内置 Azure Policy 定义、Front Door 以及少数仅限特定区域的服务。扫描器把“资源提供程序未注册” / “服务不可用”视为*未开通* warning，而不是错误。
+- Azure 中国的 Microsoft Graph（`microsoftgraph.chinacloudapi.cn`）缺少部分 API；`iam_privilege_escalation` 的 Entra 部分按实际可用情况降级。
+- 世纪互联是独立的租户体系：全球版账号 / 服务主体在 Azure 中国不可用，反之亦然。`AZURE_CLOUD` 必须与租户所在云一致。
+
+**已知限制（预览阶段）**
+
+- 每次扫描一个租户。`org_mode` / `role_name` 会给出 warning——服务主体可见的所有订阅本来就会被扫描；不支持跨租户扫描（`list_org_accounts` 对 `azure` 返回错误）。
+- `ssl_certificate`、`dns_dangling`、`disaster_recovery`、`patch_compliance_findings`、`waf_coverage` 推迟实现；`trusted_advisor_findings`、`access_analyzer_findings`、`imdsv2_enforcement`（Azure IMDS 始终要求 `Metadata: true` 请求头）与 `scan_ecr_image_cve` 在 Azure 没有对应能力。
+- 不带 CVE 可利用性研判数据（仅 AWS 支持）。
+
+---
+
 ## 常见问题快查
 
 | 问题 | 答案 |
@@ -501,7 +674,7 @@ Finding 的 `resourceArn` 使用 URN `hws:<region>:<domainId>:<service>:<type>:<
 | 会影响生产吗？ | 不会。纯只读 API，SDK 层有 allowlist 强制。 |
 | 凭证会上传吗？ | 不会。内存中用完即释放，零外部出站。 |
 | EC2 上要装 agent 吗？ | **不用**。这是纯 API 扫描工具。 |
-| 多账号怎么办？ | v0.7.5 单账号；v1.0.0 会加 StackSet 多账号支持；现阶段可以用脚本循环 assume-role。 |
+| 多账号怎么办？ | AWS 支持：用 `get_setup_template` 取 CloudFormation StackSet 模板，在各成员账号部署 `AWSSecurityMCPAudit` 角色，然后 `scan_all` / `scan_group` 传 `org_mode: true`（可选 `account_ids`）。华为云 / 阿里云目前仅单账号；Azure 一次扫描一个租户下服务主体可见的全部订阅。 |
 | 和 Security Hub 是替代关系吗？ | 不是。**互补**。Agent 专注中国区合规映射 + 单文件报告 + 无前置依赖。 |
 | 有官方 AWS 支持吗？ | 这是**社区项目**，MIT 开源；有 Enterprise Support 的客户可以在 case 里引用报告。 |
 
@@ -516,7 +689,7 @@ Finding 的 `resourceArn` 使用 URN `hws:<region>:<domainId>:<service>:<type>:<
 
 ---
 
-**当前版本**：v0.8.0（2026 Q3）
+**当前版本**：v0.10.0（2026 Q4）
 **下一里程碑**：Dashboard PDF 导出 + 更多扫描器
 
 ---
