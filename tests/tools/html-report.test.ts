@@ -410,7 +410,7 @@ describe("generateHtmlReport — exploitability", () => {
         // CRITICAL CVSS 10 but no signals → P3 (riskScore 3.9)
         cveFinding({ cve: "CVE-2099-0003", epss: 0.0001, orig: 10, severity: "CRITICAL" }),
         cveFinding({ cve: "CVE-2099-0001", exploit: true, epss: 0.5, orig: 9.9 }), // P1 8.8
-        cveFinding({ cve: "CVE-2026-31431", reach: "allowlist", orig: 7.0 }), // KEV P0 9.7
+        cveFinding({ cve: "CVE-2026-31431", reach: "internet_open", orig: 7.0 }), // KEV P0 9.7
         cveFinding({ cve: "CVE-2099-0002", exploit: true, reach: "internet_open", orig: 9.0 }), // P0 9.9
         cveFinding({ cve: "CVE-2099-0004", epss: 0.05, orig: 9.9 }), // P2 6.9
       ]),
@@ -430,7 +430,7 @@ describe("generateHtmlReport — exploitability", () => {
   it("renders the exploitability block: 6 funnel numbers, P0/P1 table, disclaimer, KEV date", () => {
     const scan = scanOf([
       moduleOf("inspector_findings", [
-        cveFinding({ cve: "CVE-2026-31431", reach: "allowlist", reachDetail: "public IP 1.2.3.4; SG sg-1 allows 1.2.3.4/32" }),
+        cveFinding({ cve: "CVE-2026-31431", reach: "internet_open", reachDetail: "public IP 1.2.3.4; SG sg-1 allows 0.0.0.0/0" }),
         cveFinding({ cve: "CVE-2099-0001", exploit: true, epss: 0.5, reach: "internal" }),
         cveFinding({ cve: "CVE-2099-0001", exploit: true, epss: 0.5, reach: "internal", resourceId: "i-0abc000000000002" }),
         cveFinding({ cve: "CVE-2099-0002", epss: 0.0001 }),
@@ -474,7 +474,7 @@ describe("generateHtmlReport — exploitability", () => {
 
   it("inspector_findings module: ≤ 200 cards (P0/P1 first) + CVE summary table for the rest", () => {
     const urgent = [
-      cveFinding({ cve: "CVE-2026-31431", reach: "allowlist" }),
+      cveFinding({ cve: "CVE-2026-31431", reach: "internet_open" }),
       cveFinding({ cve: "CVE-2099-0001", exploit: true, epss: 0.5 }),
     ];
     const scan = scanOf([moduleOf("inspector_findings", [...bulkInspector(450, 300), ...urgent])]);

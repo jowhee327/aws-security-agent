@@ -471,10 +471,10 @@ Priority rules (first match wins; every result carries a machine-readable `ratio
 
 | # | Condition | Priority | `rationaleCode` |
 |---|---|---|---|
-| 1 | In KEV and resource not `not_running` | **P0** | `KEV` |
+| 1 | In KEV and `internet_open` | **P0** | `KEV_INTERNET` |
 | 2 | Public exploit and `internet_open` | **P0** | `EXPLOIT_INTERNET` |
 | 3 | EPSS high and `internet_open` | **P0** | `EPSS_HIGH_INTERNET` |
-| 4 | In KEV but image not running | P1 | `KEV_NOT_RUNNING` |
+| 4 | In KEV, not `internet_open` (`not_running` → `KEV_NOT_RUNNING`, must fix before redeploying; `allowlist` / `internal` / `unknown` → `KEV_NOT_EXPOSED`) | P1 | `KEV_NOT_RUNNING` / `KEV_NOT_EXPOSED` |
 | 5 | Public exploit and EPSS high | P1 | `EXPLOIT_EPSS_HIGH` |
 | 6 | Public exploit and `allowlist` | P1 | `EXPLOIT_ALLOWLIST` |
 | 7 | Public exploit (no internet exposure) | P2 | `EXPLOIT_LIMITED` |
@@ -482,7 +482,7 @@ Priority rules (first match wins; every result carries a machine-readable `ratio
 | 9 | EPSS medium | P2 | `EPSS_MEDIUM` |
 | 10 | Everything else | P3 | `BASELINE` |
 
-Reachability values: `internet_open` (public address and an SG rule from `0.0.0.0/0` / `::/0` that the subnet NACL also allows), `allowlist` (public address, but only specific public CIDRs / prefix lists — a `/32` allow-list is never `internet_open`), `internal`, `not_running` (ECR image not observed in a running ECS task), `unknown` (not evaluated — never escalated to P0 except via KEV).
+Reachability values: `internet_open` (public address and an SG rule from `0.0.0.0/0` / `::/0` that the subnet NACL also allows), `allowlist` (public address, but only specific public CIDRs / prefix lists — a `/32` allow-list is never `internet_open`), `internal`, `not_running` (ECR image not observed in a running ECS task), `unknown` (not evaluated — never escalated to P0). P0 always requires `internet_open`; `allowlist` does not count as internet-reachable.
 
 **Backward compatibility.** `Finding.severity` and the severity-derived `Finding.priority` are unchanged; the exploitability priority lives in `exploitability.priority`. `riskScore` is re-banded so that sorting by `riskScore` equals sorting by exploitability priority (P0 9.0–10.0, P1 7.0–8.9, P2 4.0–6.9, P3 0.1–3.9, order within a band preserved; the original score is kept in `exploitability.originalRiskScore`). A CRITICAL CVE with no exploit signal therefore keeps its CRITICAL badge but ranks after P0/P1. Findings without a CVE are byte-for-byte unchanged.
 
@@ -506,9 +506,9 @@ Returns a short summary plus JSON:
   "disclaimer": "This is exploitability prioritization ... NOT penetration testing ...",
   "matched": 132,
   "items": [
-    { "cveId": "CVE-YYYY-NNNNN", "priority": "P0", "rationaleCode": "KEV", "rationale": "In CISA KEV ...",
+    { "cveId": "CVE-YYYY-NNNNN", "priority": "P0", "rationaleCode": "KEV_INTERNET", "rationale": "In CISA KEV ...",
       "resourceType": "AwsEc2Instance", "resourceId": "i-0123456789abcdef0", "severity": "HIGH",
-      "exploitAvailable": true, "epss": 0.42, "kev": true, "reachability": "allowlist", "fixAvailable": "YES" }
+      "exploitAvailable": true, "epss": 0.42, "kev": true, "reachability": "internet_open", "fixAvailable": "YES" }
   ],
   "truncated": true
 }

@@ -23,7 +23,6 @@ const SEVERITY_ORDER: Record<Severity, number> = {
 
 const ALL_SEVERITIES: Severity[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 const PAGE_SIZE = 20;
-const COLUMN_COUNT = 6;
 
 /** Exploitability priority rank for sorting; findings without one sort after P3. */
 function priorityRank(f: Finding): number {
@@ -43,6 +42,10 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
+
+  // Priority column only when some finding carries exploitability data
+  // (non-aws and pre-0.10 scans keep the original layout).
+  const showPriority = useMemo(() => findings.some(f => f.exploitability), [findings]);
 
   const modules = useMemo(
     () => [...new Set(findings.map(f => f.module))].sort(),
@@ -148,12 +151,13 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
 
   const columns: [SortKey, string][] = [
     ['severity', t('findings.severity')],
-    ['priority', t('findings.priority')],
+    ...(showPriority ? [['priority', t('findings.priority')] as [SortKey, string]] : []),
     ['title', t('findings.titleCol')],
     ['module', t('findings.module')],
     ['resourceId', t('findings.resource')],
     ['riskScore', t('findings.riskScore')],
   ];
+  const columnCount = columns.length;
 
   return (
     <div className="space-y-4">
@@ -231,7 +235,7 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
           <tbody>
             {paged.length === 0 ? (
               <tr>
-                <td colSpan={COLUMN_COUNT} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={columnCount} className="px-4 py-8 text-center text-slate-500">
                   {t('findings.noFindings')}
                 </td>
               </tr>
@@ -253,18 +257,20 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
                           {f.severity}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
-                        {f.exploitability ? (
-                          <span
-                            title={f.exploitability.rationale}
-                            className={`text-xs font-semibold px-2 py-0.5 rounded border ${PRIORITY_BADGE[f.exploitability.priority]}`}
-                          >
-                            {f.exploitability.priority}
-                          </span>
-                        ) : (
-                          <span className="text-slate-600">—</span>
-                        )}
-                      </td>
+                      {showPriority && (
+                        <td className="px-4 py-3">
+                          {f.exploitability ? (
+                            <span
+                              title={f.exploitability.rationale}
+                              className={`text-xs font-semibold px-2 py-0.5 rounded border ${PRIORITY_BADGE[f.exploitability.priority]}`}
+                            >
+                              {f.exploitability.priority}
+                            </span>
+                          ) : (
+                            <span className="text-slate-600">—</span>
+                          )}
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-slate-200">{f.title}</td>
                       <td className="px-4 py-3 text-slate-400">{f.module}</td>
                       <td className="px-4 py-3 text-slate-400 font-mono text-xs">{f.resourceId}</td>
@@ -272,7 +278,7 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
                     </tr>
                     {expandedRow === globalIndex && (
                       <tr className="bg-slate-800/80">
-                        <td colSpan={COLUMN_COUNT} className="px-6 py-4">
+                        <td colSpan={columnCount} className="px-6 py-4">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                             <div>
                               <h4 className="text-slate-400 text-xs font-semibold mb-1">{t('findings.description')}</h4>

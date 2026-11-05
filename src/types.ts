@@ -9,10 +9,11 @@ export type EpssLevel = "high" | "medium" | "low" | "none";
 
 /** Machine-readable reason for an exploitability priority (one per rule in the first-match table). */
 export type RationaleCode =
-  | "KEV"
+  | "KEV_INTERNET"
   | "EXPLOIT_INTERNET"
   | "EPSS_HIGH_INTERNET"
   | "KEV_NOT_RUNNING"
+  | "KEV_NOT_EXPOSED"
   | "EXPLOIT_EPSS_HIGH"
   | "EXPLOIT_ALLOWLIST"
   | "EXPLOIT_LIMITED"

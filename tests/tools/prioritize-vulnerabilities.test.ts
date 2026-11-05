@@ -80,8 +80,8 @@ const INSPECTOR_PAGES: Record<string, unknown[]> = {
   AWS_EC2_INSTANCE: [
     // P0 EXPLOIT_INTERNET: exploit + 0.0.0.0/0
     insFinding({ arn: "open-exploit", cve: "CVE-2026-43001", id: "i-open", exploit: "YES", score: 8.1, fix: "YES" }),
-    // P0 KEV on a deployed (allow-listed) instance
-    insFinding({ arn: "allow-kev", cve: KEV_CVE, id: "i-allow", score: 7.0 }),
+    // P0 KEV_INTERNET: KEV on an instance open to 0.0.0.0/0
+    insFinding({ arn: "open-kev", cve: KEV_CVE, id: "i-open", score: 7.0 }),
     // P1 EXPLOIT_ALLOWLIST
     insFinding({ arn: "allow-exploit", cve: "CVE-2026-43002", id: "i-allow", exploit: "YES", score: 9.8, severity: "CRITICAL" }),
     // P2 EPSS_MEDIUM
@@ -218,7 +218,7 @@ describe("prioritizeVulnerabilities", () => {
     expect(r.dataSource).toBe("inspector2");
     expect(r.items.map((i) => `${i.priority}:${i.cveId}:${i.resourceId}`)).toEqual([
       "P0:CVE-2026-43001:i-open",
-      `P0:${KEV_CVE}:i-allow`,
+      `P0:${KEV_CVE}:i-open`,
       "P1:CVE-2026-43002:i-allow", // inspectorScore 9.8 ranks above the 9.0 one within P1
       `P1:${KEV_CVE}:${ECR_IDLE}`,
     ]);
@@ -289,8 +289,9 @@ describe("prioritizeVulnerabilities", () => {
     const r = await prioritizeVulnerabilities(newCtx(), { includeReachability: false, priorities: ["P0", "P1", "P2", "P3"] });
     expect(sentCommands().every((n) => /^(BatchGetAccountStatus|ListFindings)Command$/.test(n))).toBe(true);
     for (const i of r.items) expect(i.reachability).toBe("unknown");
-    // Without reachability only KEV can reach P0 (unknown ≠ not_running).
-    expect(r.items.filter((i) => i.priority === "P0").every((i) => i.kev)).toBe(true);
+    // Without reachability nothing reaches P0 (P0 requires internet_open); KEV stays P1.
+    expect(r.items.some((i) => i.priority === "P0")).toBe(false);
+    expect(r.items.filter((i) => i.kev).every((i) => i.priority === "P1" && i.rationaleCode === "KEV_NOT_EXPOSED")).toBe(true);
   });
 
   it("falls back to the Security Hub Inspector subset when ListFindings is denied", async () => {
@@ -300,9 +301,10 @@ describe("prioritizeVulnerabilities", () => {
     expect(sentCommands()).toContain("GetFindingsCommand");
     expect(r.items.map((i) => `${i.priority}:${i.cveId}`)).toEqual([
       "P0:CVE-2026-43010", // exploit + i-open internet_open (reachability resolved in fallback)
-      `P0:${KEV_CVE}`,
+      `P1:${KEV_CVE}`, // KEV on allow-listed i-allow → KEV_NOT_EXPOSED
     ]);
     expect(r.items[0].reachability).toBe("internet_open");
+    expect(r.items[1]).toMatchObject({ reachability: "allowlist", rationaleCode: "KEV_NOT_EXPOSED" });
     // Non-Inspector Security Hub findings are never included.
     expect(r.funnel.total.findings).toBe(2);
     expect(r.warnings?.some((w) => w.includes("Grant inspector2:ListFindings"))).toBe(true);

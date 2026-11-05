@@ -239,12 +239,12 @@ describe("SecurityHubFindingsScanner exploitability (Inspector CVEs)", () => {
       kev: true,
       fixAvailable: "YES",
       reachability: "unknown",
-      priority: "P0",
-      rationaleCode: "KEV",
+      priority: "P1",
+      rationaleCode: "KEV_NOT_EXPOSED",
       originalRiskScore: 8.0,
       dataSource: "securityhub",
     });
-    expect(f.riskScore).toBe(9.8); // 9.0 + 8.0/10
+    expect(f.riskScore).toBe(8.5); // P1 band: 7.0 + 8.0/10 × 1.9
   });
 
   it("maps missing ASFF signals to null/none and non-KEV to baseline", async () => {

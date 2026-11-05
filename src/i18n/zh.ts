@@ -330,10 +330,11 @@ export const zhI18n: I18n = {
       unknown: "未知",
     },
     rationale: {
-      KEV: "位于 CISA KEV（已被在野利用），且资源处于部署状态",
+      KEV_INTERNET: "位于 CISA KEV（已被在野利用），且资源对全网开放",
       EXPLOIT_INTERNET: "存在公开 exploit，且资源对全网开放",
       EPSS_HIGH_INTERNET: "EPSS 高，且资源对全网开放",
-      KEV_NOT_RUNNING: "位于 CISA KEV，但镜像未观察到在运行 \u2014 重新部署前必须修复",
+      KEV_NOT_RUNNING: "在 CISA KEV 中；镜像未运行，重新部署前必须修复",
+      KEV_NOT_EXPOSED: "位于 CISA KEV（已被在野利用），但未对全网开放",
       EXPLOIT_EPSS_HIGH: "存在公开 exploit，且 EPSS 高",
       EXPLOIT_ALLOWLIST: "存在公开 exploit，仅对白名单公网 IP 可达",
       EXPLOIT_LIMITED: "存在公开 exploit，但无公网暴露（内网 / 未运行 / 未知）",

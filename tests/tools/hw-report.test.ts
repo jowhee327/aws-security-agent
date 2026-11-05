@@ -290,7 +290,7 @@ describe("generateHwDefenseHtmlReport — exploitability", () => {
       moduleOf("inspector_findings", [
         cveFinding({ cve: "CVE-2099-0003", epss: 0.0001, orig: 10, severity: "CRITICAL" }), // P3
         cveFinding({ cve: "CVE-2099-0001", exploit: true, epss: 0.5 }), // P1
-        cveFinding({ cve: "CVE-2026-31431", reach: "allowlist", severity: "MEDIUM" }), // P0
+        cveFinding({ cve: "CVE-2026-31431", reach: "internet_open", severity: "MEDIUM" }), // P0
         cveFinding({ cve: "CVE-2099-0004", epss: 0.05, severity: "CRITICAL" }), // P2
       ], { dataSource: "inspector2" }),
     ]);
@@ -302,14 +302,14 @@ describe("generateHwDefenseHtmlReport — exploitability", () => {
     );
     expect(pos.every((i) => i >= 0)).toBe(true);
     expect([...pos].sort((a, b) => a - b)).toEqual(pos);
-    expect(sec).toContain("位于 CISA KEV（已被在野利用），且资源处于部署状态 &middot; 仅白名单公网 IP");
+    expect(sec).toContain("位于 CISA KEV（已被在野利用），且资源对全网开放 &middot; 对全网开放");
     expect(sec).toContain('<span class="xp-badge xp-p0">P0</span>');
     expect(sec).not.toContain("暂无自动检查");
   });
 
   it("caps non-urgent vulnerability groups and notes the remainder", () => {
     const scan = scanOf([
-      moduleOf("inspector_findings", [cveFinding({ cve: "CVE-2026-31431", reach: "allowlist" }), ...bulkInspector(300, 260)]),
+      moduleOf("inspector_findings", [cveFinding({ cve: "CVE-2026-31431", reach: "internet_open" }), ...bulkInspector(300, 260)]),
     ]);
     const sec = vulnSection(generateHwDefenseHtmlReport(scan, "en"));
     expect((sec.match(/class="hw-finding-group"/g) ?? []).length).toBe(201);

@@ -324,10 +324,10 @@ bucket **保持私有**（不加公开策略、不开静态网站托管），访
 
 | # | 条件 | 优先级 | `rationaleCode` |
 |---|---|---|---|
-| 1 | 在 KEV 且资源不是 `not_running` | **P0** | `KEV` |
+| 1 | 在 KEV 且 `internet_open` | **P0** | `KEV_INTERNET` |
 | 2 | 公开 exploit 且 `internet_open` | **P0** | `EXPLOIT_INTERNET` |
 | 3 | EPSS 高且 `internet_open` | **P0** | `EPSS_HIGH_INTERNET` |
-| 4 | 在 KEV 但镜像未运行 | P1 | `KEV_NOT_RUNNING` |
+| 4 | 在 KEV 但不是 `internet_open`（`not_running` → `KEV_NOT_RUNNING`，重新部署前必须修复；`allowlist` / `internal` / `unknown` → `KEV_NOT_EXPOSED`） | P1 | `KEV_NOT_RUNNING` / `KEV_NOT_EXPOSED` |
 | 5 | 公开 exploit 且 EPSS 高 | P1 | `EXPLOIT_EPSS_HIGH` |
 | 6 | 公开 exploit 且 `allowlist` | P1 | `EXPLOIT_ALLOWLIST` |
 | 7 | 公开 exploit（无公网暴露） | P2 | `EXPLOIT_LIMITED` |
@@ -335,7 +335,7 @@ bucket **保持私有**（不加公开策略、不开静态网站托管），访
 | 9 | EPSS 中 | P2 | `EPSS_MEDIUM` |
 | 10 | 其他 | P3 | `BASELINE` |
 
-可达性 5 态：`internet_open`（有公网地址，且安全组有 `0.0.0.0/0` / `::/0` 入站、子网 NACL 也放行）、`allowlist`（有公网地址，但只对具体公网 CIDR / prefix list 开放——`/32` 白名单永远不会算成 internet_open）、`internal`、`not_running`（ECR 镜像未在运行中的 ECS task 里观察到）、`unknown`（未评估；除 KEV 外不会因此升到 P0）。
+可达性 5 态：`internet_open`（有公网地址，且安全组有 `0.0.0.0/0` / `::/0` 入站、子网 NACL 也放行）、`allowlist`（有公网地址，但只对具体公网 CIDR / prefix list 开放——`/32` 白名单永远不会算成 internet_open）、`internal`、`not_running`（ECR 镜像未在运行中的 ECS task 里观察到）、`unknown`（未评估；永远不会升到 P0）。P0 必须是 `internet_open`；`allowlist` 不算公网可达。
 
 **向后兼容**：`Finding.severity` 与按严重级别派生的 `Finding.priority` 不变；可利用性优先级放在 `exploitability.priority`。`riskScore` 按优先级分带（P0 9.0–10.0、P1 7.0–8.9、P2 4.0–6.9、P3 0.1–3.9，带内保持原顺序，原值存 `exploitability.originalRiskScore`），因此“按 riskScore 排序”即“按可利用性优先级排序”。没有 exploit 信号的 CRITICAL 漏洞仍显示 CRITICAL 徽章，只是排在 P0/P1 之后。不含 CVE 的 finding 输出逐字节不变。
 
@@ -360,9 +360,9 @@ bucket **保持私有**（不加公开策略、不开静态网站托管），访
   "disclaimer": "This is exploitability prioritization ... NOT penetration testing ...",
   "matched": 132,
   "items": [
-    { "cveId": "CVE-YYYY-NNNNN", "priority": "P0", "rationaleCode": "KEV", "rationale": "In CISA KEV ...",
+    { "cveId": "CVE-YYYY-NNNNN", "priority": "P0", "rationaleCode": "KEV_INTERNET", "rationale": "In CISA KEV ...",
       "resourceType": "AwsEc2Instance", "resourceId": "i-0123456789abcdef0", "severity": "HIGH",
-      "exploitAvailable": true, "epss": 0.42, "kev": true, "reachability": "allowlist", "fixAvailable": "YES" }
+      "exploitAvailable": true, "epss": 0.42, "kev": true, "reachability": "internet_open", "fixAvailable": "YES" }
   ],
   "truncated": true
 }

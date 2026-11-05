@@ -332,10 +332,11 @@ export const enI18n: I18n = {
       unknown: "Unknown",
     },
     rationale: {
-      KEV: "In CISA KEV (actively exploited in the wild) and the resource is deployed",
+      KEV_INTERNET: "In CISA KEV (actively exploited in the wild) and the resource is open to the internet",
       EXPLOIT_INTERNET: "Public exploit available and the resource is open to the internet",
       EPSS_HIGH_INTERNET: "High EPSS and the resource is open to the internet",
-      KEV_NOT_RUNNING: "In CISA KEV, but the image is not observed running \u2014 fix before redeploying",
+      KEV_NOT_RUNNING: "In CISA KEV; image/resource is not running \u2014 must fix before redeploying",
+      KEV_NOT_EXPOSED: "In CISA KEV (actively exploited in the wild), but not open to the internet",
       EXPLOIT_EPSS_HIGH: "Public exploit available and high EPSS",
       EXPLOIT_ALLOWLIST: "Public exploit available; reachable from allow-listed public IPs only",
       EXPLOIT_LIMITED: "Public exploit available, but no internet exposure (internal / not running / unknown)",

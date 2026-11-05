@@ -278,13 +278,13 @@ describe("InspectorFindingsScanner (Inspector2 direct pull)", () => {
       kev: true,
       fixAvailable: "YES",
       reachability: "unknown",
-      priority: "P0",
-      rationaleCode: "KEV",
+      priority: "P1",
+      rationaleCode: "KEV_NOT_EXPOSED",
       originalRiskScore: 7.8,
       dataSource: "inspector2",
     });
-    // P0 band: 9.0 + 7.8/10
-    expect(kev.riskScore).toBe(9.8);
+    // KEV with unknown reachability is P1 (P0 needs internet_open): 7.0 + 7.8/10 × 1.9
+    expect(kev.riskScore).toBe(8.5);
 
     const plain = result.findings.find((f) => f.sourceFindingId?.endsWith("/a2"))!;
     expect(plain.exploitability).toMatchObject({ exploitAvailable: false, epss: null, epssLevel: "none", kev: false, priority: "P3", rationaleCode: "BASELINE" });

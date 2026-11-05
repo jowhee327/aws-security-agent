@@ -109,7 +109,7 @@ describe("generateMarkdownReport — exploitability", () => {
     );
     const scan = scanOf([
       moduleOf("inspector_findings", [
-        cveFinding({ cve: "CVE-2026-31431", reach: "allowlist", resourceId: "i-pipe|name" }),
+        cveFinding({ cve: "CVE-2026-31431", reach: "internet_open", resourceId: "i-pipe|name" }),
         ...urgent,
         cveFinding({ cve: "CVE-2099-0002", epss: 0.0001 }),
       ]),
