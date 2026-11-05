@@ -181,7 +181,7 @@ npm install -g aws-security-mcp
 
 ```bash
 aws-security-mcp --version
-# 应输出 0.8.0 或更高
+# 应输出 0.10.0 或更高
 ```
 
 #### Step 2. 配置 AWS 凭证

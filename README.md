@@ -104,7 +104,7 @@ Verify the binary is on your `PATH`:
 
 ```bash
 aws-security-mcp --version
-# 0.9.0
+# 0.10.0
 ```
 
 <details>

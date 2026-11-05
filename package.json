@@ -1,12 +1,21 @@
 {
   "name": "aws-security-mcp",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "MCP Server for AWS security scanning",
   "bin": {
     "aws-security-mcp": "./dist/bin/aws-security-mcp.js"
   },
   "type": "module",
-  "main": "dist/index.js",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js",
+      "default": "./dist/src/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist",
     "dashboard/dist",
