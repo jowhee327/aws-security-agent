@@ -35,7 +35,7 @@ export interface ScanResult {
 }
 
 /** Cloud provider identifier. Default (and legacy) is "aws". */
-export type ProviderId = "aws" | "huaweicloud";
+export type ProviderId = "aws" | "huaweicloud" | "alicloud" | "azure";
 
 export interface AwsCredentials {
   accessKeyId: string;
@@ -59,11 +59,61 @@ export interface HuaweiCloudCredentials {
   domainId?: string;
 }
 
-/** Provider-agnostic credentials carried on a ScanContext. */
-export type CloudCredentials = AwsCredentials | HuaweiCloudCredentials;
+/**
+ * Alibaba Cloud access key pair (optionally an STS temporary credential).
+ * `accessKeyId` overlaps with {@link AwsCredentials}, so the `kind` discriminator
+ * is mandatory — always narrow with {@link isAlibabaCloudCredentials}.
+ *
+ * NEVER log or serialize instances of this type.
+ */
+export interface AlibabaCloudCredentials {
+  accessKeyId: string;
+  accessKeySecret: string;
+  /** STS temporary credentials only. */
+  securityToken?: string;
+  kind: "alicloud";
+  source?: "explicit" | "env" | "file";
+}
 
+/** Azure national cloud: China (21Vianet, the default) or Global (public). */
+export type AzureCloud = "china" | "global";
+
+/**
+ * Azure service principal (client secret). `tenantId` / `clientId` are identifiers;
+ * `clientSecret` is the only secret and is held in memory only. Scans iterate every
+ * subscription visible to the principal (one scope per subscription).
+ *
+ * NEVER log or serialize instances of this type.
+ */
+export interface AzureCredentials {
+  kind: "azure";
+  tenantId: string;
+  clientId: string;
+  clientSecret: string;
+  /** Default "china" (21Vianet). */
+  cloud: AzureCloud;
+  source?: "explicit" | "env";
+}
+
+/** Provider-agnostic credentials carried on a ScanContext. */
+export type CloudCredentials = AwsCredentials | HuaweiCloudCredentials | AlibabaCloudCredentials | AzureCredentials;
+
+/** AWS credentials: `accessKeyId` + `secretAccessKey` and no provider `kind` discriminator. */
 export function isAwsCredentials(c: CloudCredentials | undefined): c is AwsCredentials {
-  return !!c && typeof (c as AwsCredentials).accessKeyId === "string";
+  return (
+    !!c &&
+    typeof (c as AwsCredentials).accessKeyId === "string" &&
+    typeof (c as AwsCredentials).secretAccessKey === "string" &&
+    (c as { kind?: unknown }).kind === undefined
+  );
+}
+
+export function isAlibabaCloudCredentials(c: CloudCredentials | undefined): c is AlibabaCloudCredentials {
+  return !!c && (c as AlibabaCloudCredentials).kind === "alicloud";
+}
+
+export function isAzureCredentials(c: CloudCredentials | undefined): c is AzureCredentials {
+  return !!c && (c as AzureCredentials).kind === "azure";
 }
 
 export function isHuaweiCloudCredentials(c: CloudCredentials | undefined): c is HuaweiCloudCredentials {
@@ -72,9 +122,9 @@ export function isHuaweiCloudCredentials(c: CloudCredentials | undefined): c is 
 
 export interface ScanContext {
   region: string;
-  /** AWS partition (aws / aws-cn / aws-us-gov). Huawei Cloud contexts use "huaweicloud". */
+  /** AWS partition (aws / aws-cn / aws-us-gov). Huawei Cloud contexts use "huaweicloud"; Alibaba Cloud "alicloud". */
   partition: string;
-  /** AWS account ID; for Huawei Cloud this is the domain ID. */
+  /** AWS account ID; for Huawei Cloud this is the domain ID; for Alibaba Cloud the account UID. */
   accountId: string;
   accountAlias?: string;
   credentials?: CloudCredentials;
@@ -86,6 +136,24 @@ export interface ScanContext {
   domainId?: string;
   /** Huawei Cloud: enterprise project ID ("0" = default/all). */
   enterpriseProjectId?: string;
+  /**
+   * Regional providers, multi-region scans only: `false` on every region scope except the
+   * first (absent otherwise). Lets regional modules that also see account-wide data (e.g.
+   * Alibaba Cloud OSS buckets without region info) report it exactly once.
+   */
+  primaryRegionScope?: boolean;
+  /** Azure: subscription scanned by this scope (the scope's `region` field). */
+  subscriptionId?: string;
+  /** Azure: Entra ID tenant (also the context `accountId`). */
+  tenantId?: string;
+  /** Azure: national cloud of the credentials. */
+  cloud?: AzureCloud;
+  /**
+   * Azure, no-subscription placeholder scope only: redacted module error text of a fatal
+   * (auth_failed / api_misuse) subscription enumeration failure. Subscription-scoped
+   * modules report it as `status: "error"` instead of "nothing to scan".
+   */
+  azureScopeError?: string;
 }
 
 export interface FullScanResult {

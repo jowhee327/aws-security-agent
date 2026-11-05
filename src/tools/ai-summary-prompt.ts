@@ -122,7 +122,8 @@ export function buildAiSummaryPrompt(
 ): string {
   const zh = lang === "zh";
   const p = getProfile(type, lang, scan.provider);
-  const label = type === "html" && scan.provider === "huaweicloud"
+  // Non-AWS providers name the cloud in the full-report label; AWS keeps the generic label.
+  const label = type === "html" && scan.provider && scan.provider !== "aws"
     ? (zh ? `${providerName(scan.provider, lang)} 安全扫描报告` : `${providerName(scan.provider, lang)} Security Scan Report`)
     : TYPE_LABEL[type][zh ? "zh" : "en"];
   const digest = buildFindingsDigest(scan, lang);

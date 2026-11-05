@@ -13,4 +13,7 @@ export default defineConfig({
   clean: true,
   dts: true,
   sourcemap: true,
+  // Transitive dep of the Azure SDK: keep external so ensureQuietAzureLogging() silences
+  // the shared logger instance rather than a bundled copy.
+  external: ["@azure/logger"],
 });

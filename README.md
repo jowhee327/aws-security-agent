@@ -278,7 +278,7 @@ This uploads the dashboard files (including your latest `data.json`) to the buck
 | `save_results` | Save scan results for the dashboard |
 | `get_setup_template` | Get CloudFormation StackSet template for cross-account audit role |
 
-All tools accept an optional `region` parameter (defaults to the server's configured region). Scan tools also accept an optional `provider` parameter (`aws` by default, or `huaweicloud` — see [Multi-cloud](#multi-cloud-huawei-cloud-phase-1)).
+All tools accept an optional `region` parameter (defaults to the server's configured region). Scan tools also accept an optional `provider` parameter (`aws` by default, `huaweicloud`, or the experimental `alicloud` / `azure` — see [Multi-cloud](#multi-cloud-huawei-cloud-phase-1), [Alibaba Cloud](#multi-cloud-alibaba-cloud-experimental) and [Azure](#multi-cloud-azure-incl-azure-china--21vianet-experimental)).
 
 ## Recommended IAM Policy
 
@@ -476,6 +476,15 @@ For scanning across an AWS Organization:
 
 The StackSet templates are available in the `templates/` directory in both YAML and JSON formats.
 
+## Supported clouds
+
+| Provider (`provider`) | Status | Modules | Validation |
+|-----------------------|--------|---------|------------|
+| AWS (`aws`, default) | stable | 20 | production |
+| Huawei Cloud (`huaweicloud`) | Phase 1 | 11 | see [Huawei Cloud](#multi-cloud-huawei-cloud-phase-1) |
+| Alibaba Cloud (`alicloud`) | **experimental** | 14 | mock-tested only, **not live-validated** — see [Alibaba Cloud](#multi-cloud-alibaba-cloud-experimental) |
+| Azure (`azure`, Azure China / 21Vianet default, Global supported) | **experimental** | 12 | mock-tested only, **not live-validated** — see [Azure](#multi-cloud-azure-incl-azure-china--21vianet-experimental) |
+
 ## Multi-cloud (Huawei Cloud, Phase 1)
 
 The server can scan a **Huawei Cloud** account with the same tools and report formats. AWS remains the default; nothing changes unless you pass `provider`.
@@ -530,6 +539,133 @@ Findings use the URN `hws:<region>:<domainId>:<service>:<type>:<id>` in `resourc
 - Single account only. `org_mode` / `role_name` emit a warning and scan the current account; multi-account via Organizations + STS `assumeAgency` is reserved for Phase 2 (`list_org_accounts` returns an error for `huaweicloud`).
 - No IAM privilege-escalation scanner yet (requires `IAM ReadOnlyAccess`, which the reference test account lacks); `dns_dangling`, `network_reachability`, `disaster_recovery`, `waf_coverage`, `guardduty_findings`, `trusted_advisor_findings`, `access_analyzer_findings` and `scan_ecr_image_cve` are AWS-only for now (requesting them with `provider: "huaweicloud"` returns a clear error; scan groups list them as unavailable).
 - No enterprise-project (EPS) splitting; results cover the whole account.
+
+## Multi-cloud (Alibaba Cloud, experimental)
+
+> **EXPERIMENTAL.** The Alibaba Cloud provider is mock-tested only — it has **not yet been validated against a live Alibaba Cloud account**. API field names follow the official API docs; expect rough edges until live validation.
+
+The same tools and report formats work against an **Alibaba Cloud** (阿里云) account. AWS remains the default; nothing changes unless you pass `provider`.
+
+**Selecting the provider**
+
+- Every scan tool accepts `provider: "alicloud"` (same tool list as Huawei Cloud above). Server-wide default: `CLOUD_PROVIDER=alicloud`.
+- Region semantics with `provider: "alicloud"`: `region` is an Alibaba Cloud region ID (e.g. `cn-hangzhou`). Omit it, or pass `"all"`, to scan every region (discovered via ECS `DescribeRegions`). Account-wide modules (RAM, Config, Security Center, CAS) run once; regional modules run once per region.
+- Site: `ALIBABA_CLOUD_SITE=cn` (default, China site) or `intl` (international site). It selects the centralised endpoints (Config `config.cn-shanghai` vs `config.ap-southeast-1`, Security Center `tds` vs `tds.ap-southeast-1`).
+
+**Credentials** (read-only AccessKey; the server parses them itself and never probes the ECS metadata service)
+
+1. Environment: `ALIBABA_CLOUD_ACCESS_KEY_ID` / `ALIBABA_CLOUD_ACCESS_KEY_SECRET` (optional `ALIBABA_CLOUD_SECURITY_TOKEN` for STS credentials).
+2. File: `~/.alibabacloud/credentials` (override with `ALIBABA_CLOUD_CREDENTIALS_FILE`), profile `ALIBABA_CLOUD_PROFILE` (default `default`):
+
+```ini
+[default]
+type = access_key            ; or sts (+ security_token)
+access_key_id = <access key id>
+access_key_secret = <access key secret>
+```
+
+The account ID (UID) is resolved via STS `GetCallerIdentity`. Credential values are never logged, and error text is redacted (Alibaba Cloud error responses can echo the AccessKey ID). An invalid AccessKey is reported as `Alibaba Cloud authentication failed` (module status `error`), never as "service not enabled".
+
+**Recommended RAM permissions** (attach to the audit RAM user / role)
+
+Simplest: the system policy `ReadOnlyAccess`. Fine-grained alternative: `AliyunRAMReadOnlyAccess`, `AliyunConfigReadOnlyAccess`, `AliyunActionTrailReadOnlyAccess`, `AliyunECSReadOnlyAccess` (`ecs:DescribeUserData` may need an explicit grant), `AliyunVPCReadOnlyAccess`, `AliyunSLBReadOnlyAccess`, `AliyunRDSReadOnlyAccess`, `AliyunOSSReadOnlyAccess`, `AliyunYundunSASReadOnlyAccess`, `AliyunYundunWAFReadOnlyAccess`, `AliyunYundunCertReadOnlyAccess`, `AliyunKMSReadOnlyAccess`, `AliyunFCReadOnlyAccess`. Policy names are still to be confirmed on a live account. Missing permissions degrade per sub-service: the module reports a warning and stays `success`.
+
+**Module maturity (14)** — all modules: *experimental — mock-tested only, NOT validated against a live account*
+
+| Module | Alibaba Cloud services | Maturity |
+|--------|------------------------|----------|
+| `service_detection` | ActionTrail, Config, Security Center (SAS), WAF 3.0, KMS | experimental — mock-tested only, NOT validated against a live account |
+| `config_rules_findings` | Config resource recorder | experimental — mock-tested only, NOT validated against a live account |
+| `config_compliance_findings` | Config rules / compliance packs (NON_COMPLIANT evaluations) — substitutes `security_hub_findings` (`scan_config_compliance_findings`) | experimental — mock-tested only, NOT validated against a live account |
+| `public_access_verify` | OSS (ACL / bucket policy / Block Public Access), RDS public endpoints + IP whitelist | experimental — mock-tested only, NOT validated against a live account |
+| `secret_exposure` | ECS user data, Function Compute 3.0 env vars | experimental — mock-tested only, NOT validated against a live account |
+| `ssl_certificate` | Certificate Management Service (CAS) | experimental — mock-tested only, NOT validated against a live account |
+| `imdsv2_enforcement` | ECS metadata options (hardened mode, `HttpTokens`) | experimental — mock-tested only, NOT validated against a live account |
+| `idle_resources` | ECS disks / stopped instances / security groups, VPC EIPs | experimental — mock-tested only, NOT validated against a live account |
+| `tag_compliance` | ECS, SLB, RDS, OSS tags | experimental — mock-tested only, NOT validated against a live account |
+| `network_reachability` | ECS public instances + security group ingress rules | experimental — mock-tested only, NOT validated against a live account |
+| `iam_privilege_escalation` | RAM users / groups / roles / policies, IMS (root AccessKey, MFA, password policy) | experimental — mock-tested only, NOT validated against a live account |
+| `guardduty_findings` | Security Center (SAS) alerts | experimental — mock-tested only, NOT validated against a live account |
+| `inspector_findings` | Security Center (SAS) vulnerabilities (cve / app / emg) | experimental — mock-tested only, NOT validated against a live account |
+| `patch_compliance_findings` | Security Center (SAS) OS vulnerabilities per host | experimental — mock-tested only, NOT validated against a live account |
+
+Findings use Alibaba Cloud ARNs `acs:<service>:<region>:<uid>:<type>/<id>` (global services leave the region empty, e.g. `acs:ram::<uid>:user/<name>`) in `resourceArn`. Report generators (Markdown / HTML / MLPS Level 3 / HW Defense) accept Alibaba Cloud results; MLPS "cloud provider" items are worded for Alibaba Cloud and Security Hub control IDs are mapped to Config managed-rule identifiers where known (e.g. `ram-user-mfa-check`, `actiontrail-enabled`, `sg-public-access-check` — identifiers still to be confirmed with a live `ListManagedRules`).
+
+**Known limitations (experimental phase)**
+
+- Single account only. `org_mode` / `role_name` emit a warning and scan the current account; multi-account via Resource Directory + STS `AssumeRole` is reserved for a later phase.
+- `dns_dangling`, `disaster_recovery`, `waf_coverage` are deferred; `trusted_advisor_findings`, `access_analyzer_findings` and `scan_ecr_image_cve` have no Alibaba Cloud equivalent.
+
+## Multi-cloud (Azure, incl. Azure China / 21Vianet, experimental)
+
+> **EXPERIMENTAL.** The Azure provider is mock-tested only — it has **not yet been validated against a live Azure subscription** (neither Azure China nor Global). API field names follow the `@azure/*` SDK type definitions; expect rough edges until live validation.
+
+The same tools and report formats work against **Microsoft Azure**. **Azure China (operated by 21Vianet / 世纪互联) is the default cloud**; the global public cloud is also supported. AWS remains the default provider; nothing changes unless you pass `provider`.
+
+**Selecting the provider and cloud**
+
+- Every scan tool accepts `provider: "azure"`. Server-wide default: `CLOUD_PROVIDER=azure`.
+- Cloud: `AZURE_CLOUD=china` (default) or `AZURE_CLOUD=global`. It selects the sign-in authority and every endpoint — the two clouds are separate tenant systems and cannot be mixed:
+
+| | Azure China (21Vianet, default) | Azure Global |
+|---|---|---|
+| Entra ID (AAD) authority | `https://login.chinacloudapi.cn` | `https://login.microsoftonline.com` |
+| Resource Manager (ARM) | `https://management.chinacloudapi.cn` | `https://management.azure.com` |
+| Microsoft Graph | `https://microsoftgraph.chinacloudapi.cn` | `https://graph.microsoft.com` |
+
+- Region semantics with `provider: "azure"`: `region` is an **Azure subscription ID**. Omit it, or pass `"all"`, to scan **every subscription visible to the service principal** (enumerated via the Subscriptions API; disabled / deleted subscriptions are skipped). `AZURE_SUBSCRIPTION_ID` pins the scan to one subscription. Subscription-level modules run once per subscription; the tenant-level module (`iam_privilege_escalation`, Entra directory roles) runs once.
+- `accountId` in results is the Entra **tenant ID**; findings carry the native ARM resource ID (`/subscriptions/<sub>/resourceGroups/<rg>/providers/<rp>/<type>/<name>`) as `resourceArn` and the Azure `location` (e.g. `chinanorth3`) as `region`.
+
+**Credentials** (service principal with a client secret; the server builds a `ClientSecretCredential` itself — it never uses `DefaultAzureCredential`, the Azure CLI cache, `~/.azure/` or managed identity)
+
+```bash
+export AZURE_TENANT_ID=<tenant (directory) ID>
+export AZURE_CLIENT_ID=<application (client) ID>
+export AZURE_CLIENT_SECRET=<client secret>
+export AZURE_CLOUD=china            # optional: china (default) | global
+export AZURE_SUBSCRIPTION_ID=<id>   # optional: scan a single subscription
+```
+
+The client secret and access tokens are never logged; `@azure/*` SDK logging stays off (stdout carries the MCP transport), and error text is redacted (Bearer tokens / JWTs, client secrets, SAS signatures, storage account keys). An invalid tenant / client / secret is reported as `Azure authentication failed (AADSTS…)` (module status `error`), never as "service not enabled".
+
+**Minimum read-only RBAC**
+
+- Simplest: the built-in **`Reader`** role on each subscription (or on a **management group** to cover many subscriptions at once).
+- Plus **`Security Reader`** for Microsoft Defender for Cloud (assessments, alerts, vulnerability sub-assessments, pricings). `Reader` covers Azure Policy compliance states.
+- `secret_exposure` (App Service app settings / connection strings) needs `Microsoft.Web/sites/config/list/action`, which `Reader` does not include; without it that sub-service degrades to a warning.
+- Entra directory roles (`iam_privilege_escalation`): the service principal needs the **Microsoft Graph application permission** `Directory.Read.All` or `RoleManagement.Read.Directory` (admin consent). Without it the Entra part degrades to a warning; the RBAC part still runs.
+- Missing permissions degrade per sub-service: the module reports a warning and stays `success`.
+
+**Module maturity (12)** — all modules: *experimental — mock-tested only, NOT validated against a live account* (Azure China and Global alike)
+
+| Module | Azure services / APIs | Maturity |
+|--------|-----------------------|----------|
+| `service_detection` | Defender for Cloud plans (pricings), Azure Policy, Activity Log diagnostic settings, Key Vault | experimental — mock-tested only, NOT validated against a live account |
+| `config_rules_findings` | Azure Policy compliance states (NonCompliant summary per subscription) | experimental — mock-tested only, NOT validated against a live account |
+| `defender_assessment_findings` | Defender for Cloud assessments (Unhealthy recommendations, regulatory compliance standards) — substitutes `security_hub_findings` (`scan_defender_assessment_findings`) | experimental — mock-tested only, NOT validated against a live account |
+| `public_access_verify` | Storage accounts (blob public access, public network access, network rule set), Key Vault network ACLs | experimental — mock-tested only, NOT validated against a live account |
+| `secret_exposure` | App Service app settings / connection strings, VM custom data / Custom Script extension settings | experimental — mock-tested only, NOT validated against a live account |
+| `disk_encryption_findings` | Managed disks (`encryption.type`, Azure Disk Encryption), unmanaged VHD disks, VM encryption at host | experimental — mock-tested only, NOT validated against a live account |
+| `network_reachability` | Network security groups (inbound Allow from `*` / `0.0.0.0/0` / `Internet` on high-risk ports) + public IP association | experimental — mock-tested only, NOT validated against a live account |
+| `idle_resources` | Unattached disks, unassociated public IPs, stopped / deallocated VMs, NSGs associated with nothing | experimental — mock-tested only, NOT validated against a live account |
+| `tag_compliance` | Resource Manager resources / resource groups tags (Environment / Project / Owner) | experimental — mock-tested only, NOT validated against a live account |
+| `guardduty_findings` | Defender for Cloud security alerts | experimental — mock-tested only, NOT validated against a live account |
+| `inspector_findings` | Defender for Cloud vulnerability-assessment sub-assessments (VM / container image / SQL CVEs) | experimental — mock-tested only, NOT validated against a live account |
+| `iam_privilege_escalation` | RBAC role assignments / definitions (Owner, User Access Administrator, Contributor, wildcard custom roles, guests), classic administrators, Entra directory roles (Microsoft Graph) | experimental — mock-tested only, NOT validated against a live account |
+
+Report generators (Markdown / HTML / MLPS Level 3 / HW Defense) accept Azure results; MLPS "cloud provider" items are worded for Azure (21Vianet) and Security Hub control IDs are mapped to Azure Policy / Defender for Cloud recommendation names where known (e.g. `Storage account public access should be disallowed`, `Management ports should be closed on your virtual machines`, `MFA should be enabled on accounts with owner permissions` — names still to be confirmed on a live account).
+
+**Azure China (21Vianet) feature gaps**
+
+- All endpoints use `*.chinacloudapi.cn` (Entra ID, ARM, Microsoft Graph — see the table above).
+- Some services are unavailable or lag behind Global in Azure China: certain Defender for Cloud plans, some built-in Azure Policy definitions, Front Door and a few region-only services. Scanners treat "resource provider not registered" / "service not available" as a *not enabled* warning, never an error.
+- Microsoft Graph in Azure China (`microsoftgraph.chinacloudapi.cn`) lacks some APIs; the Entra part of `iam_privilege_escalation` degrades according to what is available.
+- 21Vianet is an independent tenant system: Global accounts / service principals do not work in Azure China and vice versa. `AZURE_CLOUD` must match the tenant.
+
+**Known limitations (experimental phase)**
+
+- One tenant per scan. `org_mode` / `role_name` emit a warning — every subscription visible to the service principal is already scanned; cross-tenant scanning is not supported (`list_org_accounts` returns an error for `azure`).
+- `ssl_certificate`, `dns_dangling`, `disaster_recovery`, `patch_compliance_findings`, `waf_coverage` are deferred; `trusted_advisor_findings`, `access_analyzer_findings`, `imdsv2_enforcement` (Azure IMDS always requires the `Metadata: true` header) and `scan_ecr_image_cve` have no Azure equivalent.
 
 ## Output Format
 

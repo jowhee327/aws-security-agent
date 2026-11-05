@@ -465,6 +465,53 @@ describe("MCP tools — provider parameter", () => {
     }
   });
 
+  it("generate_maturity_report uses the Azure tables for provider azure (4 services → top level Advanced)", async () => {
+    const services = [
+      { name: "Defender for Cloud", enabled: false },
+      { name: "Azure Policy", enabled: true },
+      { name: "Activity Log", enabled: true },
+      { name: "Key Vault", enabled: false },
+    ];
+    const azResult = {
+      scanStart: "2026-10-27T00:00:00.000Z",
+      scanEnd: "2026-10-27T00:00:01.000Z",
+      summary: { totalFindings: 0, critical: 0, high: 0, medium: 0, low: 0, modulesSuccess: 1, modulesError: 0 },
+      region: "aaaaaaaa-0000-0000-0000-00000000fake",
+      accountId: "00000000-0000-0000-0000-00000000fake",
+      provider: "azure",
+      modules: [{
+        module: "service_detection",
+        status: "success",
+        resourcesScanned: 4,
+        findingsCount: 0,
+        scanTimeMs: 1,
+        findings: [],
+        serviceDetection: { services, coveragePercent: 50, maturityLevel: "intermediate" },
+      }],
+    };
+    const { client, close } = await connect();
+    try {
+      const az = await call(client, "generate_maturity_report", { scan_results: JSON.stringify(azResult) });
+      expect(az.isError).toBeUndefined();
+      const text = az.content[0].text;
+      expect(text).toContain("# Azure Security Maturity Assessment");
+      expect(text).toContain("| Defender for Cloud | \u274c Not Enabled | Threat detection + vulnerability assessment |");
+      expect(text).toContain("| Azure Policy | \u2705 Enabled | Configuration compliance evaluation |");
+      expect(text).toContain("| Activity Log | \u2705 Enabled | Subscription API activity audit logging |");
+      expect(text).toContain("| Key Vault | \u274c Not Enabled | Customer-managed secrets / keys |");
+      expect(text).toContain("1. Enable Defender for Cloud \u2014 check the portal for the current free-trial offer");
+      expect(text).toContain("2. Enable Key Vault");
+      expect(text).toContain("- **Current**: Intermediate (2/4 services)");
+      expect(text).toContain("- **Next milestone**: Advanced (4/4) \u2014 enable Defender for Cloud + Key Vault");
+      expect(text).toContain("- **Target**: Advanced (4/4)");
+      expect(text).not.toContain("Comprehensive");
+      expect(text).not.toContain("Security Hub");
+      expect(text).not.toContain("CTS");
+    } finally {
+      await close();
+    }
+  });
+
   it("createServer defaultProvider makes provider-less calls route to Huawei Cloud", async () => {
     const { client, close } = await connect({ defaultProvider: "huaweicloud" });
     try {

@@ -5,37 +5,33 @@ import { assumeRole, buildRoleArn } from "../utils/assume-role.js";
 import { listOrgAccounts, type OrgAccount } from "../utils/org-accounts.js";
 import { runWithConcurrency } from "../utils/concurrency.js";
 import { getProvider } from "../providers/registry.js";
-import type { RegionScope } from "../providers/types.js";
-import { HUAWEI_PARTITION, DEFAULT_HUAWEI_REGION } from "../providers/huaweicloud/index.js";
-import { redactHwDiagnostic } from "../providers/huaweicloud/errors.js";
+import type { CloudProvider, RegionScope } from "../providers/types.js";
+import { resolveProviderHooks, redactProviderDiagnostic, type ResolvedProviderHooks } from "../providers/hooks.js";
+import {
+  HUAWEI_PARTITION,
+  DEFAULT_HUAWEI_REGION,
+  HUAWEI_GLOBAL_MODULES,
+  HUAWEI_MULTI_ACCOUNT_WARNING,
+} from "../providers/huaweicloud/hooks.js";
 
 const DEFAULT_CONCURRENCY = 5;
 
 /**
  * Provider selection for the orchestration entry points. Absent / "aws" keeps
  * the original AWS code paths untouched (STS getAccountId, Organizations,
- * assumeRole, AGGREGATION_MODULES); "huaweicloud" routes to the Huawei Cloud
- * single-account orchestration below.
+ * assumeRole, AGGREGATION_MODULES); every other provider ("huaweicloud",
+ * "alicloud", …) routes to the generic regional single-account orchestration
+ * below, driven by the provider's optional hooks (see CloudProviderHooks).
  */
 export interface RunnerOptions {
   provider?: ProviderId;
 }
 
+/** Regional providers: pseudo-region meaning "every region returned by the provider's discovery". */
+export const REGIONAL_ALL_REGIONS = "all";
 /** Huawei Cloud: pseudo-region meaning "every region project returned by IAM". */
-export const HUAWEI_ALL_REGIONS = "all";
-export { HUAWEI_PARTITION, DEFAULT_HUAWEI_REGION };
-/**
- * Huawei Cloud modules backed by account-wide (global) services — RMS tracker and
- * RMS compliance states aggregate every region — so in multi-region mode they run
- * once instead of once per region (mirrors AGGREGATION_MODULES for AWS org mode).
- */
-export const HUAWEI_GLOBAL_MODULES = new Set([
-  "config_rules_findings",
-  "rms_compliance_findings",
-]);
-
-export const HUAWEI_MULTI_ACCOUNT_WARNING =
-  "org_mode requested but multi-account scanning (Organizations listAccounts + STS assumeAgency) is not yet supported for huaweicloud (Phase 1). Scanning the current account only.";
+export const HUAWEI_ALL_REGIONS = REGIONAL_ALL_REGIONS;
+export { HUAWEI_PARTITION, DEFAULT_HUAWEI_REGION, HUAWEI_GLOBAL_MODULES, HUAWEI_MULTI_ACCOUNT_WARNING };
 
 /** Aggregation scanners that already pull cross-account data — run once from admin account */
 const AGGREGATION_MODULES = new Set([
@@ -101,8 +97,9 @@ async function runScannersWithContext(
     return {
       module: scanners[i].moduleName,
       status: "error" as const,
-      // Huawei SDK / proxy errors may echo the signed request; AWS messages are passed through untouched.
-      error: ctx.provider === "huaweicloud" ? redactHwDiagnostic(reason) : reason,
+      // Non-AWS SDK / proxy errors may echo the signed request (provider redactor);
+      // legacy AWS contexts carry no provider and are passed through untouched.
+      error: redactProviderDiagnostic(ctx.provider, reason),
       resourcesScanned: 0,
       findingsCount: 0,
       scanTimeMs: 0,
@@ -114,12 +111,15 @@ async function runScannersWithContext(
 /**
  * Build the ScanContext for a single-module scan (used by the scan_<module> tools).
  * AWS: STS account ID (best effort) + partition — identical to the historical
- * `index.ts` helper. Huawei Cloud: domain ID / project ID resolved via the provider.
+ * `index.ts` helper. Regional providers: account / region scope resolved via the
+ * provider (Huawei Cloud: domain ID / project ID).
  */
 export async function buildScanContext(region: string, provider: ProviderId = "aws"): Promise<ScanContext> {
-  if (provider === "huaweicloud") {
-    const { scopes, accountId } = await resolveHuaweiScopes(region);
-    return huaweiContext(scopes[0], accountId);
+  if (provider !== "aws") {
+    const p = getProvider(provider);
+    const hooks = resolveProviderHooks(p);
+    const { scopes, accountId } = await resolveRegionalScopes(p, hooks, region);
+    return regionalContext(p, hooks, scopes[0], accountId);
   }
   let accountId: string;
   try {
@@ -135,8 +135,8 @@ export async function runAllScanners(
   region: string,
   runOpts?: RunnerOptions,
 ): Promise<FullScanResult> {
-  if (runOpts?.provider === "huaweicloud") {
-    return runHuaweiScanners(scanners, region);
+  if (runOpts?.provider && runOpts.provider !== "aws") {
+    return runRegionalProviderScanners(getProvider(runOpts.provider), scanners, region);
   }
 
   const scanStart = new Date().toISOString();
@@ -177,13 +177,17 @@ export async function runMultiAccountScanners(
   region: string,
   opts: MultiAccountOptions,
 ): Promise<FullScanResult> {
-  if (opts.provider === "huaweicloud") {
-    // Phase 1: single account. Organizations listAccounts + STS assumeAgency are
-    // reserved on the provider interface (see providers/huaweicloud/index.ts TODOs).
-    const result = await runHuaweiScanners(scanners, region);
+  if (opts.provider && opts.provider !== "aws") {
+    // Regional providers are single-account for now: listAccounts / assumeCrossAccount are
+    // reserved on the provider interface (see the providers' TODOs). Generic multi-account
+    // orchestration for non-AWS providers is not implemented, so org_mode always falls back
+    // to the current account with the provider's warning.
+    const provider = getProvider(opts.provider);
+    const hooks = resolveProviderHooks(provider);
+    const result = await runRegionalProviderScanners(provider, scanners, region, hooks);
     if (result.modules.length > 0) {
       if (!result.modules[0].warnings) result.modules[0].warnings = [];
-      result.modules[0].warnings.unshift(HUAWEI_MULTI_ACCOUNT_WARNING);
+      result.modules[0].warnings.unshift(hooks.messages.multiAccountUnsupported);
     }
     return result;
   }
@@ -294,10 +298,10 @@ export async function runMultiAccountScanners(
 }
 
 /* ------------------------------------------------------------------------ */
-/* Huawei Cloud orchestration (Phase 1: single account)                     */
+/* Regional provider orchestration (Huawei Cloud, Alibaba Cloud: single account) */
 /* ------------------------------------------------------------------------ */
 
-interface HuaweiScopes {
+interface RegionalScopes {
   scopes: RegionScope[];
   accountId: string;
   /** Whether the caller asked for every region (region omitted / "all"). */
@@ -306,17 +310,26 @@ interface HuaweiScopes {
 }
 
 function isAllRegions(region: string | undefined): boolean {
-  return !region || region.trim() === "" || region.trim().toLowerCase() === HUAWEI_ALL_REGIONS;
+  return !region || region.trim() === "" || region.trim().toLowerCase() === REGIONAL_ALL_REGIONS;
+}
+
+function fallbackRegion(provider: CloudProvider, hooks: ResolvedProviderHooks, requested: string | undefined): string {
+  const r = requested ?? hooks.defaultRegion;
+  if (!r) throw new Error(`Provider "${provider.id}" declares no defaultRegion; pass an explicit region.`);
+  return r;
 }
 
 /**
- * Resolve the Huawei Cloud region scopes (region → projectId/domainId) and the
- * account identifier (domain ID). Discovery failures degrade to a single scope
- * without projectId (each scanner then resolves / reports its own error) and to
- * accountId "unknown" — the same best-effort posture as the AWS STS fallback.
+ * Resolve a regional provider's region scopes and account identifier
+ * (Huawei Cloud: region → projectId/domainId, account = domain ID). Discovery
+ * failures degrade to a single scope (each scanner then resolves / reports its own
+ * error) and to accountId "unknown" — the same best-effort posture as the AWS STS fallback.
  */
-async function resolveHuaweiScopes(region: string | undefined): Promise<HuaweiScopes> {
-  const provider = getProvider("huaweicloud");
+async function resolveRegionalScopes(
+  provider: CloudProvider,
+  hooks: ResolvedProviderHooks,
+  region: string | undefined,
+): Promise<RegionalScopes> {
   const allRegions = isAllRegions(region);
   const requested = allRegions ? undefined : region!.trim();
   const warnings: string[] = [];
@@ -327,8 +340,9 @@ async function resolveHuaweiScopes(region: string | undefined): Promise<HuaweiSc
     if (allRegions) {
       scopes = discovered;
       if (scopes.length === 0) {
-        warnings.push(`Huawei Cloud region discovery returned no region projects; scanning ${DEFAULT_HUAWEI_REGION} only.`);
-        scopes = [{ region: DEFAULT_HUAWEI_REGION }];
+        const fallback = fallbackRegion(provider, hooks, undefined);
+        warnings.push(hooks.messages.noRegions(fallback));
+        scopes = [{ region: fallback }];
       }
     } else {
       const match = discovered.find((s) => s.region === requested);
@@ -336,14 +350,15 @@ async function resolveHuaweiScopes(region: string | undefined): Promise<HuaweiSc
         scopes = [match];
       } else {
         const known = discovered.map((s) => s.region).join(", ") || "(none)";
-        warnings.push(`Huawei Cloud region "${requested}" is not among this account's IAM region projects (known: ${known}); scanning it anyway.`);
+        warnings.push(hooks.messages.unknownRegion(requested!, known));
+        // Keep the account-level identifier (Huawei: domainId) from discovery, if any.
         scopes = [{ region: requested!, domainId: discovered[0]?.domainId }];
       }
     }
   } catch (err) {
-    const msg = redactHwDiagnostic(err instanceof Error ? err.message : String(err));
-    const fallback = requested ?? DEFAULT_HUAWEI_REGION;
-    warnings.push(`Huawei Cloud region discovery failed: ${msg}. Scanning ${fallback} only.`);
+    const msg = hooks.redactDiagnostic(err instanceof Error ? err.message : String(err));
+    const fallback = fallbackRegion(provider, hooks, requested);
+    warnings.push(hooks.messages.discoveryFailed(msg, fallback));
     scopes = [{ region: fallback }];
   }
 
@@ -357,41 +372,50 @@ async function resolveHuaweiScopes(region: string | undefined): Promise<HuaweiSc
   return { scopes, accountId, allRegions, warnings };
 }
 
-function huaweiContext(scope: RegionScope, accountId: string): ScanContext {
-  const domainId = scope.domainId ?? (accountId !== "unknown" ? accountId : undefined);
+function regionalContext(
+  provider: CloudProvider,
+  hooks: ResolvedProviderHooks,
+  scope: RegionScope,
+  accountId: string,
+): ScanContext {
   const ctx: ScanContext = {
     region: scope.region,
-    partition: HUAWEI_PARTITION,
+    partition: hooks.partitionFor(scope.region),
     accountId,
-    provider: "huaweicloud",
+    provider: provider.id,
   };
-  if (scope.projectId) ctx.projectId = scope.projectId;
-  if (domainId) ctx.domainId = domainId;
-  return ctx;
+  return Object.assign(ctx, hooks.contextFor(scope, accountId));
 }
 
 /**
- * Huawei Cloud single-account orchestration.
- * - `region` = a Huawei region ID (e.g. cn-north-4) → scan that region project.
- * - `region` omitted / "all" → every region project from IAM; account-wide modules
- *   ({@link HUAWEI_GLOBAL_MODULES}) run once, regional modules once per region.
+ * Regional provider single-account orchestration.
+ * - `region` = a provider region ID (e.g. cn-north-4 / cn-hangzhou) → scan that region.
+ * - `region` omitted / "all" → every discovered region; account-wide modules
+ *   (provider `globalModules`) run once, regional modules once per region.
  */
-async function runHuaweiScanners(scanners: Scanner[], region: string | undefined): Promise<FullScanResult> {
+async function runRegionalProviderScanners(
+  provider: CloudProvider,
+  scanners: Scanner[],
+  region: string | undefined,
+  hooks: ResolvedProviderHooks = resolveProviderHooks(provider),
+): Promise<FullScanResult> {
   const scanStart = new Date().toISOString();
-  const { scopes, accountId, allRegions, warnings } = await resolveHuaweiScopes(region);
+  const { scopes, accountId, allRegions, warnings } = await resolveRegionalScopes(provider, hooks, region);
 
   const modules: ScanResult[] = [];
   if (scopes.length === 1) {
-    modules.push(...(await runScannersWithContext(scanners, huaweiContext(scopes[0], accountId))));
+    modules.push(...(await runScannersWithContext(scanners, regionalContext(provider, hooks, scopes[0], accountId))));
   } else {
-    const globalScanners = scanners.filter((s) => HUAWEI_GLOBAL_MODULES.has(s.moduleName));
-    const regionalScanners = scanners.filter((s) => !HUAWEI_GLOBAL_MODULES.has(s.moduleName));
+    const globalScanners = scanners.filter((s) => hooks.globalModules.has(s.moduleName));
+    const regionalScanners = scanners.filter((s) => !hooks.globalModules.has(s.moduleName));
     if (globalScanners.length > 0) {
-      modules.push(...(await runScannersWithContext(globalScanners, huaweiContext(scopes[0], accountId))));
+      modules.push(...(await runScannersWithContext(globalScanners, regionalContext(provider, hooks, scopes[0], accountId))));
     }
     if (regionalScanners.length > 0) {
-      for (const scope of scopes) {
-        modules.push(...(await runScannersWithContext(regionalScanners, huaweiContext(scope, accountId))));
+      for (const [i, scope] of scopes.entries()) {
+        const ctx = regionalContext(provider, hooks, scope, accountId);
+        if (i > 0) ctx.primaryRegionScope = false;
+        modules.push(...(await runScannersWithContext(regionalScanners, ctx)));
       }
     }
   }
@@ -404,9 +428,9 @@ async function runHuaweiScanners(scanners: Scanner[], region: string | undefined
   return {
     scanStart,
     scanEnd,
-    region: allRegions ? HUAWEI_ALL_REGIONS : scopes[0].region,
+    region: allRegions ? REGIONAL_ALL_REGIONS : scopes[0].region,
     accountId,
-    provider: "huaweicloud",
+    provider: provider.id,
     modules,
     summary: buildSummary(modules),
   };
