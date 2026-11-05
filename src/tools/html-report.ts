@@ -8,6 +8,21 @@ import { cloudProviderNote } from "../data/mlps3-check-mapping.js";
 import { VERSION } from "../version.js";
 import { getI18n, type Lang } from "../i18n/index.js";
 import { getSecurityHubSource } from "../utils/sh-source.js";
+import { computeExploitabilityFunnel, FUNNEL_LAYERS } from "../exploitability/funnel.js";
+import {
+  PRIORITY_ORDER,
+  URGENT_TABLE_LIMIT,
+  compareByExploitPriority,
+  effectivePriority,
+  fmtEpss,
+  fmtExploit,
+  hasExploitability,
+  kevStaleNote,
+  localizedRationale,
+  selectInspectorFindings,
+  summarizeByCve,
+  urgentFindings,
+} from "./exploitability-report.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -362,6 +377,83 @@ function sharedCss(): string {
   `;
 }
 
+/** Extra CSS, appended only when the scan carries exploitability data (legacy output unchanged). */
+function exploitCss(): string {
+  return `
+    .xp-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#fff;margin-right:4px}
+    .xp-p0{background:#b91c1c}
+    .xp-p1{background:#c2410c}
+    .xp-p2{background:#a16207}
+    .xp-p3{background:#15803d}
+    .xp-rationale{color:#fbbf24;font-size:13px;margin-bottom:4px}
+    .xp-section{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px 24px;margin-bottom:32px}
+    .xp-funnel{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+    .xp-funnel-step{flex:1;min-width:110px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 12px;text-align:center}
+    .xp-funnel-count{font-size:22px;font-weight:700}
+    .xp-funnel-cves{font-size:12px;color:#94a3b8}
+    .xp-funnel-label{font-size:12px;color:#cbd5e1;margin-top:2px}
+    .xp-note{color:#94a3b8;font-size:12px;margin-bottom:8px}
+    .xp-disclaimer{color:#94a3b8;font-size:12px;font-style:italic;margin-top:8px}
+    .xp-table td{font-size:12px;word-break:break-all}
+    @media print{
+      .xp-section,.xp-funnel-step{background:#fff;border:1px solid #e2e8f0}
+      .xp-funnel-label,.xp-note,.xp-disclaimer{color:#475569}
+    }
+  `;
+}
+
+function exploitBadge(p: string): string {
+  return `<span class="xp-badge xp-${esc(p.toLowerCase())}">${esc(p)}</span>`;
+}
+
+/** "🎯 Exploitability Assessment" block (funnel, P0/P1 table, disclaimer, KEV date). */
+function buildExploitabilityHtml(findings: Finding[], lang: Lang, reportDate: string): string {
+  const t = getI18n(lang).exploitability;
+  const funnel = computeExploitabilityFunnel(findings);
+  const steps = FUNNEL_LAYERS.map((layer) => {
+    const c = funnel[layer];
+    return `<div class="xp-funnel-step" data-layer="${esc(layer)}"><div class="xp-funnel-count">${c.findings}</div><div class="xp-funnel-cves">${c.cves} ${esc(t.funnelCves)}</div><div class="xp-funnel-label">${esc(t.funnelLayers[layer])}</div></div>`;
+  }).join("\n      ");
+  const byPriority = PRIORITY_ORDER.map((p) => `${exploitBadge(p)}${funnel.byPriority[p]}`).join(" ");
+
+  const urgent = urgentFindings(findings);
+  let tableHtml: string;
+  if (urgent.length === 0) {
+    tableHtml = `<div class="xp-note">${esc(t.noUrgent)}</div>`;
+  } else {
+    const rows = urgent.slice(0, URGENT_TABLE_LIMIT).map((f) => {
+      const x = f.exploitability!;
+      const reach = esc(t.reachability[x.reachability] ?? x.reachability) +
+        (x.reachabilityDetail ? `<br><span class="xp-note">${esc(x.reachabilityDetail)}</span>` : "");
+      const kev = x.kev ? `${esc(t.yes)}${x.kevDateAdded ? ` (${esc(x.kevDateAdded)})` : ""}` : esc(t.no);
+      return `<tr><td>${exploitBadge(x.priority)}</td><td>${esc(x.cveId)}</td><td>${esc(f.resourceId)}</td><td>${esc(f.resourceType)}</td><td>${esc(fmtExploit(t, x.exploitAvailable))}</td><td>${esc(fmtEpss(x.epss) || t.notAvailable)}</td><td>${kev}</td><td>${reach}</td><td>${esc(localizedRationale(t, f))}</td></tr>`;
+    }).join("\n");
+    const more = urgent.length > URGENT_TABLE_LIMIT
+      ? `<div class="xp-note">${esc(t.moreRows(urgent.length - URGENT_TABLE_LIMIT))}</div>`
+      : "";
+    tableHtml = `<table class="xp-table">
+        <thead><tr><th>${esc(t.colPriority)}</th><th>${esc(t.colCve)}</th><th>${esc(t.colResource)}</th><th>${esc(t.colResourceType)}</th><th>${esc(t.colExploit)}</th><th>${esc(t.colEpss)}</th><th>${esc(t.colKev)}</th><th>${esc(t.colReachability)}</th><th>${esc(t.colRationale)}</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>${more}`;
+  }
+
+  const stale = kevStaleNote(t, funnel.kevSnapshotDate, reportDate);
+  return `
+    <section class="xp-section" id="exploitability">
+      <h2>${esc(t.sectionTitle)}</h2>
+      <h3>${esc(t.funnelTitle)}</h3>
+      <div class="xp-funnel">
+      ${steps}
+      </div>
+      <div class="xp-note">${esc(t.funnelNote)}</div>
+      <div class="xp-note">${esc(t.byPriority)}: ${byPriority}</div>
+      <h3>${esc(t.priorityTableTitle)}</h3>
+      ${tableHtml}
+      <div class="xp-note">${esc(t.kevSnapshot(funnel.kevSnapshotDate))}${stale ? ` &mdash; ${esc(stale)}` : ""}</div>
+      <div class="xp-disclaimer">${esc(t.disclaimer)}</div>
+    </section>`;
+}
+
 // ---------------------------------------------------------------------------
 // SVG Charts
 // ---------------------------------------------------------------------------
@@ -592,6 +684,9 @@ export function generateHtmlReport(
   const allFindings: Finding[] = modules.flatMap((m) =>
     m.findings.map((f) => ({ ...f, module: f.module ?? m.module })),
   );
+  // Exploitability rendering is opt-in on data: scans without it render exactly as before.
+  const hasExploit = hasExploitability(allFindings);
+  const tx = t.exploitability;
 
   // Pre-compute Security Hub sub-categories for bar chart and stats table
   const shModule = modules.find(m => m.module === "security_hub_findings");
@@ -625,10 +720,15 @@ export function generateHtmlReport(
     "config_rules_findings",
     "access_analyzer_findings",
   ]);
+  // AWS only: inspector_findings is rendered once it carries findings (Inspector2 direct pull).
+  // Other providers keep it hidden (multicloud behaviour unchanged).
+  const isAws = (scanResults.provider ?? "aws") === "aws";
+  const isHiddenModule = (name: string, findingCount: number): boolean =>
+    DETECTION_ONLY_MODULES.has(name) && !(isAws && name === "inspector_findings" && findingCount > 0);
 
   // Expand SH module into sub-categories for bar chart, hide detection-only scanners
   const barChartModules: ScanResult[] = modules.flatMap(m => {
-    if (DETECTION_ONLY_MODULES.has(m.module)) return [];
+    if (isHiddenModule(m.module, m.findings.length)) return [];
     if (m.module === "security_hub_findings" && shSubCats.length > 0) {
       return shSubCats.map(sc => ({
         ...m,
@@ -644,7 +744,7 @@ export function generateHtmlReport(
   let top5Html = "";
   if (allFindings.length > 0) {
     const top5 = [...allFindings]
-      .sort((a, b) => b.riskScore - a.riskScore)
+      .sort(hasExploit ? compareByExploitPriority : (a, b) => b.riskScore - a.riskScore)
       .slice(0, 5);
     const cards = top5
       .map(
@@ -652,8 +752,9 @@ export function generateHtmlReport(
       <div class="top5-card sev-${esc(f.severity.toLowerCase())}">
         <div class="top5-rank">#${i + 1}</div>
         <div class="top5-content">
-          <span class="badge badge-${esc(f.severity.toLowerCase())}">${esc(f.severity)}</span>
-          <div class="top5-title">${esc(f.title)}</div>
+          ${hasExploit ? exploitBadge(effectivePriority(f)) : ""}<span class="badge badge-${esc(f.severity.toLowerCase())}">${esc(f.severity)}</span>
+          <div class="top5-title">${esc(f.title)}</div>${f.exploitability ? `
+          <div class="xp-rationale">${esc(localizedRationale(tx, f))} &middot; ${esc(tx.reachability[f.exploitability.reachability] ?? f.exploitability.reachability)}</div>` : ""}
           <div class="top5-detail"><strong>${t.resource}:</strong> ${esc(f.resourceId)}</div>
           <div class="top5-detail"><strong>${t.impact}:</strong> ${esc(f.impact)}</div>
           <div class="top5-detail"><strong>${t.riskScore}:</strong> ${f.riskScore}/10</div>
@@ -670,6 +771,9 @@ export function generateHtmlReport(
     </section>`;
   }
 
+  // --- Exploitability assessment (only when findings carry exploitability) ---
+  const exploitHtml = hasExploit ? buildExploitabilityHtml(allFindings, lang ?? "zh", date) : "";
+
   // --- Findings HTML (grouped by module, then severity) ---
   let findingsHtml: string;
   let filterToolbarHtml = "";
@@ -681,10 +785,11 @@ export function generateHtmlReport(
     const renderCard = (f: Finding, moduleKey: string): string => {
       const sev = f.severity.toLowerCase();
       return `<div class="finding-card sev-${esc(sev)}" data-severity="${esc(f.severity)}" data-module="${esc(moduleKey)}">
-        <span class="badge badge-${esc(sev)}">${esc(f.severity)}</span>
+        ${f.exploitability ? exploitBadge(f.exploitability.priority) : ""}<span class="badge badge-${esc(sev)}">${esc(f.severity)}</span>
         <span class="finding-title-text">${esc(f.title)}</span>
         <span class="finding-resource">${esc(f.resourceArn || f.resourceId)}</span>
-        <details><summary>${t.details}</summary><div class="finding-card-body">
+        <details><summary>${t.details}</summary><div class="finding-card-body">${f.exploitability ? `
+          <p>${exploitBadge(f.exploitability.priority)}<strong>${esc(tx.exploitPriority)}:</strong> ${esc(localizedRationale(tx, f))} &middot; ${esc(tx.reachability[f.exploitability.reachability] ?? f.exploitability.reachability)}</p>` : ""}
           <p>${esc(f.description)}</p>
           <p><strong>${t.remediation}:</strong></p>
           <ol>${f.remediationSteps.map((s) => `<li>${escWithLinks(s)}</li>`).join("")}</ol>
@@ -719,7 +824,7 @@ export function generateHtmlReport(
     // Expand security_hub_findings into per-sub-category entries, filter detection-only scanners
     const expandedEntries: Array<[string, Finding[], string | null]> = []; // [key, findings, subCatLabel]
     for (const [mod, findings] of moduleMap.entries()) {
-      if (DETECTION_ONLY_MODULES.has(mod)) continue;
+      if (isHiddenModule(mod, findings.length)) continue;
       if (mod === "security_hub_findings" && shSubCats.length > 0) {
         for (const sc of shSubCats) {
           expandedEntries.push([sc.key, sc.findings, sc.label]);
@@ -762,9 +867,40 @@ export function generateHtmlReport(
         .join(" ");
     };
 
+    // inspector_findings can carry ~10k CVEs: list the top INSPECTOR_CARD_LIMIT by
+    // exploitability priority, grouped P0..P3, and summarize the rest by CVE.
+    const renderInspectorBody = (findings: Finding[], moduleKey: string): string => {
+      const { listed, rest } = selectInspectorFindings(findings);
+      const groups = PRIORITY_ORDER.map((p) => {
+        const pf = listed.filter((f) => effectivePriority(f) === p);
+        if (pf.length === 0) return "";
+        return `<details class="severity-group-fold"${p === "P0" || p === "P1" ? " open" : ""}>
+          <summary><h4>${exploitBadge(p)} ${esc(tx.priorityLabels[p])} (${pf.length})</h4></summary>
+          ${renderCards(pf, moduleKey)}
+        </details>`;
+      }).filter(Boolean).join("\n");
+      if (rest.length === 0) return groups;
+      const rows = summarizeByCve(rest);
+      const overflow = `<div class="xp-note">${esc(tx.inspectorOverflow(rest.length))}</div>`;
+      const body = rows
+        .map((r) => `<tr><td>${esc(r.cveId)}</td><td>${r.resources}</td><td>${r.findings}</td><td>${exploitBadge(r.highestPriority)}</td></tr>`)
+        .join("\n");
+      return `${overflow}
+          ${groups}
+          <div class="xp-note">${esc(tx.cveSummaryNote(listed.length))}</div>
+          <details class="severity-group-fold xp-cve-summary">
+            <summary><h4>${esc(tx.cveSummaryTitle(rest.length, rows.length))}</h4></summary>
+            <table class="xp-table"><thead><tr><th>${esc(tx.colCve)}</th><th>${esc(tx.colAffectedResources)}</th><th>${esc(tx.colFindings)}</th><th>${esc(tx.colHighestPriority)}</th></tr></thead>
+            <tbody>${body}</tbody></table>
+          </details>`;
+    };
+
     findingsHtml = moduleEntries.map(([modName, modFindings, subCatLabel]) => {
       const badges = renderModuleBadges(modFindings);
       const displayName = subCatLabel ?? (t.moduleNames[modName] ?? modName);
+      const body = modName === "inspector_findings" && hasExploitability(modFindings)
+        ? renderInspectorBody(modFindings, modName)
+        : renderSeverityGroups(modFindings, modName);
 
       return `<details class="module-fold" data-module="${esc(modName)}">
         <summary>
@@ -772,7 +908,7 @@ export function generateHtmlReport(
           <span class="module-badges">${badges}</span>
         </summary>
         <div class="module-body">
-          ${renderSeverityGroups(modFindings, modName)}
+          ${body}
         </div>
       </details>`;
     }).join("\n");
@@ -833,7 +969,7 @@ export function generateHtmlReport(
     .flatMap(
       (m) => {
         // Hide detection-only scanners — their data is in SH sub-categories
-        if (DETECTION_ONLY_MODULES.has(m.module)) return [];
+        if (isHiddenModule(m.module, m.findings.length)) return [];
         // Replace security_hub_findings parent row with flat sub-category rows
         if (m.module === "security_hub_findings" && shSubCats.length > 0) {
           return shSubCats.map(sc =>
@@ -1040,7 +1176,7 @@ export function generateHtmlReport(
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(t.securityReportTitle)} &mdash; ${esc(date)}</title>
-<style>${sharedCss()}</style>
+<style>${sharedCss()}${hasExploit ? exploitCss() : ""}</style>
 </head>
 <body>
 <div class="container">
@@ -1079,7 +1215,7 @@ ${aiSummaryBlock(scanResults.aiSummary, t.aiSummaryTitle)}
 ${trendHtml}
 
 ${top5Html}
-
+${exploitHtml}
 ${buildServiceReminderHtml(modules, lang, scanResults.provider)}
 
 <section>
@@ -1100,7 +1236,8 @@ ${recsHtml}
 
 <footer>
   <p>${esc(t.generatedBy)} v${VERSION}</p>
-  <p>${esc(t.informationalOnly)}</p>
+  <p>${esc(t.informationalOnly)}</p>${hasExploit ? `
+  <p>${esc(tx.disclaimer)}</p>` : ""}
 </footer>
 
 </div>

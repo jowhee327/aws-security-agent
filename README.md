@@ -11,6 +11,7 @@ MCP server for automated AWS security scanning — 20 modules, risk scoring, zer
 
 - **20 Security Scan Modules** — Security Hub, GuardDuty, Inspector, Trusted Advisor, Config Rules, Access Analyzer, Patch Compliance, ECR image CVE gap analysis, and more
 - **Risk Scoring** — every finding scored 0-10 with severity (CRITICAL/HIGH/MEDIUM/LOW) and priority (P0-P3)
+- **CVE Exploitability Prioritization** — Inspector CVEs ranked P0-P3 by public exploit, EPSS, CISA KEV (offline snapshot) and configured network exposure, so the handful of actually exploitable vulnerabilities rise above thousands of CRITICAL/HIGH ones ([details](#cve-exploitability-prioritization))
 - **100% Read-Only** — uses only Describe/Get/List API calls; never modifies your AWS resources
 - **Multi-Account Support** — scan all accounts in an AWS Organization via `org_mode` with cross-account role assumption
 - **Parallel Execution** — all modules run concurrently via `Promise.allSettled`
@@ -256,13 +257,14 @@ This uploads the dashboard files (including your latest `data.json`) to the buck
 | `scan_disaster_recovery` | Assess disaster recovery readiness |
 | `scan_security_hub_findings` | Aggregate findings from AWS Security Hub |
 | `scan_guardduty_findings` | Check if GuardDuty is enabled (findings via Security Hub) |
-| `scan_inspector_findings` | Check if Inspector is enabled (findings via Security Hub) |
+| `scan_inspector_findings` | Check Inspector enablement and pull active package-vulnerability findings directly from Inspector2, each with an exploitability assessment (falls back to detection-only + Security Hub when `inspector2:ListFindings` is unavailable) |
 | `scan_trusted_advisor_findings` | Aggregate findings from AWS Trusted Advisor |
 | `scan_config_rules_findings` | Check if Config is enabled (findings via Security Hub) |
 | `scan_access_analyzer_findings` | Check if Access Analyzer is enabled (findings via Security Hub) |
 | `scan_patch_compliance_findings` | Aggregate findings from SSM Patch Compliance |
 | `scan_imdsv2_enforcement` | Check EC2 instances for IMDSv2 enforcement |
 | `scan_waf_coverage` | Check internet-facing ALBs for WAF Web ACL protection |
+| `prioritize_vulnerabilities` | "What do I fix first": CVE findings ordered by exploitability priority (P0 first) with funnel, rationale and reachability. Params: `priorities` (default `["P0","P1"]`), `limit` (default 20, max 200), `resource_type` (`ec2`/`ecr`/`lambda`), `include_reachability` (default true). AWS only (any non-aws `provider` returns an explicit error) |
 | `scan_ecr_image_cve` | Deep-scan ECR image layers for critical/high CVEs missed by ECR Basic/Inspector Enhanced scanning; reports gap/confirmed/reverse-gap vs official results |
 | `scan_group` | Run a predefined group of scanners for a specific scenario |
 | `list_groups` | List available scan groups |
@@ -322,6 +324,13 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
         "ecr:GetDownloadUrlForLayer",
         "ecr:DescribeImageScanFindings",
 
+        "ecs:ListClusters",
+        "ecs:ListTasks",
+        "ecs:DescribeTasks",
+        "ecs:DescribeContainerInstances",
+
+        "eks:ListClusters",
+
         "guardduty:GetDetector",
         "guardduty:ListDetectors",
         "guardduty:ListFindings",
@@ -341,11 +350,13 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
         "iam:GetPolicy",
         "iam:GetPolicyVersion",
 
+        "inspector2:BatchGetAccountStatus",
         "inspector2:ListFindings",
         "inspector2:ListCoverage",
 
         "lambda:ListFunctions",
         "lambda:GetFunction",
+        "lambda:GetFunctionUrlConfig",
 
         "organizations:ListAccounts",
 
@@ -405,7 +416,7 @@ Attach this policy to the IAM user or role running the scanner. All actions are 
 | **ECR Image CVE** | Deep layer scan of ECR images for critical/high CVEs that ECR Basic/Inspector Enhanced scanning structurally miss (unmanaged binaries, distro secdb gaps, EOL OS); diffs against official scan results | 7.0 - 10.0 |
 | **Security Hub Findings** | AWS Security Hub (FSBP, CIS, PCI DSS) | 3.0 - 9.5 |
 | **GuardDuty Findings** | Amazon GuardDuty threat detection | 3.0 - 9.5 |
-| **Inspector Findings** | Amazon Inspector vulnerability scanning | 3.0 - 9.5 |
+| **Inspector Findings** | Amazon Inspector package vulnerabilities pulled directly from Inspector2, ranked by [exploitability](#cve-exploitability-prioritization) | 0.1 - 10.0 (banded by exploitability priority) |
 | **Trusted Advisor Findings** | AWS Trusted Advisor security checks (requires Business/Enterprise Support) | 5.5 - 8.0 |
 
 ### Risk Scoring
@@ -442,6 +453,106 @@ The newest module, `ecr-image-cve`, exists because of a real customer case: an E
 Additional IAM permissions used (read-only): `ecr:GetAuthorizationToken`, `ecr:DescribeRepositories`, `ecr:DescribeImages`, `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer`, `ecr:DescribeImageScanFindings`, `inspector2:ListFindings`, `inspector2:ListCoverage` — already included in the [Recommended IAM Policy](#recommended-iam-policy).
 
 Invoke it directly via `scan_ecr_image_cve`, as part of the `container_security` group, or within `scan_all` / `scan_and_report`. Full design notes: [`docs/specs/ecr-image-cve-scanner-spec.md`](docs/specs/ecr-image-cve-scanner-spec.md).
+
+## CVE Exploitability Prioritization
+
+> **Positioning.** This is **exploitability prioritization based on threat intelligence (exploit availability, EPSS, CISA KEV) and exposure (public IP, security groups, NACLs, running state)**. It is **not penetration testing or vulnerability verification**. The tool is read-only end to end and performs no active probing of any resource (no packets sent, no port scans, no connections to target IPs). `internet_open` means the *configuration* allows access from anywhere; it does not prove the vulnerability is exploitable.
+
+Sorting CVEs by CVSS alone buries the few that matter: a typical account has hundreds of CRITICAL and thousands of HIGH findings. Each Inspector CVE finding now carries an `exploitability` object and is ranked P0–P3 from four signal layers:
+
+| Layer | Signal | Source |
+|---|---|---|
+| L1 | Public exploit available | Inspector `exploitAvailable` / ASFF `Vulnerabilities[].ExploitAvailable` |
+| L2 | Exploit probability (EPSS) | `epss.score` — high ≥ 0.1, medium ≥ 0.01 |
+| L3 | Exploited in the wild | CISA KEV catalog, bundled offline snapshot |
+| L4 | Reachability | EC2 public IP + SG + NACL; ECR image → running ECS task ENI; Lambda Function URL |
+
+Priority rules (first match wins; every result carries a machine-readable `rationaleCode` and an English `rationale`):
+
+| # | Condition | Priority | `rationaleCode` |
+|---|---|---|---|
+| 1 | In KEV and resource not `not_running` | **P0** | `KEV` |
+| 2 | Public exploit and `internet_open` | **P0** | `EXPLOIT_INTERNET` |
+| 3 | EPSS high and `internet_open` | **P0** | `EPSS_HIGH_INTERNET` |
+| 4 | In KEV but image not running | P1 | `KEV_NOT_RUNNING` |
+| 5 | Public exploit and EPSS high | P1 | `EXPLOIT_EPSS_HIGH` |
+| 6 | Public exploit and `allowlist` | P1 | `EXPLOIT_ALLOWLIST` |
+| 7 | Public exploit (no internet exposure) | P2 | `EXPLOIT_LIMITED` |
+| 8 | EPSS high | P2 | `EPSS_HIGH` |
+| 9 | EPSS medium | P2 | `EPSS_MEDIUM` |
+| 10 | Everything else | P3 | `BASELINE` |
+
+Reachability values: `internet_open` (public address and an SG rule from `0.0.0.0/0` / `::/0` that the subnet NACL also allows), `allowlist` (public address, but only specific public CIDRs / prefix lists — a `/32` allow-list is never `internet_open`), `internal`, `not_running` (ECR image not observed in a running ECS task), `unknown` (not evaluated — never escalated to P0 except via KEV).
+
+**Backward compatibility.** `Finding.severity` and the severity-derived `Finding.priority` are unchanged; the exploitability priority lives in `exploitability.priority`. `riskScore` is re-banded so that sorting by `riskScore` equals sorting by exploitability priority (P0 9.0–10.0, P1 7.0–8.9, P2 4.0–6.9, P3 0.1–3.9, order within a band preserved; the original score is kept in `exploitability.originalRiskScore`). A CRITICAL CVE with no exploit signal therefore keeps its CRITICAL badge but ranks after P0/P1. Findings without a CVE are byte-for-byte unchanged.
+
+**Data source & de-duplication.** `inspector_findings` pulls `ListFindings` (ACTIVE, PACKAGE_VULNERABILITY) directly — partitioned by resource type, 3 streams in parallel, capped at 20,000 findings with exploit/EPSS findings always kept. In `scan_all` / `scan_group` the Security Hub copies of the same Inspector findings are removed (by finding ARN, then CVE + resource), with a `Deduplicated N Inspector findings…` warning. If Inspector2 cannot be read, the scanner falls back to detection-only and the Security Hub Inspector CVEs get the same assessment from their ASFF signals.
+
+**Where it shows up.** HTML report (Top 5 by exploitability priority, "🎯 Exploitability Assessment" block with funnel + P0/P1 table + KEV snapshot date; the Inspector module renders at most 200 cards plus a per-CVE summary table), HW Defense report (P0/P1 first under "Vulnerability & Patch Management"), Markdown report, AI summary prompt, dashboard (exploitability card, priority column), and the `prioritize_vulnerabilities` tool.
+
+### `prioritize_vulnerabilities`
+
+```text
+prioritize_vulnerabilities { "region": "cn-north-1", "priorities": ["P0", "P1"], "limit": 20 }
+```
+
+Returns a short summary plus JSON:
+
+```text
+{
+  "dataSource": "inspector2",
+  "funnel": { "total": {...}, "exploitAvailable": {...}, "epssHigh": {...}, "kev": {...}, "reachable": {...}, "p0": {...}, "byPriority": {...} },
+  "kevSnapshotDate": "2026-11-03",
+  "disclaimer": "This is exploitability prioritization ... NOT penetration testing ...",
+  "matched": 132,
+  "items": [
+    { "cveId": "CVE-YYYY-NNNNN", "priority": "P0", "rationaleCode": "KEV", "rationale": "In CISA KEV ...",
+      "resourceType": "AwsEc2Instance", "resourceId": "i-0123456789abcdef0", "severity": "HIGH",
+      "exploitAvailable": true, "epss": 0.42, "kev": true, "reachability": "allowlist", "fixAvailable": "YES" }
+  ],
+  "truncated": true
+}
+```
+
+`include_reachability: false` skips L4 (all `unknown`) for a faster answer.
+
+### Example (real account, cn-north-1, read-only)
+
+| Layer | Findings |
+|---|---|
+| Inspector2 direct pull | 9,914 findings / 6,671 CVEs |
+| Public exploit | 1,311 |
+| EPSS high (≥ 0.1) | 38 |
+| CISA KEV | 29 |
+| Reachable (`internet_open` + `allowlist`) | 888 |
+| **P0 / P1 / P2 / P3** | **9 / 123 / 1,449 / 8,333** |
+| Security Hub Inspector duplicates removed | 9,888 |
+
+The two public EC2 instances (SGs with `/32` allow-list rules only) were classified `allowlist`; the 5 running ECS Fargate images were `internal` (public IP on the ENI, but the SG only admits the VPC CIDR and SG references). Instead of thousands of CRITICAL/HIGH findings, the "fix first" list is 9 P0 + 123 P1.
+
+### IAM permissions
+
+New read-only actions (already in the [Recommended IAM Policy](#recommended-iam-policy)): `inspector2:BatchGetAccountStatus`, `inspector2:ListFindings`, `ecs:ListClusters`, `ecs:ListTasks`, `ecs:DescribeTasks`, `ecs:DescribeContainerInstances`, `ec2:DescribeNetworkInterfaces`, `eks:ListClusters`, `lambda:GetFunctionUrlConfig` (plus the existing `ec2:DescribeInstances`, `ec2:DescribeSecurityGroups`, `ec2:DescribeNetworkAcls`). All are List/Describe/Get; verified on 2026-11-04 to be included in both AWS managed policies **SecurityAudit** (v92) and **ReadOnlyAccess** (v187) in the `aws-cn` partition. Missing permissions degrade gracefully (reachability `unknown` + one warning; no module error).
+
+### CISA KEV snapshot
+
+The KEV catalog ships offline at `src/data/kev.json` (CISA KEV is a U.S. Government work in the public domain; source <https://www.cisa.gov/known-exploited-vulnerabilities-catalog>). Scans make **no** network call for KEV by default. Reports show the snapshot date and warn when it is older than 90 days. To update:
+
+```bash
+npx tsx scripts/update-kev.ts                    # download the official feed
+npx tsx scripts/update-kev.ts --from feed.json   # or use a locally downloaded copy
+```
+
+Setting `AWS_SECURITY_MCP_KEV_REFRESH=1` makes the server try an in-memory refresh at scan time (5 s timeout; on failure it silently keeps the offline snapshot and adds a warning; it never writes files).
+
+### Known limitations
+
+- Reachability is configuration-based (public IP, SG, NACL). Load balancer / CloudFront fronting and route tables / IGW are **not** evaluated.
+- **EKS is not evaluated**: if the account has EKS clusters, images not seen in ECS are `unknown` instead of `not_running`.
+- ECS running state is a **point-in-time snapshot** taken during the scan.
+- **Lambda Function URL is not supported in China regions** — `GetFunctionUrlConfig` is rejected there, so Lambda reachability is `unknown` (one warning). API Gateway / ALB triggers are not evaluated.
+- In org mode, reachability of **member-account resources is `unknown`** (only the scanning account's resources are resolved).
+- Only the AWS provider is covered; Huawei Cloud results carry no exploitability data.
 
 ## Scan Groups
 

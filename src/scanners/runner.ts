@@ -13,6 +13,10 @@ import {
   HUAWEI_GLOBAL_MODULES,
   HUAWEI_MULTI_ACCOUNT_WARNING,
 } from "../providers/huaweicloud/hooks.js";
+import {
+  applyExploitabilityPostProcess,
+  type ExploitabilityPostProcessOptions,
+} from "../exploitability/dedupe.js";
 
 const DEFAULT_CONCURRENCY = 5;
 
@@ -25,6 +29,8 @@ const DEFAULT_CONCURRENCY = 5;
  */
 export interface RunnerOptions {
   provider?: ProviderId;
+  /** AWS only: CVE exploitability post-processing (Security Hub ↔ Inspector dedupe, fallback reachability). */
+  exploitability?: ExploitabilityPostProcessOptions;
 }
 
 /** Regional providers: pseudo-region meaning "every region returned by the provider's discovery". */
@@ -153,6 +159,7 @@ export async function runAllScanners(
   const ctx: ScanContext = { region, partition, accountId };
 
   const modules = await runScannersWithContext(scanners, ctx);
+  await applyExploitabilityPostProcess(modules, ctx, runOpts?.exploitability);
 
   const scanEnd = new Date().toISOString();
 
@@ -210,7 +217,7 @@ export async function runMultiAccountScanners(
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     // Graceful fallback: scan current account only, with clear warning
-    const result = await runAllScanners(scanners, region);
+    const result = await runAllScanners(scanners, region, { exploitability: opts.exploitability });
     if (result.modules.length > 0) {
       if (!result.modules[0].warnings) result.modules[0].warnings = [];
       result.modules[0].warnings.unshift(`org_mode enabled but Organizations listing failed: ${errMsg}. Scanning current account only.`);
@@ -229,10 +236,10 @@ export async function runMultiAccountScanners(
   const perAccountScanners = scanners.filter((s) => !AGGREGATION_MODULES.has(s.moduleName));
 
   const allModules: ScanResult[] = [];
+  const adminCtx: ScanContext = { region, partition, accountId: adminAccountId };
 
   // 1. Run aggregation scanners ONCE from admin account (they already aggregate cross-account)
   if (aggregationScanners.length > 0) {
-    const adminCtx: ScanContext = { region, partition, accountId: adminAccountId };
     const aggResults = await runScannersWithContext(aggregationScanners, adminCtx);
     allModules.push(...aggResults);
   }
@@ -286,6 +293,9 @@ export async function runMultiAccountScanners(
       }
     }
   }
+
+  // Aggregation results (security_hub / inspector) were produced with adminCtx.
+  await applyExploitabilityPostProcess(allModules, adminCtx, opts.exploitability);
 
   return {
     scanStart,

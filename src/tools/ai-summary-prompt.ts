@@ -1,5 +1,7 @@
 import type { FullScanResult, Finding, ProviderId } from "../types.js";
 import { providerName, type Lang } from "../i18n/index.js";
+import { computeExploitabilityFunnel } from "../exploitability/funnel.js";
+import { hasExploitability } from "./exploitability-report.js";
 
 export type ReportType = "dashboard" | "html" | "hw_defense" | "mlps3";
 
@@ -37,7 +39,32 @@ function buildFindingsDigest(scan: FullScanResult, lang: Lang, topN = 12): strin
     ? `账号: ${scan.accountId} | 区域: ${scan.region}\n风险总数: ${s.totalFindings} (CRITICAL ${s.critical} / HIGH ${s.high} / MEDIUM ${s.medium} / LOW ${s.low})\n模块分布: ${byModule || "无"}\n\n高风险 Top ${top.length}:\n${topLines || "无"}`
     : `Account: ${scan.accountId} | Region: ${scan.region}\nTotal findings: ${s.totalFindings} (CRITICAL ${s.critical} / HIGH ${s.high} / MEDIUM ${s.medium} / LOW ${s.low})\nModule breakdown: ${byModule || "none"}\n\nTop ${top.length} by risk:\n${topLines || "none"}`;
 
-  return head;
+  return head + buildExploitabilityDigest(all, zh);
+}
+
+/**
+ * Exploitability funnel + P0 Top 5, appended only when findings carry
+ * exploitability data (legacy digests unchanged).
+ */
+function buildExploitabilityDigest(all: Finding[], zh: boolean): string {
+  if (!hasExploitability(all)) return "";
+  const fn = computeExploitabilityFunnel(all);
+  const p0 = all
+    .filter((f) => f.exploitability?.priority === "P0")
+    .sort((a, b) => b.riskScore - a.riskScore)
+    .slice(0, 5);
+  const p0Lines = p0
+    .map((f, i) => {
+      const x = f.exploitability!;
+      return `${i + 1}. ${x.cveId} — ${f.resourceType} ${f.resourceId} (${f.region}) reachability=${x.reachability} kev=${x.kev} exploit=${x.exploitAvailable ?? "n/a"} epss=${x.epss ?? "n/a"} — ${x.rationale}`;
+    })
+    .join("\n");
+  const c = (k: "total" | "exploitAvailable" | "epssHigh" | "kev" | "reachable" | "p0") =>
+    `${fn[k].findings}/${fn[k].cves}`;
+  const bp = fn.byPriority;
+  return zh
+    ? `\n\n可利用性研判（条数/CVE 数，各层独立统计）: CVE 总计 ${c("total")} → 有公开 exploit ${c("exploitAvailable")} → EPSS 高 ${c("epssHigh")} → CISA KEV ${c("kev")} → 公网可达 ${c("reachable")} → P0 ${c("p0")}\n优先级分布: P0 ${bp.P0} / P1 ${bp.P1} / P2 ${bp.P2} / P3 ${bp.P3}（KEV 快照 ${fn.kevSnapshotDate}）\n\nP0 Top ${p0.length}:\n${p0Lines || "无"}\n\n注意：总结中请优先讲 P0（再讲 P1）漏洞，而不是按 CVSS 严重级别罗列；这是基于威胁情报与暴露面的优先级排序，不是渗透验证。`
+    : `\n\nExploitability (findings/CVEs, layers counted independently): CVE total ${c("total")} → public exploit ${c("exploitAvailable")} → EPSS high ${c("epssHigh")} → CISA KEV ${c("kev")} → internet-reachable ${c("reachable")} → P0 ${c("p0")}\nPriority distribution: P0 ${bp.P0} / P1 ${bp.P1} / P2 ${bp.P2} / P3 ${bp.P3} (KEV snapshot ${fn.kevSnapshotDate})\n\nP0 Top ${p0.length}:\n${p0Lines || "none"}\n\nNote: lead the summary with the P0 (then P1) vulnerabilities rather than listing by CVSS severity; this is threat-intel + exposure prioritization, not penetration testing.`;
 }
 
 interface Profile {

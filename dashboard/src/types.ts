@@ -1,5 +1,27 @@
 export type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 export type Priority = "P0" | "P1" | "P2" | "P3";
+export type Reachability = "internet_open" | "allowlist" | "internal" | "not_running" | "unknown";
+export type EpssLevel = "high" | "medium" | "low" | "none";
+
+/** CVE exploitability assessment (mirrors src/types.ts ExploitabilityInfo; AWS only). */
+export interface ExploitabilityInfo {
+  cveId: string;
+  exploitAvailable: boolean | null;
+  epss: number | null;
+  epssLevel: EpssLevel;
+  kev: boolean;
+  kevDateAdded?: string;
+  kevRansomware?: boolean;
+  fixAvailable?: "YES" | "NO" | "PARTIAL";
+  reachability: Reachability;
+  reachabilityDetail?: string;
+  /** Exploitability priority — independent of the severity-derived Finding.priority. */
+  priority: Priority;
+  rationaleCode: string;
+  rationale: string;
+  originalRiskScore: number;
+  dataSource: "inspector2" | "securityhub";
+}
 
 export interface Finding {
   severity: Severity;
@@ -17,6 +39,7 @@ export interface Finding {
   accountId?: string;
   accountAlias?: string;
   source?: string;
+  exploitability?: ExploitabilityInfo;
 }
 
 export interface DashboardHistoryEntry {

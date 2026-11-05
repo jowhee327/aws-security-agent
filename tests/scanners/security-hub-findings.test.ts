@@ -132,3 +132,153 @@ describe("SecurityHubFindingsScanner", () => {
     expect(mockSend).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("SecurityHubFindingsScanner exploitability (Inspector CVEs)", () => {
+  const scanner = new SecurityHubFindingsScanner();
+
+  beforeEach(() => {
+    mockSend.mockReset();
+  });
+
+  function inspectorFinding(over: Record<string, unknown> = {}) {
+    return {
+      Id: "arn:aws:inspector2:us-east-1:123456789012:finding/abc",
+      Title: "CVE-2026-31431 - kernel",
+      Description: "kernel vuln",
+      Severity: { Label: "HIGH" },
+      Resources: [{ Id: "arn:aws:ec2:us-east-1:123456789012:instance/i-0abc", Type: "AwsEc2Instance" }],
+      Region: "us-east-1",
+      ProductName: "Inspector",
+      GeneratorId: "AWSInspector",
+      Vulnerabilities: [{ Id: "CVE-2026-31431", ExploitAvailable: "YES", EpssScore: 0.02, FixAvailable: "YES" }],
+      ...over,
+    };
+  }
+
+  // Intentional change (Codex fix round 1, then round 1b): this T2-added test used to
+  // assert sourceFindingId on every SH finding, including FSBP/S3. Plan §2.2 requires
+  // non-Inspector findings to serialize exactly as before, so only Inspector-sourced
+  // findings get it — CVE and non-CVE (GHSA/ALAS) alike, so findingArn dedupe covers both.
+  it("stores sourceFindingId = SH finding Id only on Inspector-sourced findings", async () => {
+    mockSend.mockResolvedValueOnce({
+      Findings: [
+        { Id: "fsbp-1", Title: "S3.1", Severity: { Label: "HIGH" }, Resources: [{ Id: "arn:aws:s3:::b", Type: "AwsS3Bucket" }], ProductName: "Security Hub" },
+        inspectorFinding(),
+        inspectorFinding({ Id: "ins-ghsa", Vulnerabilities: [{ Id: "GHSA-xxxx-yyyy-zzzz" }] }),
+        inspectorFinding({ Id: "ins-alas", Vulnerabilities: [{ Id: "ALAS2-2023-2001" }] }),
+        inspectorFinding({ Id: "gd-1", ProductName: "GuardDuty" }),
+      ],
+    });
+    const result = await scanner.scan(ctx);
+    expect(result.findings.map((f) => f.sourceFindingId)).toEqual([
+      undefined,
+      "arn:aws:inspector2:us-east-1:123456789012:finding/abc",
+      "ins-ghsa",
+      "ins-alas",
+      undefined,
+    ]);
+    // exploitability stays CVE-only on the Security Hub path.
+    expect(result.findings.map((f) => f.exploitability?.cveId)).toEqual([
+      undefined, "CVE-2026-31431", undefined, undefined, undefined,
+    ]);
+  });
+
+  it("serializes a non-CVE finding with exactly the pre-exploitability shape", async () => {
+    mockSend.mockResolvedValueOnce({
+      Findings: [{
+        Id: "fsbp-1",
+        Title: "S3.1 S3 Block Public Access setting should be enabled",
+        Description: "S3 Block Public Access is not enabled",
+        Severity: { Label: "HIGH" },
+        Resources: [{ Id: "arn:aws:s3:::b", Type: "AwsS3Bucket" }],
+        Region: "us-east-1",
+        AwsAccountId: "123456789012",
+        ProductName: "Security Hub",
+        GeneratorId: "aws-foundational-security-best-practices/v/1.0.0/S3.1",
+        Remediation: { Recommendation: { Text: "Enable S3 Block Public Access", Url: "https://docs.aws.example" } },
+      }],
+    });
+    const result = await scanner.scan(ctx);
+    const expected = {
+      severity: "HIGH",
+      title: "S3.1 S3 Block Public Access setting should be enabled",
+      resourceType: "AwsS3Bucket",
+      resourceId: "arn:aws:s3:::b",
+      resourceArn: "arn:aws:s3:::b",
+      region: "us-east-1",
+      description: "S3 Block Public Access is not enabled",
+      impact: "Source: Security Hub (aws-foundational-security-best-practices/v/1.0.0/S3.1)",
+      riskScore: 8.0,
+      remediationSteps: [
+        "S3.1 S3 Block Public Access setting should be enabled",
+        "Documentation: https://docs.aws.example",
+        "Enable S3 Block Public Access",
+      ],
+      priority: "P1",
+      module: "security_hub_findings",
+      accountId: "123456789012",
+      source: "FSBP",
+    };
+    expect(JSON.stringify(result.findings[0])).toBe(JSON.stringify(expected));
+    expect(result.findings[0]).not.toHaveProperty("sourceFindingId");
+    expect(result.findings[0]).not.toHaveProperty("exploitability");
+  });
+
+  it("computes exploitability from ASFF signals + KEV and bands riskScore", async () => {
+    mockSend.mockResolvedValueOnce({ Findings: [inspectorFinding()] });
+    const result = await scanner.scan(ctx);
+    const f = result.findings[0];
+    expect(f.source).toBe("Inspector");
+    expect(f.severity).toBe("HIGH");
+    expect(f.priority).toBe("P1"); // severity-derived, unchanged
+    expect(f.exploitability).toMatchObject({
+      cveId: "CVE-2026-31431",
+      exploitAvailable: true,
+      epss: 0.02,
+      epssLevel: "medium",
+      kev: true,
+      fixAvailable: "YES",
+      reachability: "unknown",
+      priority: "P0",
+      rationaleCode: "KEV",
+      originalRiskScore: 8.0,
+      dataSource: "securityhub",
+    });
+    expect(f.riskScore).toBe(9.8); // 9.0 + 8.0/10
+  });
+
+  it("maps missing ASFF signals to null/none and non-KEV to baseline", async () => {
+    mockSend.mockResolvedValueOnce({
+      Findings: [inspectorFinding({
+        Title: "CVE-2026-43284 - libfoo",
+        Severity: { Label: "CRITICAL" },
+        Vulnerabilities: [{ Id: "CVE-2026-43284" }],
+      })],
+    });
+    const result = await scanner.scan(ctx);
+    const f = result.findings[0];
+    expect(f.severity).toBe("CRITICAL");
+    expect(f.exploitability).toMatchObject({ exploitAvailable: null, epss: null, epssLevel: "none", kev: false, priority: "P3" });
+    expect(f.exploitability!.fixAvailable).toBeUndefined();
+    expect(f.riskScore).toBe(3.7); // 0.1 + 9.5/10*3.8
+  });
+
+  it("leaves non-Inspector and non-CVE findings without exploitability and riskScore unchanged", async () => {
+    mockSend.mockResolvedValueOnce({
+      Findings: [
+        // Non-Inspector product carrying a CVE vulnerability → untouched.
+        inspectorFinding({ Id: "gd-1", ProductName: "GuardDuty" }),
+        // Inspector but non-CVE vulnerability ID → untouched.
+        inspectorFinding({ Id: "ins-ghsa", Vulnerabilities: [{ Id: "GHSA-xxxx-yyyy", ExploitAvailable: "YES" }] }),
+        // Inspector without Vulnerabilities → untouched.
+        inspectorFinding({ Id: "ins-none", Vulnerabilities: undefined }),
+      ],
+    });
+    const result = await scanner.scan(ctx);
+    expect(result.findings).toHaveLength(3);
+    for (const f of result.findings) {
+      expect(f.exploitability).toBeUndefined();
+      expect(f.riskScore).toBe(8.0);
+    }
+  });
+});

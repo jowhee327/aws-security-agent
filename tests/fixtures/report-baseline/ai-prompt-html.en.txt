@@ -1,0 +1,34 @@
+# Task: Produce a tailored AI security summary for the "AWS Security Scan Report"
+
+## Role
+You are writing the executive summary for a full AWS security scan report. Readers include both management and technical leads.
+
+## Summary focus
+Overall risk landscape + common root causes behind the top risks (public exposure, over-privileged IAM, missing encryption/logging, etc.) + a prioritized (P0→P2) remediation roadmap. Surface systemic issues rather than restating each finding.
+
+## Output format
+1 overview paragraph + 3-5 bullet points. English. Bullet list ok. Both technical and management lens, with concrete next steps.
+
+## Constraints
+- Base it ONLY on the scan data below; do not invent resources or findings.
+- Do not restate every finding; distill patterns and priorities.
+- Output the summary body itself (no preamble like "Here is the summary", no code fences).
+- Language: English.
+
+## Scan data digest
+Account: 123456789012 | Region: us-east-1
+Total findings: 9 (CRITICAL 2 / HIGH 4 / MEDIUM 2 / LOW 1)
+Module breakdown: security_hub_findings=5, network_reachability=2, patch_compliance_findings=1, iam_privilege_escalation=1
+
+Top 9 by risk:
+1. [CRITICAL/P0] CVE-2024-4577 - php — AWS::EC2::Instance arn:aws:ec2:us-east-1:123456789012:instance/i-0legacy0003 (us-east-1) risk=9.8
+2. [CRITICAL/P0] EC2 instance i-0legacy0001 has SSH (22) reachable from 0.0.0.0/0 — AWS::EC2::Instance i-0legacy0001 (us-east-1) risk=9.4
+3. [HIGH/P1] EC2 instance i-0legacy0002 has RDP (3389) reachable — AWS::EC2::Instance i-0legacy0002 (us-east-1) risk=8.1
+4. [HIGH/P1] Instance i-0legacy0004 missing critical patches — AWS::EC2::Instance i-0legacy0004 (us-east-1) risk=7.8
+5. [HIGH/P1] CVE-2023-1111 - openssl — AWS::EC2::Instance i-0legacy0001 (us-east-1) risk=7.5
+6. [HIGH/P1] EC2.19 Security groups should not allow unrestricted access to ports with high risk — AWS::EC2::Instance i-0legacy0001 (us-east-1) risk=7
+7. [MEDIUM/P2] Unusual API call — AWS::EC2::Instance i-0legacy0001 (us-east-1) risk=5.5
+8. [MEDIUM/P2] KB5034441 - Windows security update — AWS::EC2::Instance i-0legacy0001 (us-east-1) risk=5
+9. [LOW/P3] Role 'dev' can pass role — AWS::IAM::Role dev (us-east-1) risk=2.5
+
+Now output the summary body. After generating it, pass the text back via the ai_summary parameter of the corresponding report tool.

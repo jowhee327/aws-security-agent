@@ -1,6 +1,51 @@
 export type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 export type Priority = "P0" | "P1" | "P2" | "P3";
 
+/** L4 reachability of the resource affected by a CVE finding. */
+export type Reachability = "internet_open" | "allowlist" | "internal" | "not_running" | "unknown";
+
+/** Bucketed EPSS score ("none" = data source did not provide one). */
+export type EpssLevel = "high" | "medium" | "low" | "none";
+
+/** Machine-readable reason for an exploitability priority (one per rule in the first-match table). */
+export type RationaleCode =
+  | "KEV"
+  | "EXPLOIT_INTERNET"
+  | "EPSS_HIGH_INTERNET"
+  | "KEV_NOT_RUNNING"
+  | "EXPLOIT_EPSS_HIGH"
+  | "EXPLOIT_ALLOWLIST"
+  | "EXPLOIT_LIMITED"
+  | "EPSS_HIGH"
+  | "EPSS_MEDIUM"
+  | "BASELINE";
+
+/** Threat-intel + exposure assessment attached to CVE findings (AWS provider only). */
+export interface ExploitabilityInfo {
+  cveId: string;
+  /** null = data source did not provide the signal. */
+  exploitAvailable: boolean | null;
+  /** EPSS probability 0..1; null = not provided. */
+  epss: number | null;
+  epssLevel: EpssLevel;
+  kev: boolean;
+  kevDateAdded?: string;
+  /** knownRansomwareCampaignUse === "Known" in the CISA KEV catalog. */
+  kevRansomware?: boolean;
+  fixAvailable?: "YES" | "NO" | "PARTIAL";
+  reachability: Reachability;
+  /** e.g. "public IP 1.2.3.4; SG sg-x allows 0.0.0.0/0 tcp/22" */
+  reachabilityDetail?: string;
+  /** Exploitability priority — independent of the severity-derived Finding.priority. */
+  priority: Priority;
+  rationaleCode: RationaleCode;
+  /** One-sentence English explanation; reports localize via rationaleCode. */
+  rationale: string;
+  /** riskScore before band adjustment. */
+  originalRiskScore: number;
+  dataSource: "inspector2" | "securityhub";
+}
+
 export interface Finding {
   severity: Severity;
   title: string;
@@ -21,6 +66,10 @@ export interface Finding {
   provider?: ProviderId;
   /** Huawei Cloud enterprise project ID, when known. */
   enterpriseProjectId?: string;
+  /** Exploitability assessment; present only on CVE findings. */
+  exploitability?: ExploitabilityInfo;
+  /** ID of the upstream finding (Inspector findingArn / Security Hub finding Id). */
+  sourceFindingId?: string;
 }
 
 export interface ScanResult {
@@ -32,6 +81,8 @@ export interface ScanResult {
   findingsCount: number;
   scanTimeMs: number;
   findings: Finding[];
+  /** inspector_findings only: whether findings were pulled from Inspector2 or only detection ran. */
+  dataSource?: "inspector2" | "detection-only";
 }
 
 /** Cloud provider identifier. Default (and legacy) is "aws". */

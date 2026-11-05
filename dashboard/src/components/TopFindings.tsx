@@ -1,4 +1,5 @@
 import type { Finding, Severity } from '../types';
+import { compareByExploitPriority, PRIORITY_BADGE } from '../exploitability';
 
 interface TopFindingsProps {
   findings: Finding[];
@@ -12,8 +13,9 @@ const SEVERITY_COLORS: Record<Severity, string> = {
 };
 
 export default function TopFindings({ findings }: TopFindingsProps) {
+  // Same order as the HTML report: exploitability priority (P0 first), then riskScore.
   const top5 = [...findings]
-    .sort((a, b) => b.riskScore - a.riskScore)
+    .sort(compareByExploitPriority)
     .slice(0, 5);
 
   return (
@@ -24,17 +26,29 @@ export default function TopFindings({ findings }: TopFindingsProps) {
           className="bg-slate-800 border border-slate-700 rounded-lg p-4 flex flex-col gap-2"
         >
           <div className="flex items-center justify-between">
-            <span
-              className={`text-xs font-semibold px-2 py-0.5 rounded border ${SEVERITY_COLORS[f.severity]}`}
-            >
-              {f.severity}
-            </span>
+            <div className="flex items-center gap-1">
+              <span
+                className={`text-xs font-semibold px-2 py-0.5 rounded border ${SEVERITY_COLORS[f.severity]}`}
+              >
+                {f.severity}
+              </span>
+              {f.exploitability && (
+                <span
+                  className={`text-xs font-semibold px-2 py-0.5 rounded border ${PRIORITY_BADGE[f.exploitability.priority]}`}
+                >
+                  {f.exploitability.priority}
+                </span>
+              )}
+            </div>
             <span className="text-sm font-bold text-slate-300">{f.riskScore}</span>
           </div>
           <h3 className="text-sm font-medium text-slate-100 leading-tight line-clamp-2">
             {f.title}
           </h3>
           <p className="text-xs text-slate-500 truncate">{f.resourceId}</p>
+          {f.exploitability && (
+            <p className="text-xs text-slate-400 line-clamp-2">{f.exploitability.rationale}</p>
+          )}
           <p className="text-xs text-slate-600">{f.module}{f.source ? ` (${f.source})` : ''}</p>
         </div>
       ))}

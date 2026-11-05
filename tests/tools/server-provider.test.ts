@@ -154,9 +154,11 @@ describe("MCP tools — provider parameter", () => {
         if (Object.keys(props).length === 0 && !b.inputSchema.$schema) delete schema.$schema;
         expect(schema, `schema of ${b.name}`).toEqual(b.inputSchema);
       }
-      // Every scan tool now accepts provider; the only additional tool is the Huawei-only RMS one.
+      // Every scan tool now accepts provider. Additional tools beyond the 35-tool baseline:
+      // the Huawei-only RMS one and — intentional change (CVE exploitability plan §2.10) —
+      // the AWS-only prioritize_vulnerabilities tool. The baseline fixture itself is unchanged.
       const extra = tools.map((t) => t.name).filter((n) => !baseline.some((b) => b.name === n));
-      expect(extra).toEqual(["scan_rms_compliance_findings"]);
+      expect(extra).toEqual(["scan_rms_compliance_findings", "prioritize_vulnerabilities"]);
       for (const t of tools) {
         if (t.name.startsWith("scan_") || t.name === "detect_services" || t.name === "list_modules" || t.name === "list_org_accounts") {
           expect((t.inputSchema.properties as Record<string, unknown>).provider, `${t.name} has provider`).toBeDefined();
