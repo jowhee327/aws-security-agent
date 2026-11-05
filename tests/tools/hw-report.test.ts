@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { generateHwDefenseHtmlReport } from "../../src/tools/hw-report.js";
 import type { FullScanResult } from "../../src/types.js";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { legacyScan } from "../fixtures/report-baseline/legacy-scan.js";
+import { bulkInspector, cveFinding, moduleOf, scanOf, stripVersion } from "../fixtures/report-baseline/exploit-scan.js";
 
 function makeScanResult(overrides?: Partial<FullScanResult>): FullScanResult {
   return {
@@ -259,5 +263,62 @@ describe("generateHwDefenseHtmlReport", () => {
   it("includes footer with version", () => {
     const html = generateHwDefenseHtmlReport(makeScanResult(), "en");
     expect(html).toContain("AWS Security MCP Server v");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T5 — CVE exploitability prioritization
+// ---------------------------------------------------------------------------
+
+describe("generateHwDefenseHtmlReport — exploitability", () => {
+  const baselineDir = join(__dirname, "../fixtures/report-baseline");
+
+  function vulnSection(html: string): string {
+    const start = Math.max(html.indexOf("漏洞与补丁管理"), html.indexOf("Vulnerability &amp; Patch Management"));
+    return html.slice(start, html.indexOf("</details>\n<details", start));
+  }
+
+  it("legacy fixture without exploitability is byte-identical to the pre-T5 output (zh + en)", () => {
+    for (const lang of ["zh", "en"] as const) {
+      const html = stripVersion(generateHwDefenseHtmlReport(legacyScan(), lang));
+      expect(html).toBe(readFileSync(join(baselineDir, `hw.${lang}.html`), "utf8"));
+    }
+  });
+
+  it("vulnerability_patch pulls inspector_findings and lists P0/P1 (with rationale) first", () => {
+    const scan = scanOf([
+      moduleOf("inspector_findings", [
+        cveFinding({ cve: "CVE-2099-0003", epss: 0.0001, orig: 10, severity: "CRITICAL" }), // P3
+        cveFinding({ cve: "CVE-2099-0001", exploit: true, epss: 0.5 }), // P1
+        cveFinding({ cve: "CVE-2026-31431", reach: "internet_open", severity: "MEDIUM" }), // P0
+        cveFinding({ cve: "CVE-2099-0004", epss: 0.05, severity: "CRITICAL" }), // P2
+      ], { dataSource: "inspector2" }),
+    ]);
+    const sec = vulnSection(generateHwDefenseHtmlReport(scan, "zh"));
+    expect(sec).toContain("优先修复（P0 / P1） (2)");
+    expect(sec).toContain("其余漏洞 (2)");
+    const pos = ["优先修复", "CVE-2026-31431", "CVE-2099-0001", "其余漏洞", "CVE-2099-0004", "CVE-2099-0003"].map((s) =>
+      sec.indexOf(s),
+    );
+    expect(pos.every((i) => i >= 0)).toBe(true);
+    expect([...pos].sort((a, b) => a - b)).toEqual(pos);
+    expect(sec).toContain("位于 CISA KEV（已被在野利用），且资源对全网开放 &middot; 对全网开放");
+    expect(sec).toContain('<span class="xp-badge xp-p0">P0</span>');
+    expect(sec).not.toContain("暂无自动检查");
+  });
+
+  it("caps non-urgent vulnerability groups and notes the remainder", () => {
+    const scan = scanOf([
+      moduleOf("inspector_findings", [cveFinding({ cve: "CVE-2026-31431", reach: "internet_open" }), ...bulkInspector(300, 260)]),
+    ]);
+    const sec = vulnSection(generateHwDefenseHtmlReport(scan, "en"));
+    expect((sec.match(/class="hw-finding-group"/g) ?? []).length).toBe(201);
+    expect(sec).toContain("60 more vulnerability groups not expanded");
+  });
+
+  it("detection-only inspector_findings alone does not count as an automated check", () => {
+    const scan = scanOf([moduleOf("inspector_findings", [], { dataSource: "detection-only" })]);
+    const sec = vulnSection(generateHwDefenseHtmlReport(scan, "zh"));
+    expect(sec).not.toContain("hw-clean");
   });
 });

@@ -7,25 +7,20 @@ import {
   type Instance,
   type SecurityGroup,
   type NetworkAcl,
-  type IpPermission,
-  type NetworkAclEntry,
 } from "@aws-sdk/client-ec2";
 import { Scanner } from "./base.js";
 import { ScanResult, ScanContext, Finding } from "../types.js";
 import { createClient } from "../utils/aws-client.js";
 import { severityFromScore, priorityFromSeverity } from "../utils/risk-scoring.js";
+import {
+  HIGH_RISK_PORTS,
+  naclAllowsPort,
+  sgAllowsAllPorts,
+  sgAllowsPort,
+} from "../exploitability/network-exposure.js";
 
-const HIGH_RISK_PORTS: Record<number, string> = {
-  22: "SSH",
-  3389: "RDP",
-  3306: "MySQL",
-  5432: "PostgreSQL",
-  1433: "MSSQL",
-  27017: "MongoDB",
-  6379: "Redis",
-  9200: "Elasticsearch",
-  11211: "Memcached",
-};
+// Re-exported for the Azure NSG scanner, which shares the AWS high-risk port table.
+export { HIGH_RISK_PORTS };
 
 function makeFinding(opts: {
   riskScore: number;
@@ -40,75 +35,6 @@ function makeFinding(opts: {
 }): Finding {
   const severity = severityFromScore(opts.riskScore);
   return { ...opts, severity, priority: priorityFromSeverity(severity) };
-}
-
-function sgAllowsPort(sgs: SecurityGroup[], port: number): boolean {
-  for (const sg of sgs) {
-    for (const perm of sg.IpPermissions ?? []) {
-      if (permissionAllowsWorldPort(perm, port)) return true;
-    }
-  }
-  return false;
-}
-
-function sgAllowsAllPorts(sgs: SecurityGroup[]): boolean {
-  for (const sg of sgs) {
-    for (const perm of sg.IpPermissions ?? []) {
-      if (isAllPorts(perm) && hasWorldCidr(perm)) return true;
-    }
-  }
-  return false;
-}
-
-function permissionAllowsWorldPort(perm: IpPermission, port: number): boolean {
-  if (!hasWorldCidr(perm)) return false;
-  const from = perm.FromPort ?? -1;
-  const to = perm.ToPort ?? -1;
-  if (from === -1 && to === -1) return true; // all traffic
-  return port >= from && port <= to;
-}
-
-function hasWorldCidr(perm: IpPermission): boolean {
-  const hasIpv4 = (perm.IpRanges ?? []).some((r) => r.CidrIp === "0.0.0.0/0");
-  const hasIpv6 = (perm.Ipv6Ranges ?? []).some((r) => r.CidrIpv6 === "::/0");
-  return hasIpv4 || hasIpv6;
-}
-
-function isAllPorts(perm: IpPermission): boolean {
-  const from = perm.FromPort ?? -1;
-  const to = perm.ToPort ?? -1;
-  return (from === -1 && to === -1) || (from === 0 && to === 65535);
-}
-
-function naclAllowsPort(nacl: NetworkAcl, port: number): boolean {
-  // NACL rules are evaluated in order (lowest rule number first)
-  // We check inbound rules only (Egress === false)
-  const inboundRules = (nacl.Entries ?? [])
-    .filter((e) => e.Egress === false)
-    .sort((a, b) => (a.RuleNumber ?? 0) - (b.RuleNumber ?? 0));
-
-  for (const rule of inboundRules) {
-    if (naclRuleMatchesPort(rule, port) && naclRuleMatchesWorldCidr(rule)) {
-      // RuleAction "allow" or "deny"
-      return rule.RuleAction === "allow";
-    }
-  }
-  // Default: deny
-  return false;
-}
-
-function naclRuleMatchesPort(rule: NetworkAclEntry, port: number): boolean {
-  // Protocol -1 means all traffic
-  if (rule.Protocol === "-1") return true;
-  // Protocol 6 = TCP, 17 = UDP
-  if (rule.Protocol !== "6" && rule.Protocol !== "17") return false;
-  const from = rule.PortRange?.From ?? 0;
-  const to = rule.PortRange?.To ?? 65535;
-  return port >= from && port <= to;
-}
-
-function naclRuleMatchesWorldCidr(rule: NetworkAclEntry): boolean {
-  return rule.CidrBlock === "0.0.0.0/0" || rule.Ipv6CidrBlock === "::/0";
 }
 
 export class NetworkReachabilityScanner implements Scanner {

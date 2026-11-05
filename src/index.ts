@@ -7,7 +7,7 @@ import type { Scanner } from "./scanners/base.js";
 import { runAllScanners, runMultiAccountScanners, buildScanContext, HUAWEI_ALL_REGIONS } from "./scanners/runner.js";
 import { getProvider, isProviderId, listProviderIds, DEFAULT_PROVIDER_ID } from "./providers/registry.js";
 import { resolveModuleAlias } from "./providers/module-aliases.js";
-import { redactHwDiagnostic } from "./providers/huaweicloud/errors.js";
+import { redactProviderDiagnostic } from "./providers/hooks.js";
 import { ServiceDetectionScanner } from "./scanners/service-detection.js";
 import type { ServiceDetectionResult } from "./scanners/service-detection.js";
 import { SecretExposureScanner } from "./scanners/secret-exposure.js";
@@ -34,6 +34,12 @@ import { generateMlps3Report } from "./tools/mlps-report.js";
 import { generateHtmlReport, generateMlps3HtmlReport } from "./tools/html-report.js";
 import { generateHwDefenseHtmlReport } from "./tools/hw-report.js";
 import { buildAiSummaryPrompt } from "./tools/ai-summary-prompt.js";
+import {
+  prioritizeVulnerabilities,
+  summarizePrioritized,
+  DEFAULT_PRIORITIZE_LIMIT,
+  MAX_PRIORITIZE_LIMIT,
+} from "./tools/prioritize-vulnerabilities.js";
 import { saveResults } from "./tools/save-results.js";
 import { SCAN_GROUPS, applyFindingsFilter } from "./tools/scan-groups.js";
 import {
@@ -90,11 +96,21 @@ export interface CreateServerOptions {
   defaultProvider?: ProviderId;
 }
 
-const PROVIDER_PARAM_DESCRIPTION =
-  "Cloud provider to scan (default: aws). With huaweicloud, `region` is a Huawei Cloud region ID (e.g. cn-north-4); omit it or pass \"all\" to scan every region project of the account. Huawei Cloud Phase 1 is single-account (org_mode falls back to the current account with a warning).";
+/** Registry listing used by the server: experimental providers (alicloud, azure) are selectable too. */
+const ALL_PROVIDERS = { includeExperimental: true } as const;
 
-/** Zod schema shared by every scan tool; optional so existing (AWS) callers are unaffected. */
-const providerParam = () => z.enum(["aws", "huaweicloud"]).optional().describe(PROVIDER_PARAM_DESCRIPTION);
+const PROVIDER_PARAM_DESCRIPTION =
+  "Cloud provider to scan (default: aws). With huaweicloud, `region` is a Huawei Cloud region ID (e.g. cn-north-4); omit it or pass \"all\" to scan every region project of the account. Huawei Cloud Phase 1 is single-account (org_mode falls back to the current account with a warning). " +
+  "With alicloud (EXPERIMENTAL — not yet validated against a live account), region is an Alibaba Cloud region ID (e.g. cn-hangzhou); omit or \"all\" to scan every region; single-account only in this phase. " +
+  "With azure (EXPERIMENTAL — not yet validated against a live account), the China cloud (21Vianet) is the default; set AZURE_CLOUD=global for public cloud. region is an Azure subscription ID; omit or \"all\" to scan every visible subscription.";
+
+/**
+ * Zod schema shared by every scan tool; optional so existing (AWS) callers are unaffected.
+ * The enum is every registered provider (`PROVIDER_IDS`, experimental ones included),
+ * read from the registry when the server is built.
+ */
+const providerParam = () =>
+  z.enum(listProviderIds(ALL_PROVIDERS) as [ProviderId, ...ProviderId[]]).optional().describe(PROVIDER_PARAM_DESCRIPTION);
 
 const MODULE_DESCRIPTIONS: Record<string, string> = {
   service_detection:
@@ -122,13 +138,19 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
   guardduty_findings:
     "Checks if GuardDuty is enabled. Findings are aggregated via Security Hub.",
   inspector_findings:
-    "Checks if Inspector is enabled. Findings are aggregated via Security Hub.",
+    "Checks if Inspector is enabled and pulls active package-vulnerability findings directly from Inspector2, prioritized by exploitability (public exploit, EPSS, CISA KEV, network reachability). Falls back to Security Hub when Inspector2 cannot be read.",
   trusted_advisor_findings:
     "Aggregates security checks from AWS Trusted Advisor — requires Business or Enterprise Support plan.",
   config_rules_findings:
     "Checks if AWS Config Rules are configured. Findings are aggregated via Security Hub.",
   rms_compliance_findings:
     "Huawei Cloud only: aggregates NonCompliant RMS (Config) policy states into findings — the Security Hub-like compliance aggregation for Huawei Cloud.",
+  config_compliance_findings:
+    "Alibaba Cloud only: Config compliance findings (NON_COMPLIANT resources of Config rules / compliance packs; experimental).",
+  defender_assessment_findings:
+    "Azure only: Microsoft Defender for Cloud assessments (Unhealthy recommendations) — the Security Hub-like compliance aggregation for Azure (experimental).",
+  disk_encryption_findings:
+    "Azure only: unencrypted managed disks, unmanaged (VHD) VM disks without Azure Disk Encryption, and VMs without encryption at host (experimental).",
   access_analyzer_findings:
     "Checks if IAM Access Analyzer is configured. Findings are aggregated via Security Hub.",
   patch_compliance_findings:
@@ -265,7 +287,7 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
   // scanners import their SDKs lazily, so this costs nothing on the AWS path).
   const providerScanners = new Map<ProviderId, Scanner[]>([["aws", allScanners]]);
   const providerScannerMaps = new Map<ProviderId, Map<string, Scanner>>([["aws", scannerMap]]);
-  for (const id of listProviderIds()) {
+  for (const id of listProviderIds(ALL_PROVIDERS)) {
     if (id === "aws") continue;
     const list = getProvider(id).scanners();
     providerScanners.set(id, list);
@@ -279,13 +301,14 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
   const regionFor = (region: string | undefined, provider: ProviderId): string =>
     provider === "aws" ? (region ?? defaultRegion) : (region ?? HUAWEI_ALL_REGIONS);
   /**
-   * Tool-level error text. AWS messages are returned verbatim (byte-identical to the
-   * pre-multicloud behaviour); Huawei Cloud messages go through the diagnostic redactor
-   * because SDK / proxy errors may echo the signed request (Authorization header, AK).
+   * Tool-level error text, passed through the provider's `redactDiagnostic` hook. AWS
+   * messages are returned verbatim (identity hook; byte-identical to the pre-multicloud
+   * behaviour); Huawei Cloud / Alibaba Cloud SDK / proxy errors may echo the signed
+   * request (Authorization header, AK).
    */
   const toolErrorText = (err: unknown, provider: ProviderId | undefined): string => {
     const msg = err instanceof Error ? err.message : String(err);
-    return `Error: ${provider === "huaweicloud" ? redactHwDiagnostic(msg) : msg}`;
+    return `Error: ${redactProviderDiagnostic(provider, msg)}`;
   };
   const moduleUnavailableError = (moduleName: string, provider: ProviderId) => ({
     content: [{
@@ -301,7 +324,7 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
    */
   const defaultProviderFor = (moduleName: string): ProviderId => {
     if (scannerMapFor(defaultProvider).has(moduleName)) return defaultProvider;
-    const owners = listProviderIds().filter((id) => scannerMapFor(id).has(moduleName));
+    const owners = listProviderIds(ALL_PROVIDERS).filter((id) => scannerMapFor(id).has(moduleName));
     return owners.length === 1 ? owners[0] : defaultProvider;
   };
 
@@ -350,7 +373,11 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
   );
 
   // Individual scanner tools
-  const individualScanners: Array<{ toolName: string; moduleName: string; label: string }> = [
+  /**
+   * `providerSpecific` tools are registered only when some registered provider ships the
+   * module; their `provider` defaults to that provider via {@link defaultProviderFor}.
+   */
+  const individualScanners: Array<{ toolName: string; moduleName: string; label: string; providerSpecific?: boolean }> = [
     { toolName: "detect_services", moduleName: "service_detection", label: "Security Service Detection" },
     { toolName: "scan_secret_exposure", moduleName: "secret_exposure", label: "Secret Exposure" },
     { toolName: "scan_ssl_certificate", moduleName: "ssl_certificate", label: "SSL Certificate" },
@@ -371,10 +398,15 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
     { toolName: "scan_imdsv2_enforcement", moduleName: "imdsv2_enforcement", label: "IMDSv2 Enforcement" },
     { toolName: "scan_waf_coverage", moduleName: "waf_coverage", label: "WAF Coverage" },
     // Huawei Cloud only (provider defaults to huaweicloud because no other provider has the module).
-    { toolName: "scan_rms_compliance_findings", moduleName: "rms_compliance_findings", label: "RMS Compliance Findings (Huawei Cloud)" },
+    { toolName: "scan_rms_compliance_findings", moduleName: "rms_compliance_findings", label: "RMS Compliance Findings (Huawei Cloud)", providerSpecific: true },
+    // Alibaba Cloud only (experimental; provider defaults to alicloud for the same reason).
+    { toolName: "scan_config_compliance_findings", moduleName: "config_compliance_findings", label: "Config Compliance Findings (Alibaba Cloud, experimental)", providerSpecific: true },
+    // Azure only (experimental; provider defaults to azure for the same reason).
+    { toolName: "scan_defender_assessment_findings", moduleName: "defender_assessment_findings", label: "Defender for Cloud Assessment Findings (Azure, experimental)", providerSpecific: true },
   ];
 
-  for (const { toolName, moduleName, label } of individualScanners) {
+  for (const { toolName, moduleName, label, providerSpecific } of individualScanners) {
+    if (providerSpecific && !listProviderIds(ALL_PROVIDERS).some((id) => scannerMapFor(id).has(moduleName))) continue;
     server.tool(
       toolName,
       `Run ${label} security scanner only. Read-only. Does not modify any AWS resources.`,
@@ -385,8 +417,10 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
       async ({ region, provider }) => {
         const p = provider ?? defaultProviderFor(moduleName);
         try {
-          const scanner = scannerMapFor(p).get(moduleName);
-          if (!scanner) return moduleUnavailableError(moduleName, p);
+          // Provider aliases (e.g. security_hub_findings -> defender_assessment_findings); identity for aws.
+          const resolvedModule = resolveModuleAlias(moduleName, p);
+          const scanner = scannerMapFor(p).get(resolvedModule);
+          if (!scanner) return moduleUnavailableError(resolvedModule, p);
           const r = regionFor(region, p);
           const ctx = await buildScanContext(r, p);
           const result: ScanResult = await scanner.scan(ctx);
@@ -462,6 +496,46 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
         };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    },
+  );
+
+  // prioritize_vulnerabilities — "what to fix first": Inspector CVEs ordered by exploitability priority
+  server.tool(
+    "prioritize_vulnerabilities",
+    "List CVE vulnerabilities ordered by exploitability priority (P0 first) using threat intel (public exploit, EPSS, CISA KEV) and configured exposure (public IP, security groups, NACLs, running state). Pulls Inspector2 findings directly, falling back to the Security Hub Inspector subset. Prioritization only — not penetration testing; read-only, no active probing. AWS only.",
+    {
+      region: z.string().optional().describe("AWS region to scan (default: server region)"),
+      priorities: z.array(z.enum(["P0", "P1", "P2", "P3"])).optional().describe("Exploitability priorities to return (default: [\"P0\",\"P1\"])"),
+      limit: z.number().int().positive().max(MAX_PRIORITIZE_LIMIT).optional().describe(`Maximum items to return (default: ${DEFAULT_PRIORITIZE_LIMIT}, max: ${MAX_PRIORITIZE_LIMIT})`),
+      resource_type: z.enum(["ec2", "ecr", "lambda"]).optional().describe("Only return findings on this resource type (default: all)"),
+      include_reachability: z.boolean().optional().describe("Resolve network reachability (EC2/ECS/Lambda, read-only API calls). false is faster and leaves reachability unknown (default: true)"),
+      provider: providerParam(),
+    },
+    async ({ region, priorities, limit, resource_type, include_reachability, provider }) => {
+      const p = resolveProvider(provider);
+      if (p !== "aws") {
+        return {
+          content: [{ type: "text", text: `Error: prioritize_vulnerabilities is only supported for provider=aws (Inspector / Security Hub); provider "${p}" is not supported.` }],
+          isError: true,
+        };
+      }
+      try {
+        const ctx = await buildScanContext(region ?? defaultRegion);
+        const result = await prioritizeVulnerabilities(ctx, {
+          priorities,
+          limit,
+          resourceType: resource_type,
+          includeReachability: include_reachability,
+        });
+        return {
+          content: [
+            { type: "text", text: summarizePrioritized(result) },
+            { type: "text", text: JSON.stringify(result, null, 2) },
+          ],
+        };
+      } catch (err) {
+        return { content: [{ type: "text", text: toolErrorText(err, p) }], isError: true };
       }
     },
   );
@@ -784,8 +858,29 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
         // Provider-specific tables. AWS values are unchanged; Huawei Cloud uses the
         // service names emitted by providers/huaweicloud/scanners/service-detection.ts
         // (CTS / RMS (Config) / HSS / SecMaster; 4 services → top maturity level "advanced").
+        // Alibaba Cloud (EXPERIMENTAL) uses providers/alicloud/scanners/service-detection.ts
+        // (ActionTrail / Config / Security Center (SAS) / WAF / KMS; 5 services → "comprehensive").
+        // Azure (EXPERIMENTAL) uses providers/azure/scanners/service-detection.ts
+        // (Defender for Cloud / Azure Policy / Activity Log / Key Vault; 4 services → "advanced").
         const isHuawei = parsed.provider === "huaweicloud";
-        const serviceImpacts: Record<string, string> = isHuawei
+        const isAli = parsed.provider === "alicloud";
+        const isAzure = parsed.provider === "azure";
+        const serviceImpacts: Record<string, string> = isAzure
+          ? {
+              "Defender for Cloud": "Threat detection + vulnerability assessment",
+              "Azure Policy": "Configuration compliance evaluation",
+              "Activity Log": "Subscription API activity audit logging",
+              "Key Vault": "Customer-managed secrets / keys",
+            }
+          : isAli
+          ? {
+              "ActionTrail": "API activity audit logging",
+              "Config": "Configuration tracking + compliance rules",
+              "Security Center (SAS)": "Threat detection + vulnerability scanning",
+              "WAF": "Web application firewall",
+              "KMS": "Customer-managed encryption keys",
+            }
+          : isHuawei
           ? {
               "CTS": "API activity audit logging",
               "RMS (Config)": "Configuration tracking + compliance rules",
@@ -800,7 +895,19 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
               "AWS Config": "Configuration tracking",
             };
         // Suffix appended to a recommendation line ("" = none).
-        const serviceTrialNotes: Record<string, string> = isHuawei
+        const serviceTrialNotes: Record<string, string> = isAzure
+          ? {
+              "Defender for Cloud": " \u2014 check the portal for the current free-trial offer (plan availability differs in Azure China)",
+              "Azure Policy": " \u2014 built-in policy evaluation is free of charge",
+              "Activity Log": " \u2014 the Activity Log is free; export destinations are billed separately",
+            }
+          : isAli
+          ? {
+              "ActionTrail": " \u2014 a basic trail is free of charge (storage billed separately)",
+              "Config": " \u2014 the resource recorder is free of charge",
+              "Security Center (SAS)": " \u2014 check the console for the current free-trial offer",
+            }
+          : isHuawei
           ? {
               "CTS": " \u2014 management tracker is free of charge",
               "RMS (Config)": " \u2014 resource recorder is free of charge",
@@ -812,10 +919,25 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
               "GuardDuty": " \u2014 free trial available",
               "Inspector": " \u2014 free trial available",
             };
-        const priorityOrder = isHuawei
+        const priorityOrder = isAzure
+          ? ["Activity Log", "Azure Policy", "Defender for Cloud", "Key Vault"]
+          : isAli
+          ? ["ActionTrail", "Config", "Security Center (SAS)", "WAF", "KMS"]
+          : isHuawei
           ? ["CTS", "RMS (Config)", "HSS", "SecMaster"]
           : ["Security Hub", "GuardDuty", "Inspector", "AWS Config", "CloudTrail"];
-        const nextMilestones: Record<string, { level: string; target: number; suggestions: string[] }> = isHuawei
+        const nextMilestones: Record<string, { level: string; target: number; suggestions: string[] }> = isAzure
+          ? {
+              basic: { level: "Intermediate", target: 2, suggestions: ["Activity Log", "Azure Policy"] },
+              intermediate: { level: "Advanced", target: 4, suggestions: ["Defender for Cloud", "Key Vault"] },
+            }
+          : isAli
+          ? {
+              basic: { level: "Intermediate", target: 2, suggestions: ["ActionTrail", "Config"] },
+              intermediate: { level: "Advanced", target: 4, suggestions: ["Security Center (SAS)", "WAF"] },
+              advanced: { level: "Comprehensive", target: 5, suggestions: ["KMS"] },
+            }
+          : isHuawei
           ? {
               basic: { level: "Intermediate", target: 2, suggestions: ["CTS", "RMS (Config)"] },
               intermediate: { level: "Advanced", target: 4, suggestions: ["HSS", "SecMaster"] },
@@ -825,8 +947,8 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
               intermediate: { level: "Advanced", target: 4, suggestions: ["Inspector", "AWS Config"] },
               advanced: { level: "Comprehensive", target: 5, suggestions: ["CloudTrail"] },
             };
-        const topLevel = isHuawei ? "advanced" : "comprehensive";
-        const topLevelLabel = isHuawei ? "Advanced" : "Comprehensive";
+        const topLevel = isHuawei || isAzure ? "advanced" : "comprehensive";
+        const topLevelLabel = isHuawei || isAzure ? "Advanced" : "Comprehensive";
 
         const services = detection.services;
         const coveragePercent = detection.coveragePercent;
@@ -974,6 +1096,18 @@ export function createServer(defaultRegion: string, opts: CreateServerOptions = 
     async ({ region, provider }) => {
       try {
         const p = resolveProvider(provider);
+        if (p === "azure") {
+          return {
+            content: [{ type: "text", text: `Error: list_org_accounts is not supported for provider "azure". Azure has no Organizations / cross-account assume: scans enumerate every subscription visible to the service principal (multi-subscription). Pass region = a subscription ID to scan one subscription, or omit it / use "all" for every visible subscription.` }],
+            isError: true,
+          };
+        }
+        if (p === "alicloud") {
+          return {
+            content: [{ type: "text", text: `Error: list_org_accounts is not supported for provider "alicloud". Alibaba Cloud multi-account (Resource Directory) is not supported in this release: scans run against the single account of the configured AccessKey.` }],
+            isError: true,
+          };
+        }
         if (p !== "aws") {
           return {
             content: [{ type: "text", text: `Error: list_org_accounts is not supported for provider "${p}" yet (Huawei Cloud multi-account via Organizations + STS assumeAgency is planned for Phase 2).` }],

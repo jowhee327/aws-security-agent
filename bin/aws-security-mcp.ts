@@ -15,7 +15,8 @@ Commands:
 
 Options:
   --region <region>    AWS region (default: AWS_REGION env or us-east-1)
-  --provider <id>      Default cloud provider for scan tools: aws | huaweicloud
+  --provider <id>      Default cloud provider for scan tools:
+                       aws | huaweicloud | alicloud (experimental) | azure (experimental)
                        (default: CLOUD_PROVIDER / AWS_SECURITY_MCP_PROVIDER env, else aws)
   --version            Print version and exit
   --help, -h           Show this help message
@@ -30,9 +31,15 @@ Deploy options:
 Environment variables:
   AWS_REGION           Default AWS region
   AWS_DEFAULT_REGION   Fallback default region
-  CLOUD_PROVIDER       Default cloud provider (aws | huaweicloud)
+  CLOUD_PROVIDER       Default cloud provider (aws | huaweicloud | alicloud | azure;
+                       alicloud and azure are experimental)
   HUAWEICLOUD_SDK_AK / HUAWEICLOUD_SDK_SK
                        Huawei Cloud credentials (else ~/.huaweicloud/credentials [basic]/[global])
+  ALIBABA_CLOUD_ACCESS_KEY_ID / ALIBABA_CLOUD_ACCESS_KEY_SECRET
+                       Alibaba Cloud credentials (else ~/.alibabacloud/credentials)
+  AZURE_TENANT_ID / AZURE_CLIENT_ID / AZURE_CLIENT_SECRET
+                       Azure service principal credentials
+  AZURE_CLOUD          Azure cloud: china | global (default: china)
 
 The MCP server communicates over stdio using the MCP protocol.`;
 

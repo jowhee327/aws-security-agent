@@ -55,6 +55,7 @@ import {
 } from "../src/scanners/runner.js";
 import type { Scanner } from "../src/scanners/base.js";
 import type { ScanContext, ScanResult, Finding } from "../src/types.js";
+import { acceptanceModules } from "./exploitability/fixtures.js";
 
 function finding(id: string): Finding {
   return {
@@ -279,5 +280,28 @@ describe("runner — Huawei Cloud single-account orchestration", () => {
       projectId: "p-east-3",
       domainId: "d0m41n",
     });
+  });
+});
+
+describe("runner — Huawei Cloud path skips the AWS exploitability post-process (T4)", () => {
+  beforeEach(() => {
+    mocks.hwProvider.listRegions.mockReset().mockResolvedValue([SCOPES[0]]);
+    mocks.hwProvider.getAccountId.mockReset().mockResolvedValue("d0m41n");
+  });
+
+  it("does not dedupe even when modules share the AWS module names", async () => {
+    const [inspector, sh] = acceptanceModules();
+    const result = await runAllScanners(
+      [
+        { moduleName: inspector.module, scan: vi.fn().mockResolvedValue(inspector) },
+        { moduleName: sh.module, scan: vi.fn().mockResolvedValue(sh) },
+      ],
+      "cn-north-4",
+      { provider: "huaweicloud" },
+    );
+    const shOut = result.modules.find((m) => m.module === "security_hub_findings")!;
+    expect(shOut.findings).toHaveLength(5);
+    expect(shOut.warnings).toBeUndefined();
+    expect(result.summary.totalFindings).toBe(8);
   });
 });

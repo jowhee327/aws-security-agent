@@ -4,6 +4,7 @@ import ScoreGauge from '../components/ScoreGauge';
 import SeverityChart from '../components/SeverityChart';
 import TopFindings from '../components/TopFindings';
 import ModuleBar from '../components/ModuleBar';
+import ExploitabilityCard from '../components/ExploitabilityCard';
 
 interface OverviewProps {
   data: DashboardData;
@@ -82,6 +83,9 @@ export default function Overview({ data }: OverviewProps) {
         <h3 className="text-lg font-semibold text-slate-200 mb-4">{t('overview.topFindings')}</h3>
         <TopFindings findings={findings} />
       </div>
+
+      {/* Exploitability assessment — only when CVE findings carry exploitability data */}
+      <ExploitabilityCard findings={findings} />
 
       {/* Module Breakdown with SH sub-categories */}
       <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">

@@ -3,7 +3,7 @@
  *
  * Each of the 184 checks is classified into one of four types:
  *   auto           — scanner modules can evaluate pass/fail automatically
- *   cloud_provider — the cloud platform (AWS, or Huawei Cloud when provider=huaweicloud) is responsible; compliant by default
+ *   cloud_provider — the cloud platform (AWS, or Huawei Cloud / Alibaba Cloud / Azure for those providers) is responsible; compliant by default
  *   manual         — requires manual verification or third-party tools
  *   not_applicable — N/A for cloud-only environments (IoT, ICS, wireless, mobile, trusted verification)
  */
@@ -49,12 +49,39 @@ export interface MlpsCheckMapping {
    * control IDs above are AWS-only; RMS names are the Huawei counterpart.
    */
   rmsPolicyAssignmentNames?: string[];
+  /** For cloud_provider: Alibaba Cloud wording; falls back to `note` when absent (see cloudProviderNote) */
+  noteAlicloud?: string;
+  /**
+   * For auto (provider=alicloud): Alibaba Cloud Config managed-rule identifiers
+   * (`SourceIdentifier`, e.g. "ram-user-mfa-check") whose NON_COMPLIANT evaluations
+   * satisfy this check, matched against `config_compliance_findings` finding
+   * titles/impact. EXPERIMENTAL: identifiers follow the public managed-rule docs
+   * and still need confirmation against a live `ListManagedRules` call.
+   */
+  alicloudConfigRuleIdentifiers?: string[];
+  /** For cloud_provider: Azure wording (China / 21Vianet first); falls back to `note` when absent (see cloudProviderNote) */
+  noteAzure?: string;
+  /**
+   * For auto (provider=azure): Azure Policy built-in definition / Defender for Cloud
+   * recommendation display names whose Unhealthy assessments satisfy this check,
+   * matched (case-insensitive substring) against `defender_assessment_findings`
+   * finding titles/impact. EXPERIMENTAL: names follow the public built-in
+   * definitions and still need confirmation against a live account.
+   */
+  azurePolicyDefinitionNames?: string[];
 }
+
+/** Provider-specific `cloud_provider` wording; providers without an entry (aws) use `note`. */
+const PROVIDER_NOTES: Partial<Record<ProviderId, (mapping: MlpsCheckMapping) => string | undefined>> = {
+  huaweicloud: (m) => m.noteHuawei,
+  alicloud: (m) => m.noteAlicloud,
+  azure: (m) => m.noteAzure,
+};
 
 /** Cloud-provider note for a `cloud_provider` mapping, in the wording of `provider` (AWS when absent). */
 export function cloudProviderNote(mapping: MlpsCheckMapping, provider?: ProviderId): string | undefined {
-  if (provider === "huaweicloud" && mapping.noteHuawei) return mapping.noteHuawei;
-  return mapping.note;
+  const providerNote = provider ? PROVIDER_NOTES[provider]?.(mapping) : undefined;
+  return providerNote || mapping.note;
 }
 
 // ---------------------------------------------------------------------------
@@ -92,31 +119,31 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
   // =========================================================================
   // 安全物理环境 — L3-PES1-* (22 items) → cloud_provider
   // =========================================================================
-  { id: "L3-PES1-01", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-02", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-03", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-04", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-05", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-06", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-07", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-08", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-09", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-10", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-11", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-12", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-13", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-14", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-15", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-16", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-17", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-18", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-19", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-20", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-21", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
-  { id: "L3-PES1-22", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全" },
+  { id: "L3-PES1-01", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-02", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-03", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-04", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-05", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-06", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-07", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-08", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-09", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-10", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-11", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-12", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-13", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-14", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-15", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-16", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-17", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-18", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-19", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-20", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-21", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
+  { id: "L3-PES1-22", type: "cloud_provider", note: "AWS 负责机房物理安全", noteHuawei: "华为云负责机房物理安全", noteAlicloud: "阿里云负责机房物理安全", noteAzure: "Azure（世纪互联）负责机房物理安全" },
 
   // L3-PES2-01 (Cloud extension — physical infra in China)
-  { id: "L3-PES2-01", type: "cloud_provider", note: "AWS 中国区基础设施位于中国境内", noteHuawei: "华为云中国区基础设施位于中国境内" },
+  { id: "L3-PES2-01", type: "cloud_provider", note: "AWS 中国区基础设施位于中国境内", noteHuawei: "华为云中国区基础设施位于中国境内", noteAlicloud: "阿里云中国区基础设施位于中国境内", noteAzure: "Azure（世纪互联）中国区基础设施位于中国境内" },
 
   // L3-PES3-01 (Wireless — N/A)
   { id: "L3-PES3-01", type: "not_applicable" },
@@ -134,13 +161,15 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
   // =========================================================================
   // 安全通信网络 — L3-CNS1-* (8 items)
   // =========================================================================
-  { id: "L3-CNS1-01", type: "cloud_provider", note: "AWS 负责网络设备处理能力", noteHuawei: "华为云负责网络设备处理能力" },
-  { id: "L3-CNS1-02", type: "cloud_provider", note: "AWS 负责网络带宽", noteHuawei: "华为云负责网络带宽" },
+  { id: "L3-CNS1-01", type: "cloud_provider", note: "AWS 负责网络设备处理能力", noteHuawei: "华为云负责网络设备处理能力", noteAlicloud: "阿里云负责网络设备处理能力", noteAzure: "Azure（世纪互联）负责网络设备处理能力" },
+  { id: "L3-CNS1-02", type: "cloud_provider", note: "AWS 负责网络带宽", noteHuawei: "华为云负责网络带宽", noteAlicloud: "阿里云负责网络带宽", noteAzure: "Azure（世纪互联）负责网络带宽" },
   {
     id: "L3-CNS1-03",
     type: "auto",
     modules: ["network_reachability", "security_hub_findings"],
     securityHubControlIds: ["EC2.2"],
+    alicloudConfigRuleIdentifiers: ["sg-public-access-check"], // unverified, needs live ListManagedRules
+    azurePolicyDefinitionNames: ["Management ports should be closed on your virtual machines", "Internet-facing virtual machines should be protected with network security groups"], // unverified, needs live account
   },
   {
     id: "L3-CNS1-04",
@@ -148,32 +177,38 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     modules: ["network_reachability", "security_hub_findings"],
     securityHubControlIds: ["EC2.2", "EC2.18", "EC2.19"],
     rmsPolicyAssignmentNames: ["vpc-sg-ports-check"],
+    alicloudConfigRuleIdentifiers: ["sg-public-access-check"],
+    azurePolicyDefinitionNames: ["Management ports should be closed on your virtual machines", "Internet-facing virtual machines should be protected with network security groups"], // unverified, needs live account
   },
-  { id: "L3-CNS1-05", type: "cloud_provider", note: "AWS 多可用区/多区域冗余", noteHuawei: "华为云多可用区/多区域冗余" },
+  { id: "L3-CNS1-05", type: "cloud_provider", note: "AWS 多可用区/多区域冗余", noteHuawei: "华为云多可用区/多区域冗余", noteAlicloud: "阿里云多可用区/多区域冗余", noteAzure: "Azure（世纪互联）多可用区/多区域冗余" },
   {
     id: "L3-CNS1-06",
     type: "auto",
     modules: ["ssl_certificate", "security_hub_findings"],
     securityHubControlIds: ["ELB.1"],
+    alicloudConfigRuleIdentifiers: ["slb-listener-https-enabled", "rds-instance-enabled-ssl"], // unverified, needs live ListManagedRules
+    azurePolicyDefinitionNames: ["App Service apps should only be accessible over HTTPS", "Secure transfer to storage accounts should be enabled"], // unverified, needs live account
   },
   {
     id: "L3-CNS1-07",
     type: "auto",
     modules: ["ssl_certificate", "security_hub_findings"],
     securityHubControlIds: ["ELB.1"],
+    alicloudConfigRuleIdentifiers: ["slb-listener-https-enabled", "rds-instance-enabled-ssl"], // unverified, needs live ListManagedRules
+    azurePolicyDefinitionNames: ["App Service apps should only be accessible over HTTPS", "Secure transfer to storage accounts should be enabled"], // unverified, needs live account
   },
   { id: "L3-CNS1-08", type: "not_applicable" },
 
   // L3-CNS2-* (Cloud extension communication — 5 items)
-  { id: "L3-CNS2-01", type: "cloud_provider", note: "AWS 等保涵盖", noteHuawei: "华为云等保涵盖" },
-  { id: "L3-CNS2-02", type: "cloud_provider", note: "VPC 实现虚拟网络隔离" },
+  { id: "L3-CNS2-01", type: "cloud_provider", note: "AWS 等保涵盖", noteHuawei: "华为云等保涵盖", noteAlicloud: "阿里云等保涵盖", noteAzure: "Azure（世纪互联）等保涵盖" },
+  { id: "L3-CNS2-02", type: "cloud_provider", note: "VPC 实现虚拟网络隔离", noteAzure: "Azure 虚拟网络（VNet）实现虚拟网络隔离" },
   {
     id: "L3-CNS2-03",
     type: "auto",
     modules: ["network_reachability", "waf_coverage", "guardduty_findings"],
   },
-  { id: "L3-CNS2-04", type: "cloud_provider", note: "AWS 支持自主安全策略配置", noteHuawei: "华为云支持自主安全策略配置" },
-  { id: "L3-CNS2-05", type: "cloud_provider", note: "AWS Marketplace 支持第三方产品", noteHuawei: "华为云云市场 支持第三方产品" },
+  { id: "L3-CNS2-04", type: "cloud_provider", note: "AWS 支持自主安全策略配置", noteHuawei: "华为云支持自主安全策略配置", noteAlicloud: "阿里云支持自主安全策略配置", noteAzure: "Azure（世纪互联）支持自主安全策略配置" },
+  { id: "L3-CNS2-05", type: "cloud_provider", note: "AWS Marketplace 支持第三方产品", noteHuawei: "华为云云市场 支持第三方产品", noteAlicloud: "阿里云云市场 支持第三方产品", noteAzure: "Azure（世纪互联）市场（Marketplace）支持第三方产品" },
 
   // L3-CNS5-* (Industrial control communication — N/A)
   { id: "L3-CNS5-01", type: "not_applicable" },
@@ -190,6 +225,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     modules: ["network_reachability", "waf_coverage", "security_hub_findings"],
     securityHubControlIds: ["EC2.18", "EC2.19"],
     rmsPolicyAssignmentNames: ["vpc-sg-ports-check"],
+    alicloudConfigRuleIdentifiers: ["sg-public-access-check", "rds-public-access-check"], // unverified, needs live ListManagedRules
+    azurePolicyDefinitionNames: ["Management ports should be closed on your virtual machines", "Internet-facing virtual machines should be protected with network security groups", "Storage account public access should be disallowed", "Public network access on Azure SQL Database should be disabled"], // unverified, needs live account
   },
   {
     id: "L3-ABS1-02",
@@ -197,6 +234,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     modules: ["network_reachability", "security_hub_findings"],
     securityHubControlIds: ["EC2.18", "EC2.19"],
     rmsPolicyAssignmentNames: ["vpc-sg-ports-check"],
+    alicloudConfigRuleIdentifiers: ["sg-public-access-check", "rds-public-access-check"], // unverified, needs live ListManagedRules
+    azurePolicyDefinitionNames: ["Management ports should be closed on your virtual machines", "Internet-facing virtual machines should be protected with network security groups", "Storage account public access should be disallowed", "Public network access on Azure SQL Database should be disabled"], // unverified, needs live account
   },
   {
     id: "L3-ABS1-03",
@@ -210,6 +249,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     modules: ["network_reachability", "security_hub_findings"],
     securityHubControlIds: ["EC2.18", "EC2.19"],
     rmsPolicyAssignmentNames: ["vpc-sg-ports-check"],
+    alicloudConfigRuleIdentifiers: ["sg-public-access-check", "rds-public-access-check"], // unverified, needs live ListManagedRules
+    azurePolicyDefinitionNames: ["Management ports should be closed on your virtual machines", "Internet-facing virtual machines should be protected with network security groups", "Storage account public access should be disallowed", "Public network access on Azure SQL Database should be disabled"], // unverified, needs live account
   },
   {
     id: "L3-ABS1-06",
@@ -217,6 +258,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     modules: ["network_reachability", "security_hub_findings"],
     securityHubControlIds: ["EC2.18", "EC2.19"],
     rmsPolicyAssignmentNames: ["vpc-sg-ports-check"],
+    alicloudConfigRuleIdentifiers: ["sg-public-access-check", "rds-public-access-check"], // unverified, needs live ListManagedRules
+    azurePolicyDefinitionNames: ["Management ports should be closed on your virtual machines", "Internet-facing virtual machines should be protected with network security groups", "Storage account public access should be disallowed", "Public network access on Azure SQL Database should be disabled"], // unverified, needs live account
   },
   {
     id: "L3-ABS1-07",
@@ -224,6 +267,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     modules: ["network_reachability", "waf_coverage", "security_hub_findings"],
     securityHubControlIds: ["EC2.18", "EC2.19"],
     rmsPolicyAssignmentNames: ["vpc-sg-ports-check"],
+    alicloudConfigRuleIdentifiers: ["sg-public-access-check", "rds-public-access-check"], // unverified, needs live ListManagedRules
+    azurePolicyDefinitionNames: ["Management ports should be closed on your virtual machines", "Internet-facing virtual machines should be protected with network security groups", "Storage account public access should be disallowed", "Public network access on Azure SQL Database should be disabled"], // unverified, needs live account
   },
   {
     id: "L3-ABS1-08",
@@ -269,12 +314,16 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     type: "auto",
     modules: ["service_detection", "config_rules_findings", "security_hub_findings"],
     securityHubControlIds: ["CloudTrail.1"],
+    alicloudConfigRuleIdentifiers: ["actiontrail-enabled"],
+    azurePolicyDefinitionNames: ["Activity log should be retained for at least one year"], // unverified, needs live account
   },
   {
     id: "L3-ABS1-17",
     type: "auto",
     modules: ["service_detection", "security_hub_findings"],
     securityHubControlIds: ["CloudTrail.1"],
+    alicloudConfigRuleIdentifiers: ["actiontrail-enabled"],
+    azurePolicyDefinitionNames: ["Activity log should be retained for at least one year"], // unverified, needs live account
   },
   {
     id: "L3-ABS1-18",
@@ -296,6 +345,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     modules: ["network_reachability", "security_hub_findings"],
     securityHubControlIds: ["EC2.18", "EC2.19"],
     rmsPolicyAssignmentNames: ["vpc-sg-ports-check"],
+    alicloudConfigRuleIdentifiers: ["sg-public-access-check", "rds-public-access-check"], // unverified, needs live ListManagedRules
+    azurePolicyDefinitionNames: ["Management ports should be closed on your virtual machines", "Internet-facing virtual machines should be protected with network security groups", "Storage account public access should be disallowed", "Public network access on Azure SQL Database should be disabled"], // unverified, needs live account
   },
   {
     id: "L3-ABS2-02",
@@ -303,6 +354,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     modules: ["network_reachability", "security_hub_findings"],
     securityHubControlIds: ["EC2.18", "EC2.19"],
     rmsPolicyAssignmentNames: ["vpc-sg-ports-check"],
+    alicloudConfigRuleIdentifiers: ["sg-public-access-check", "rds-public-access-check"], // unverified, needs live ListManagedRules
+    azurePolicyDefinitionNames: ["Management ports should be closed on your virtual machines", "Internet-facing virtual machines should be protected with network security groups", "Storage account public access should be disallowed", "Public network access on Azure SQL Database should be disabled"], // unverified, needs live account
   },
   {
     id: "L3-ABS2-03",
@@ -329,12 +382,16 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     type: "auto",
     modules: ["security_hub_findings"],
     securityHubControlIds: ["CloudTrail.1"],
+    alicloudConfigRuleIdentifiers: ["actiontrail-enabled"],
+    azurePolicyDefinitionNames: ["Activity log should be retained for at least one year"], // unverified, needs live account
   },
   {
     id: "L3-ABS2-08",
     type: "auto",
     modules: ["security_hub_findings"],
     securityHubControlIds: ["CloudTrail.1"],
+    alicloudConfigRuleIdentifiers: ["actiontrail-enabled"],
+    azurePolicyDefinitionNames: ["Activity log should be retained for at least one year"], // unverified, needs live account
   },
 
   // L3-ABS3-* (Wireless boundary — N/A)
@@ -370,6 +427,7 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     type: "auto",
     modules: ["iam_privilege_escalation", "access_analyzer_findings", "security_hub_findings"],
     securityHubControlIds: ["IAM.7", "IAM.10", "IAM.11"],
+    alicloudConfigRuleIdentifiers: ["ram-password-policy-check"],
   },
   {
     id: "L3-CES1-02",
@@ -381,6 +439,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     type: "auto",
     modules: ["ssl_certificate", "security_hub_findings"],
     securityHubControlIds: ["ELB.1"],
+    alicloudConfigRuleIdentifiers: ["slb-listener-https-enabled"], // unverified, needs live ListManagedRules
+    azurePolicyDefinitionNames: ["App Service apps should only be accessible over HTTPS"], // unverified, needs live account
   },
   {
     id: "L3-CES1-04",
@@ -388,6 +448,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     modules: ["security_hub_findings"],
     securityHubControlIds: ["IAM.5", "IAM.6"],
     rmsPolicyAssignmentNames: ["iam-user-mfa-enabled"],
+    alicloudConfigRuleIdentifiers: ["ram-user-mfa-check"],
+    azurePolicyDefinitionNames: ["Accounts with owner permissions on Azure resources should be MFA enabled", "MFA should be enabled on accounts with owner permissions"], // unverified, needs live account
   },
   {
     id: "L3-CES1-05",
@@ -405,12 +467,16 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     modules: ["security_hub_findings", "access_analyzer_findings"],
     securityHubControlIds: ["IAM.3", "IAM.4", "IAM.22"],
     rmsPolicyAssignmentNames: ["access-keys-rotated", "iam-root-access-key-check"],
+    alicloudConfigRuleIdentifiers: ["root-ak-check"],
+    azurePolicyDefinitionNames: ["Storage accounts should prevent shared key access"], // unverified, needs live account
   },
   {
     id: "L3-CES1-08",
     type: "auto",
     modules: ["iam_privilege_escalation", "security_hub_findings"],
     securityHubControlIds: ["IAM.1", "IAM.21"],
+    alicloudConfigRuleIdentifiers: ["oss-bucket-public-read-prohibited", "oss-bucket-public-write-prohibited"], // unverified, needs live ListManagedRules
+    azurePolicyDefinitionNames: ["A maximum of 3 owners should be designated for your subscription", "Guest accounts with owner permissions on Azure resources should be removed"], // unverified, needs live account
   },
   {
     id: "L3-CES1-09",
@@ -422,6 +488,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     type: "auto",
     modules: ["iam_privilege_escalation", "security_hub_findings"],
     securityHubControlIds: ["IAM.1", "IAM.21"],
+    alicloudConfigRuleIdentifiers: ["oss-bucket-public-read-prohibited", "oss-bucket-public-write-prohibited"], // unverified, needs live ListManagedRules
+    azurePolicyDefinitionNames: ["A maximum of 3 owners should be designated for your subscription", "Guest accounts with owner permissions on Azure resources should be removed"], // unverified, needs live account
   },
   {
     id: "L3-CES1-11",
@@ -433,12 +501,16 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     type: "auto",
     modules: ["service_detection", "security_hub_findings"],
     securityHubControlIds: ["CloudTrail.1"],
+    alicloudConfigRuleIdentifiers: ["actiontrail-enabled"],
+    azurePolicyDefinitionNames: ["Activity log should be retained for at least one year"], // unverified, needs live account
   },
   {
     id: "L3-CES1-13",
     type: "auto",
     modules: ["service_detection", "security_hub_findings"],
     securityHubControlIds: ["CloudTrail.1"],
+    alicloudConfigRuleIdentifiers: ["actiontrail-enabled"],
+    azurePolicyDefinitionNames: ["Activity log should be retained for at least one year"], // unverified, needs live account
   },
   {
     id: "L3-CES1-14",
@@ -459,6 +531,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     modules: ["network_reachability", "security_hub_findings"],
     securityHubControlIds: ["EC2.18", "EC2.19"],
     rmsPolicyAssignmentNames: ["vpc-sg-ports-check"],
+    alicloudConfigRuleIdentifiers: ["sg-public-access-check"],
+    azurePolicyDefinitionNames: ["Management ports should be closed on your virtual machines", "Internet-facing virtual machines should be protected with network security groups"], // unverified, needs live account
   },
   {
     id: "L3-CES1-18",
@@ -466,6 +540,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     modules: ["network_reachability", "security_hub_findings"],
     securityHubControlIds: ["EC2.18", "EC2.19"],
     rmsPolicyAssignmentNames: ["vpc-sg-ports-check"],
+    alicloudConfigRuleIdentifiers: ["sg-public-access-check"],
+    azurePolicyDefinitionNames: ["Management ports should be closed on your virtual machines", "Internet-facing virtual machines should be protected with network security groups"], // unverified, needs live account
   },
   {
     id: "L3-CES1-19",
@@ -473,6 +549,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     modules: ["network_reachability", "security_hub_findings"],
     securityHubControlIds: ["EC2.18", "EC2.19"],
     rmsPolicyAssignmentNames: ["vpc-sg-ports-check"],
+    alicloudConfigRuleIdentifiers: ["sg-public-access-check"],
+    azurePolicyDefinitionNames: ["Management ports should be closed on your virtual machines", "Internet-facing virtual machines should be protected with network security groups"], // unverified, needs live account
   },
   {
     id: "L3-CES1-20",
@@ -500,6 +578,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     type: "auto",
     modules: ["ssl_certificate", "security_hub_findings"],
     securityHubControlIds: ["ELB.1"],
+    alicloudConfigRuleIdentifiers: ["slb-listener-https-enabled", "rds-instance-enabled-ssl"], // unverified, needs live ListManagedRules
+    azurePolicyDefinitionNames: ["App Service apps should only be accessible over HTTPS", "Secure transfer to storage accounts should be enabled"], // unverified, needs live account
   },
   {
     id: "L3-CES1-26",
@@ -511,6 +591,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     type: "auto",
     modules: ["ssl_certificate", "security_hub_findings"],
     securityHubControlIds: ["ELB.1"],
+    alicloudConfigRuleIdentifiers: ["slb-listener-https-enabled", "rds-instance-enabled-ssl"], // unverified, needs live ListManagedRules
+    azurePolicyDefinitionNames: ["App Service apps should only be accessible over HTTPS", "Secure transfer to storage accounts should be enabled"], // unverified, needs live account
   },
   {
     id: "L3-CES1-28",
@@ -518,6 +600,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     modules: ["security_hub_findings"],
     securityHubControlIds: ["S3.4", "EC2.7", "RDS.3"],
     rmsPolicyAssignmentNames: ["volumes-encrypted-check"],
+    alicloudConfigRuleIdentifiers: ["ecs-disk-encrypted"], // unverified, needs live ListManagedRules
+    azurePolicyDefinitionNames: ["Disk encryption should be applied on virtual machines", "Virtual machines should encrypt temp disks, caches, and data flows between Compute and Storage resources"], // unverified, needs live account
   },
   {
     id: "L3-CES1-29",
@@ -534,8 +618,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     type: "auto",
     modules: ["disaster_recovery"],
   },
-  { id: "L3-CES1-32", type: "cloud_provider", note: "AWS 存储服务数据清除策略覆盖", noteHuawei: "华为云存储服务数据清除策略覆盖" },
-  { id: "L3-CES1-33", type: "cloud_provider", note: "AWS 存储服务数据清除策略覆盖", noteHuawei: "华为云存储服务数据清除策略覆盖" },
+  { id: "L3-CES1-32", type: "cloud_provider", note: "AWS 存储服务数据清除策略覆盖", noteHuawei: "华为云存储服务数据清除策略覆盖", noteAlicloud: "阿里云存储服务数据清除策略覆盖", noteAzure: "Azure（世纪互联）存储服务数据清除策略覆盖" },
+  { id: "L3-CES1-33", type: "cloud_provider", note: "AWS 存储服务数据清除策略覆盖", noteHuawei: "华为云存储服务数据清除策略覆盖", noteAlicloud: "阿里云存储服务数据清除策略覆盖", noteAzure: "Azure（世纪互联）存储服务数据清除策略覆盖" },
   {
     id: "L3-CES1-34",
     type: "manual",
@@ -554,16 +638,20 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     modules: ["security_hub_findings"],
     securityHubControlIds: ["IAM.5", "IAM.6"],
     rmsPolicyAssignmentNames: ["iam-user-mfa-enabled"],
+    alicloudConfigRuleIdentifiers: ["ram-user-mfa-check"],
+    azurePolicyDefinitionNames: ["Accounts with owner permissions on Azure resources should be MFA enabled", "MFA should be enabled on accounts with owner permissions"], // unverified, needs live account
   },
-  { id: "L3-CES2-02", type: "cloud_provider", note: "AWS 确保 VM 迁移时访问控制随迁", noteHuawei: "华为云确保 VM 迁移时访问控制随迁" },
+  { id: "L3-CES2-02", type: "cloud_provider", note: "AWS 确保 VM 迁移时访问控制随迁", noteHuawei: "华为云确保 VM 迁移时访问控制随迁", noteAlicloud: "阿里云确保 VM 迁移时访问控制随迁", noteAzure: "Azure（世纪互联）确保 VM 迁移时访问控制随迁" },
   {
     id: "L3-CES2-03",
     type: "auto",
     modules: ["network_reachability", "security_hub_findings"],
     securityHubControlIds: ["EC2.18", "EC2.19"],
     rmsPolicyAssignmentNames: ["vpc-sg-ports-check"],
+    alicloudConfigRuleIdentifiers: ["sg-public-access-check"],
+    azurePolicyDefinitionNames: ["Management ports should be closed on your virtual machines", "Internet-facing virtual machines should be protected with network security groups"], // unverified, needs live account
   },
-  { id: "L3-CES2-04", type: "cloud_provider", note: "AWS 负责虚拟化资源隔离", noteHuawei: "华为云负责虚拟化资源隔离" },
+  { id: "L3-CES2-04", type: "cloud_provider", note: "AWS 负责虚拟化资源隔离", noteHuawei: "华为云负责虚拟化资源隔离", noteAlicloud: "阿里云负责虚拟化资源隔离", noteAzure: "Azure（世纪互联）负责虚拟化资源隔离" },
   {
     id: "L3-CES2-05",
     type: "auto",
@@ -590,22 +678,26 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     modules: ["security_hub_findings"],
     securityHubControlIds: ["EC2.7"],
     rmsPolicyAssignmentNames: ["volumes-encrypted-check"],
+    alicloudConfigRuleIdentifiers: ["ecs-disk-encrypted"],
+    azurePolicyDefinitionNames: ["Disk encryption should be applied on virtual machines", "Virtual machines should encrypt temp disks, caches, and data flows between Compute and Storage resources"], // unverified, needs live account
   },
-  { id: "L3-CES2-10", type: "cloud_provider", note: "AWS 中国区数据存储于中国境内", noteHuawei: "华为云中国区数据存储于中国境内" },
-  { id: "L3-CES2-11", type: "cloud_provider", note: "AWS 仅在客户授权下管理数据", noteHuawei: "华为云仅在客户授权下管理数据" },
-  { id: "L3-CES2-12", type: "cloud_provider", note: "AWS 确保 VM 迁移数据完整性", noteHuawei: "华为云确保 VM 迁移数据完整性" },
+  { id: "L3-CES2-10", type: "cloud_provider", note: "AWS 中国区数据存储于中国境内", noteHuawei: "华为云中国区数据存储于中国境内", noteAlicloud: "阿里云中国区数据存储于中国境内", noteAzure: "Azure（世纪互联）中国区数据存储于中国境内" },
+  { id: "L3-CES2-11", type: "cloud_provider", note: "AWS 仅在客户授权下管理数据", noteHuawei: "华为云仅在客户授权下管理数据", noteAlicloud: "阿里云仅在客户授权下管理数据", noteAzure: "Azure（世纪互联）仅在客户授权下管理数据" },
+  { id: "L3-CES2-12", type: "cloud_provider", note: "AWS 确保 VM 迁移数据完整性", noteHuawei: "华为云确保 VM 迁移数据完整性", noteAlicloud: "阿里云确保 VM 迁移数据完整性", noteAzure: "Azure（世纪互联）确保 VM 迁移数据完整性" },
   {
     id: "L3-CES2-13",
     type: "auto",
     modules: ["security_hub_findings"],
     securityHubControlIds: ["KMS.4"],
+    alicloudConfigRuleIdentifiers: ["kms-key-rotation-enabled"],
+    azurePolicyDefinitionNames: ["Key vaults should have purge protection enabled"], // unverified, needs live account
   },
   { id: "L3-CES2-14", type: "not_applicable" },
-  { id: "L3-CES2-15", type: "cloud_provider", note: "AWS 支持查询数据及备份存储位置", noteHuawei: "华为云支持查询数据及备份存储位置" },
-  { id: "L3-CES2-16", type: "cloud_provider", note: "AWS 存储服务保证多副本一致", noteHuawei: "华为云存储服务保证多副本一致" },
+  { id: "L3-CES2-15", type: "cloud_provider", note: "AWS 支持查询数据及备份存储位置", noteHuawei: "华为云支持查询数据及备份存储位置", noteAlicloud: "阿里云支持查询数据及备份存储位置", noteAzure: "Azure（世纪互联）支持查询数据及备份存储位置" },
+  { id: "L3-CES2-16", type: "cloud_provider", note: "AWS 存储服务保证多副本一致", noteHuawei: "华为云存储服务保证多副本一致", noteAlicloud: "阿里云存储服务保证多副本一致", noteAzure: "Azure（世纪互联）存储服务保证多副本一致" },
   { id: "L3-CES2-17", type: "not_applicable" },
-  { id: "L3-CES2-18", type: "cloud_provider", note: "AWS 确保 VM 内存和存储空间回收时完全清除", noteHuawei: "华为云确保 VM 内存和存储空间回收时完全清除" },
-  { id: "L3-CES2-19", type: "cloud_provider", note: "AWS 确保删除数据时清除所有副本", noteHuawei: "华为云确保删除数据时清除所有副本" },
+  { id: "L3-CES2-18", type: "cloud_provider", note: "AWS 确保 VM 内存和存储空间回收时完全清除", noteHuawei: "华为云确保 VM 内存和存储空间回收时完全清除", noteAlicloud: "阿里云确保 VM 内存和存储空间回收时完全清除", noteAzure: "Azure（世纪互联）确保 VM 内存和存储空间回收时完全清除" },
+  { id: "L3-CES2-19", type: "cloud_provider", note: "AWS 确保删除数据时清除所有副本", noteHuawei: "华为云确保删除数据时清除所有副本", noteAlicloud: "阿里云确保删除数据时清除所有副本", noteAzure: "Azure（世纪互联）确保删除数据时清除所有副本" },
 
   // L3-CES3-* (Mobile — N/A)
   { id: "L3-CES3-01", type: "not_applicable" },
@@ -643,6 +735,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     modules: ["iam_privilege_escalation", "security_hub_findings"],
     securityHubControlIds: ["IAM.4", "IAM.6"],
     rmsPolicyAssignmentNames: ["iam-root-access-key-check", "iam-user-mfa-enabled"],
+    alicloudConfigRuleIdentifiers: ["root-ak-check", "ram-user-mfa-check"],
+    azurePolicyDefinitionNames: ["Storage accounts should prevent shared key access", "Accounts with owner permissions on Azure resources should be MFA enabled", "MFA should be enabled on accounts with owner permissions"], // unverified, needs live account
   },
   {
     id: "L3-SMC1-02",
@@ -656,12 +750,16 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     modules: ["iam_privilege_escalation", "security_hub_findings"],
     securityHubControlIds: ["IAM.4", "IAM.6"],
     rmsPolicyAssignmentNames: ["iam-root-access-key-check", "iam-user-mfa-enabled"],
+    alicloudConfigRuleIdentifiers: ["root-ak-check", "ram-user-mfa-check"],
+    azurePolicyDefinitionNames: ["Storage accounts should prevent shared key access", "Accounts with owner permissions on Azure resources should be MFA enabled", "MFA should be enabled on accounts with owner permissions"], // unverified, needs live account
   },
   {
     id: "L3-SMC1-04",
     type: "auto",
     modules: ["security_hub_findings"],
     securityHubControlIds: ["CloudTrail.1"],
+    alicloudConfigRuleIdentifiers: ["actiontrail-enabled"],
+    azurePolicyDefinitionNames: ["Activity log should be retained for at least one year"], // unverified, needs live account
   },
   {
     id: "L3-SMC1-05",
@@ -669,12 +767,16 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     modules: ["iam_privilege_escalation", "security_hub_findings"],
     securityHubControlIds: ["IAM.4", "IAM.6"],
     rmsPolicyAssignmentNames: ["iam-root-access-key-check", "iam-user-mfa-enabled"],
+    alicloudConfigRuleIdentifiers: ["root-ak-check", "ram-user-mfa-check"],
+    azurePolicyDefinitionNames: ["Storage accounts should prevent shared key access", "Accounts with owner permissions on Azure resources should be MFA enabled", "MFA should be enabled on accounts with owner permissions"], // unverified, needs live account
   },
   {
     id: "L3-SMC1-06",
     type: "auto",
     modules: ["iam_privilege_escalation", "security_hub_findings"],
     securityHubControlIds: ["IAM.1", "IAM.21"],
+    alicloudConfigRuleIdentifiers: ["oss-bucket-public-read-prohibited", "oss-bucket-public-write-prohibited"], // unverified, needs live ListManagedRules
+    azurePolicyDefinitionNames: ["A maximum of 3 owners should be designated for your subscription", "Guest accounts with owner permissions on Azure resources should be removed"], // unverified, needs live account
   },
   {
     id: "L3-SMC1-07",
@@ -687,6 +789,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     type: "auto",
     modules: ["ssl_certificate", "security_hub_findings"],
     securityHubControlIds: ["ELB.1"],
+    alicloudConfigRuleIdentifiers: ["slb-listener-https-enabled"], // unverified, needs live ListManagedRules
+    azurePolicyDefinitionNames: ["App Service apps should only be accessible over HTTPS"], // unverified, needs live account
   },
   {
     id: "L3-SMC1-09",
@@ -698,6 +802,8 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
     type: "auto",
     modules: ["security_hub_findings"],
     securityHubControlIds: ["CloudTrail.1"],
+    alicloudConfigRuleIdentifiers: ["actiontrail-enabled"],
+    azurePolicyDefinitionNames: ["Activity log should be retained for at least one year"], // unverified, needs live account
   },
   {
     id: "L3-SMC1-11",
@@ -712,10 +818,10 @@ export const MLPS3_CHECK_MAPPING: MlpsCheckMapping[] = [
   },
 
   // L3-SMC2-* (Cloud extension management center — 4 items)
-  { id: "L3-SMC2-01", type: "cloud_provider", note: "AWS 负责统一管理调度和分配", noteHuawei: "华为云负责统一管理调度和分配" },
-  { id: "L3-SMC2-02", type: "cloud_provider", note: "AWS 确保管理流量与业务流量分离", noteHuawei: "华为云确保管理流量与业务流量分离" },
-  { id: "L3-SMC2-03", type: "cloud_provider", note: "AWS 基于责任共担模型实现集中审计", noteHuawei: "华为云基于责任共担模型实现集中审计" },
-  { id: "L3-SMC2-04", type: "cloud_provider", note: "AWS 基于责任共担模型实现集中监测", noteHuawei: "华为云基于责任共担模型实现集中监测" },
+  { id: "L3-SMC2-01", type: "cloud_provider", note: "AWS 负责统一管理调度和分配", noteHuawei: "华为云负责统一管理调度和分配", noteAlicloud: "阿里云负责统一管理调度和分配", noteAzure: "Azure（世纪互联）负责统一管理调度和分配" },
+  { id: "L3-SMC2-02", type: "cloud_provider", note: "AWS 确保管理流量与业务流量分离", noteHuawei: "华为云确保管理流量与业务流量分离", noteAlicloud: "阿里云确保管理流量与业务流量分离", noteAzure: "Azure（世纪互联）确保管理流量与业务流量分离" },
+  { id: "L3-SMC2-03", type: "cloud_provider", note: "AWS 基于责任共担模型实现集中审计", noteHuawei: "华为云基于责任共担模型实现集中审计", noteAlicloud: "阿里云基于责任共担模型实现集中审计", noteAzure: "Azure（世纪互联）基于责任共担模型实现集中审计" },
+  { id: "L3-SMC2-04", type: "cloud_provider", note: "AWS 基于责任共担模型实现集中监测", noteHuawei: "华为云基于责任共担模型实现集中监测", noteAlicloud: "阿里云基于责任共担模型实现集中监测", noteAzure: "Azure（世纪互联）基于责任共担模型实现集中监测" },
 ];
 
 // ---------------------------------------------------------------------------

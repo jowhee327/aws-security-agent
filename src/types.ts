@@ -1,6 +1,52 @@
 export type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 export type Priority = "P0" | "P1" | "P2" | "P3";
 
+/** L4 reachability of the resource affected by a CVE finding. */
+export type Reachability = "internet_open" | "allowlist" | "internal" | "not_running" | "unknown";
+
+/** Bucketed EPSS score ("none" = data source did not provide one). */
+export type EpssLevel = "high" | "medium" | "low" | "none";
+
+/** Machine-readable reason for an exploitability priority (one per rule in the first-match table). */
+export type RationaleCode =
+  | "KEV_INTERNET"
+  | "EXPLOIT_INTERNET"
+  | "EPSS_HIGH_INTERNET"
+  | "KEV_NOT_RUNNING"
+  | "KEV_NOT_EXPOSED"
+  | "EXPLOIT_EPSS_HIGH"
+  | "EXPLOIT_ALLOWLIST"
+  | "EXPLOIT_LIMITED"
+  | "EPSS_HIGH"
+  | "EPSS_MEDIUM"
+  | "BASELINE";
+
+/** Threat-intel + exposure assessment attached to CVE findings (AWS provider only). */
+export interface ExploitabilityInfo {
+  cveId: string;
+  /** null = data source did not provide the signal. */
+  exploitAvailable: boolean | null;
+  /** EPSS probability 0..1; null = not provided. */
+  epss: number | null;
+  epssLevel: EpssLevel;
+  kev: boolean;
+  kevDateAdded?: string;
+  /** knownRansomwareCampaignUse === "Known" in the CISA KEV catalog. */
+  kevRansomware?: boolean;
+  fixAvailable?: "YES" | "NO" | "PARTIAL";
+  reachability: Reachability;
+  /** e.g. "public IP 1.2.3.4; SG sg-x allows 0.0.0.0/0 tcp/22" */
+  reachabilityDetail?: string;
+  /** Exploitability priority — independent of the severity-derived Finding.priority. */
+  priority: Priority;
+  rationaleCode: RationaleCode;
+  /** One-sentence English explanation; reports localize via rationaleCode. */
+  rationale: string;
+  /** riskScore before band adjustment. */
+  originalRiskScore: number;
+  dataSource: "inspector2" | "securityhub";
+}
+
 export interface Finding {
   severity: Severity;
   title: string;
@@ -21,6 +67,10 @@ export interface Finding {
   provider?: ProviderId;
   /** Huawei Cloud enterprise project ID, when known. */
   enterpriseProjectId?: string;
+  /** Exploitability assessment; present only on CVE findings. */
+  exploitability?: ExploitabilityInfo;
+  /** ID of the upstream finding (Inspector findingArn / Security Hub finding Id). */
+  sourceFindingId?: string;
 }
 
 export interface ScanResult {
@@ -32,10 +82,12 @@ export interface ScanResult {
   findingsCount: number;
   scanTimeMs: number;
   findings: Finding[];
+  /** inspector_findings only: whether findings were pulled from Inspector2 or only detection ran. */
+  dataSource?: "inspector2" | "detection-only";
 }
 
 /** Cloud provider identifier. Default (and legacy) is "aws". */
-export type ProviderId = "aws" | "huaweicloud";
+export type ProviderId = "aws" | "huaweicloud" | "alicloud" | "azure";
 
 export interface AwsCredentials {
   accessKeyId: string;
@@ -59,11 +111,61 @@ export interface HuaweiCloudCredentials {
   domainId?: string;
 }
 
-/** Provider-agnostic credentials carried on a ScanContext. */
-export type CloudCredentials = AwsCredentials | HuaweiCloudCredentials;
+/**
+ * Alibaba Cloud access key pair (optionally an STS temporary credential).
+ * `accessKeyId` overlaps with {@link AwsCredentials}, so the `kind` discriminator
+ * is mandatory — always narrow with {@link isAlibabaCloudCredentials}.
+ *
+ * NEVER log or serialize instances of this type.
+ */
+export interface AlibabaCloudCredentials {
+  accessKeyId: string;
+  accessKeySecret: string;
+  /** STS temporary credentials only. */
+  securityToken?: string;
+  kind: "alicloud";
+  source?: "explicit" | "env" | "file";
+}
 
+/** Azure national cloud: China (21Vianet, the default) or Global (public). */
+export type AzureCloud = "china" | "global";
+
+/**
+ * Azure service principal (client secret). `tenantId` / `clientId` are identifiers;
+ * `clientSecret` is the only secret and is held in memory only. Scans iterate every
+ * subscription visible to the principal (one scope per subscription).
+ *
+ * NEVER log or serialize instances of this type.
+ */
+export interface AzureCredentials {
+  kind: "azure";
+  tenantId: string;
+  clientId: string;
+  clientSecret: string;
+  /** Default "china" (21Vianet). */
+  cloud: AzureCloud;
+  source?: "explicit" | "env";
+}
+
+/** Provider-agnostic credentials carried on a ScanContext. */
+export type CloudCredentials = AwsCredentials | HuaweiCloudCredentials | AlibabaCloudCredentials | AzureCredentials;
+
+/** AWS credentials: `accessKeyId` + `secretAccessKey` and no provider `kind` discriminator. */
 export function isAwsCredentials(c: CloudCredentials | undefined): c is AwsCredentials {
-  return !!c && typeof (c as AwsCredentials).accessKeyId === "string";
+  return (
+    !!c &&
+    typeof (c as AwsCredentials).accessKeyId === "string" &&
+    typeof (c as AwsCredentials).secretAccessKey === "string" &&
+    (c as { kind?: unknown }).kind === undefined
+  );
+}
+
+export function isAlibabaCloudCredentials(c: CloudCredentials | undefined): c is AlibabaCloudCredentials {
+  return !!c && (c as AlibabaCloudCredentials).kind === "alicloud";
+}
+
+export function isAzureCredentials(c: CloudCredentials | undefined): c is AzureCredentials {
+  return !!c && (c as AzureCredentials).kind === "azure";
 }
 
 export function isHuaweiCloudCredentials(c: CloudCredentials | undefined): c is HuaweiCloudCredentials {
@@ -72,9 +174,9 @@ export function isHuaweiCloudCredentials(c: CloudCredentials | undefined): c is 
 
 export interface ScanContext {
   region: string;
-  /** AWS partition (aws / aws-cn / aws-us-gov). Huawei Cloud contexts use "huaweicloud". */
+  /** AWS partition (aws / aws-cn / aws-us-gov). Huawei Cloud contexts use "huaweicloud"; Alibaba Cloud "alicloud". */
   partition: string;
-  /** AWS account ID; for Huawei Cloud this is the domain ID. */
+  /** AWS account ID; for Huawei Cloud this is the domain ID; for Alibaba Cloud the account UID. */
   accountId: string;
   accountAlias?: string;
   credentials?: CloudCredentials;
@@ -86,6 +188,24 @@ export interface ScanContext {
   domainId?: string;
   /** Huawei Cloud: enterprise project ID ("0" = default/all). */
   enterpriseProjectId?: string;
+  /**
+   * Regional providers, multi-region scans only: `false` on every region scope except the
+   * first (absent otherwise). Lets regional modules that also see account-wide data (e.g.
+   * Alibaba Cloud OSS buckets without region info) report it exactly once.
+   */
+  primaryRegionScope?: boolean;
+  /** Azure: subscription scanned by this scope (the scope's `region` field). */
+  subscriptionId?: string;
+  /** Azure: Entra ID tenant (also the context `accountId`). */
+  tenantId?: string;
+  /** Azure: national cloud of the credentials. */
+  cloud?: AzureCloud;
+  /**
+   * Azure, no-subscription placeholder scope only: redacted module error text of a fatal
+   * (auth_failed / api_misuse) subscription enumeration failure. Subscription-scoped
+   * modules report it as `status: "error"` instead of "nothing to scan".
+   */
+  azureScopeError?: string;
 }
 
 export interface FullScanResult {

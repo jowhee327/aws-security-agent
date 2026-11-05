@@ -10,6 +10,7 @@ vi.mock("../src/utils/aws-client.js", () => ({
 import { runAllScanners } from "../src/scanners/runner.js";
 import type { Scanner } from "../src/scanners/base.js";
 import type { ScanResult, ScanContext } from "../src/types.js";
+import { acceptanceModules } from "./exploitability/fixtures.js";
 
 function createMockScanner(name: string, result: ScanResult): Scanner {
   return {
@@ -136,5 +137,36 @@ describe("runAllScanners", () => {
     const result = await runAllScanners(scanners, "us-east-1");
     expect(result.accountId).toBe("unknown");
     expect(result.modules[0].status).toBe("success");
+  });
+});
+
+describe("runAllScanners — exploitability post-process (T4)", () => {
+  function scannersFrom(modules: ScanResult[]): Scanner[] {
+    return modules.map((m) => createMockScanner(m.module, m));
+  }
+
+  it("dedupes Security Hub Inspector findings against inspector_findings before the summary", async () => {
+    const result = await runAllScanners(scannersFrom(acceptanceModules()), "cn-north-1");
+    const sh = result.modules.find((m) => m.module === "security_hub_findings")!;
+
+    expect(sh.findings.filter((f) => f.source === "Inspector")).toHaveLength(1);
+    expect(sh.findings.find((f) => f.source === "Inspector")?.exploitability).toBeDefined();
+    expect(sh.findings.find((f) => f.source === "GuardDuty")).toBeDefined();
+    expect(sh.findingsCount).toBe(2);
+    expect(sh.warnings?.some((w) => w.includes("Deduplicated 3"))).toBe(true);
+    // 3 Inspector (HIGH) + 1 SH Inspector (HIGH) + 1 GuardDuty (MEDIUM); 8 before dedupe
+    expect(result.summary.totalFindings).toBe(5);
+    expect(result.summary.high).toBe(4);
+    expect(result.summary.medium).toBe(1);
+  });
+
+  it("keeps every Security Hub finding when inspector_findings is detection-only", async () => {
+    const result = await runAllScanners(scannersFrom(acceptanceModules("detection-only")), "cn-north-1");
+    const sh = result.modules.find((m) => m.module === "security_hub_findings")!;
+
+    expect(sh.findings).toHaveLength(5);
+    expect(sh.findingsCount).toBe(5);
+    expect(sh.warnings?.some((w) => w.includes("Deduplicated")) ?? false).toBe(false);
+    expect(result.summary.totalFindings).toBe(5);
   });
 });
